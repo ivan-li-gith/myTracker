@@ -1,10 +1,6 @@
-# myTracker — Full Implementation Plan
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task.
-
 **Goal:** Build a personal life-tracker web app as a free, self-hosted, publicly-deployed default homepage locked down to a single user.
 
-**Architecture:** Decoupled monorepo — `frontend/` (Next.js on Vercel) communicates with `backend/` (FastAPI on Render) via REST API. Neon PostgreSQL is the sole database. Cloudflare Access guards the entire domain at the network edge.
+**Architecture:** `frontend/` (Next.js on Vercel) communicates with `backend/` (FastAPI on Render) via REST API. Neon PostgreSQL is the database. Cloudflare Access guards the entire domain at the network edge.
 
 **Tech Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · FastAPI · SQLAlchemy 2.0 (async) · Alembic · Pydantic v2 · Neon PostgreSQL · Render · Vercel · Cloudflare Access · Gemini Flash API (free) · httpx + BeautifulSoup4
 
@@ -161,7 +157,7 @@ expenses
 ├── amount       NUMERIC(10,2) NOT NULL
 ├── date         DATE NOT NULL
 ├── category_id  FK → categories
-└── notes        TEXT
+└── notes        TEXT   
 
 expense_splits                 (bill-splitting sessions, not persisted participants)
 ├── id           SERIAL PK
