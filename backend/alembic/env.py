@@ -9,7 +9,7 @@ from alembic import context
 
 from app.config import settings
 from app.database import Base
-import app.models  # registers all models with Base.metadata for autogenerate
+import app.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
