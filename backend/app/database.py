@@ -7,7 +7,7 @@ This module provides a session manager for handling database connections and Fas
 import contextlib
 from typing import Any, AsyncIterator
 from app.config import settings
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker, create_async_engine,
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
