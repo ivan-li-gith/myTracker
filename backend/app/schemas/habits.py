@@ -32,3 +32,7 @@ class HabitLogRead(BaseModel):
     logged_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HabitWithStreak(HabitRead):
+    streak: int
