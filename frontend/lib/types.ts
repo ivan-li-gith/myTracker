@@ -18,6 +18,7 @@ export interface Habit {
 
 export interface HabitWithStreak extends Habit {
   streak: number;
+  logged_dates: string[]; // YYYY-MM-DD strings
 }
 
 export interface HabitLog {

@@ -34,5 +34,10 @@ class HabitLogRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LogCreate(BaseModel):
+    logged_at: Optional[datetime] = None
+
+
 class HabitWithStreak(HabitRead):
     streak: int
+    logged_dates: list[str]  # ISO date strings (YYYY-MM-DD) for all logged days

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckSquare, Activity, Menu, X } from "lucide-react";
+import { CheckSquare, Activity, Menu, X, LayoutDashboard } from "lucide-react";
 
 const navLinks = [
+  { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/habits", label: "Habits", icon: Activity },
 ];
@@ -17,7 +18,7 @@ export default function Sidebar() {
   const navContent = (
     <nav className="flex flex-col gap-1 mt-6">
       {navLinks.map(({ href, label, icon: Icon }) => {
-        const isActive = pathname.startsWith(href);
+        const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
           <Link
             key={href}
