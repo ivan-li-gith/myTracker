@@ -37,3 +37,15 @@ class ExpenseSplitRead(ExpenseSplitBase):
     id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryTotal(BaseModel):
+    category_id: Optional[int]
+    total: Decimal
+
+
+class ExpenseSummary(BaseModel):
+    month: str
+    total: Decimal
+    count: int
+    by_category: list[CategoryTotal]

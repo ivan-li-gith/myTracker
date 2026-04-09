@@ -32,3 +32,7 @@ class PaymentRead(PaymentBase):
     id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentReadWithDays(PaymentRead):
+    days_until_due: int

@@ -26,3 +26,45 @@ export interface HabitLog {
   habit_id: number;
   logged_at: string;
 }
+
+export interface Category {
+  id: number;
+  name: string;
+  type: string | null;
+}
+
+export interface Expense {
+  id: number;
+  name: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  category_id: number | null;
+  notes: string | null;
+}
+
+export interface ExpenseSummary {
+  month: string;
+  total: number;
+  count: number;
+  by_category: { category_id: number | null; total: number }[];
+}
+
+export interface ExpenseSplit {
+  id: number;
+  title: string | null;
+  total: number | null;
+  participants: { name: string; owes: number }[] | null;
+  created_at: string;
+}
+
+export interface Payment {
+  id: number;
+  name: string;
+  amount: number | null;
+  due_date: string; // YYYY-MM-DD
+  recurrence: string | null; // 'monthly' | 'yearly' | 'one-time'
+  category_id: number | null;
+  is_paid: boolean;
+  notes: string | null;
+  days_until_due: number;
+}
