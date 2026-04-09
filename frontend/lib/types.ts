@@ -27,6 +27,41 @@ export interface HabitLog {
   logged_at: string;
 }
 
+export interface Doc {
+  id: number;
+  title: string;
+  category: string | null;
+  content: string | null;
+  is_favorite: boolean;
+  created_at: string;
+}
+
+export interface Recipe {
+  id: number;
+  title: string;
+  source_url: string | null;
+  ingredients: string | null;
+  steps: string | null;
+  cook_time: string | null;
+  category: string | null;
+  is_favorite: boolean;
+  created_at: string;
+}
+
+export interface JobApplication {
+  id: number;
+  company: string;
+  role: string;
+  url: string | null;
+  status: string | null; // 'applied' | 'phone_screen' | 'interview' | 'offer' | 'rejected'
+  date_applied: string | null; // YYYY-MM-DD
+  salary_range: string | null;
+  location: string | null;
+  job_type: string | null; // 'remote' | 'hybrid' | 'onsite'
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Category {
   id: number;
   name: string;

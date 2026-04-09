@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckSquare, Activity, CreditCard, Receipt, Menu, X, LayoutDashboard } from "lucide-react";
+import { CheckSquare, Activity, CreditCard, Receipt, Briefcase, BookOpen, ChefHat, Menu, X, LayoutDashboard } from "lucide-react";
 
 const navLinks = [
   { href: "/", label: "Home", icon: LayoutDashboard },
@@ -11,6 +11,9 @@ const navLinks = [
   { href: "/habits", label: "Habits", icon: Activity },
   { href: "/payments", label: "Payments", icon: CreditCard },
   { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/docs", label: "Docs", icon: BookOpen },
+  { href: "/recipes", label: "Recipes", icon: ChefHat },
 ];
 
 export default function Sidebar() {
