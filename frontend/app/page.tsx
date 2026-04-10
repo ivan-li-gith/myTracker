@@ -1,253 +1,326 @@
-import { 
-  CheckCircle2, 
-  Activity, 
-  CreditCard, 
-  AlertCircle, 
-  Flame,
-  ArrowRight
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  CheckCircle2, Flame, CreditCard, Briefcase, DollarSign, Calendar,
 } from "lucide-react";
-// Note: You can also move these fetch calls into your frontend/lib/api.ts file 
-// to keep this file cleaner as your app grows!
+import { apiFetch } from "@/lib/api";
+import { Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication } from "@/lib/types";
 
-export default async function HomePage() {
-  // 1. Define fallback arrays to hold our data
-  let tasks = [];
-  let habits = [];
-  let payments = [];
+// ---- Helpers ----
 
-  // 2. Fetch the data from your Python backend
-  // We use a try/catch block so the page doesn't completely crash if the backend is turned off.
-  try {
-    // Replace 'http://localhost:8000' with your actual backend URL if it's different.
-    // Promise.all allows us to fetch all three at the exact same time to speed up loading.
-    const [tasksRes, habitsRes, paymentsRes] = await Promise.all([
-      fetch('http://localhost:8000/tasks', { cache: 'no-store' }),
-      fetch('http://localhost:8000/habits', { cache: 'no-store' }),
-      fetch('http://localhost:8000/payments', { cache: 'no-store' })
-    ]);
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
-    // If the request was successful, convert the JSON string into a JavaScript object/array
-    if (tasksRes.ok) tasks = await tasksRes.json();
-    if (habitsRes.ok) habits = await habitsRes.json();
-    if (paymentsRes.ok) payments = await paymentsRes.json();
-  } catch (error) {
-    console.error("Failed to fetch dashboard data from the backend:", error);
-  }
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  // Calculate some quick stats based on the fetched data
-  const pendingTasksCount = tasks.filter((t: any) => !t.is_completed).length;
-  const activeHabitsCount = habits.length; 
-  // You would ideally sum up payment amounts here based on your data structure
-  const totalPayments = payments.length > 0 ? "$..." : "$0.00"; 
+function getWeekStart() {
+  const d = new Date();
+  const day = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
+function countLogsThisWeek(loggedDates: string[]) {
+  const weekStart = getWeekStart();
+  return (loggedDates || []).filter(d => d >= weekStart).length;
+}
+
+function isHabitNeededToday(habit: HabitWithStreak) {
+  if (habit.logged_dates?.includes(todayStr())) return false;
+  const targetFreq = habit.target_freq ?? 7;
+  return countLogsThisWeek(habit.logged_dates || []) < targetFreq;
+}
+
+function fmtAmount(n: number | null | undefined) {
+  if (n == null) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+}
+
+function fmtDate(s: string) {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ---- Status config ----
+
+type StatusKey = "applied" | "phone_screen" | "interview" | "offer" | "rejected";
+
+const STATUS_CONFIG: Record<StatusKey, { label: string; color: string }> = {
+  applied:      { label: "Applied",      color: "text-blue-700 bg-blue-50" },
+  phone_screen: { label: "Phone Screen", color: "text-amber-700 bg-amber-50" },
+  interview:    { label: "Interview",    color: "text-violet-700 bg-violet-50" },
+  offer:        { label: "Offer",        color: "text-emerald-700 bg-emerald-50" },
+  rejected:     { label: "Rejected",     color: "text-red-600 bg-red-50" },
+};
+
+// ---- Page ----
+
+export default function HomePage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [habits, setHabits] = useState<HabitWithStreak[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [jobs, setJobs] = useState<JobApplication[]>([]);
+
+  useEffect(() => {
+    const month = currentMonth();
+    Promise.allSettled([
+      apiFetch("/tasks"),
+      apiFetch("/habits"),
+      apiFetch("/payments"),
+      apiFetch(`/expenses/summary?month=${month}`),
+      apiFetch("/categories"),
+      apiFetch("/jobs"),
+    ]).then(([t, h, p, es, cats, j]) => {
+      if (t.status === "fulfilled") setTasks(t.value || []);
+      if (h.status === "fulfilled") setHabits(h.value || []);
+      if (p.status === "fulfilled") setPayments(p.value || []);
+      if (es.status === "fulfilled") setExpenseSummary(es.value || null);
+      if (cats.status === "fulfilled") setCategories(cats.value || []);
+      if (j.status === "fulfilled") setJobs(j.value || []);
+    });
+  }, []);
+
+  // Derived data
+  const pendingTasks = tasks
+    .filter(t => !t.completed)
+    .sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return a.due_date.localeCompare(b.due_date);
+    });
+
+  const habitsToDoToday = habits.filter(isHabitNeededToday);
+
+  const unpaidPayments = payments
+    .filter(p => !p.is_paid)
+    .sort((a, b) => a.days_until_due - b.days_until_due);
+
+  const catMap = new Map(categories.map(c => [c.id, c.name]));
+
+  const jobCounts = (Object.keys(STATUS_CONFIG) as StatusKey[]).reduce<Record<string, number>>(
+    (acc, key) => { acc[key] = jobs.filter(j => j.status === key).length; return acc; },
+    {}
+  );
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back. Here is your overview for today.</p>
-        </div>
-        <div className="text-sm font-medium text-slate-600 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
+        <p className="text-slate-500 text-sm mt-0.5">
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </p>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          title="Pending Tasks"
-          value={pendingTasksCount.toString()}
-          subtitle="Keep it up!"
-          icon={<CheckCircle2 size={24} className="text-emerald-600" />}
-          bgAccent="bg-emerald-100"
-          borderColor="border-emerald-200"
-        />
-        <StatCard
-          title="Active Habits"
-          value={activeHabitsCount.toString()}
-          subtitle="Consistency is key"
-          icon={<Activity size={24} className="text-indigo-600" />}
-          bgAccent="bg-indigo-100"
-          borderColor="border-indigo-200"
-        />
-        <StatCard
-          title="Upcoming Payments"
-          value={totalPayments}
-          subtitle="Due in next 7 days"
-          icon={<CreditCard size={24} className="text-amber-600" />}
-          bgAccent="bg-amber-100"
-          borderColor="border-amber-200"
-        />
+      {/* Analytics row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Expenses panel */}
+        <Panel
+          icon={<DollarSign size={15} className="text-emerald-600" />}
+          title="Expenses"
+          label={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          aside={<span className="text-lg font-bold text-slate-900">{fmtAmount(expenseSummary?.total)}</span>}
+        >
+          {!expenseSummary || expenseSummary.by_category.length === 0 ? (
+            <Empty message="No expenses this month." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  <th className="text-left pb-2 font-bold">Category</th>
+                  <th className="text-right pb-2 font-bold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {expenseSummary.by_category
+                  .sort((a, b) => b.total - a.total)
+                  .map((row, i) => (
+                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2 text-slate-700">
+                        {row.category_id ? catMap.get(row.category_id) ?? "Uncategorized" : "Uncategorized"}
+                      </td>
+                      <td className="py-2 text-right font-semibold text-slate-900">{fmtAmount(row.total)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        {/* Jobs pipeline panel */}
+        <Panel
+          icon={<Briefcase size={15} className="text-indigo-600" />}
+          title="Job Pipeline"
+          aside={<span className="text-xs text-slate-500 font-medium">{jobs.length} total</span>}
+        >
+          {jobs.length === 0 ? (
+            <Empty message="No job applications yet." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  <th className="text-left pb-2 font-bold">Status</th>
+                  <th className="text-right pb-2 font-bold">Count</th>
+                  <th className="text-right pb-2 font-bold">%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {(Object.entries(STATUS_CONFIG) as [StatusKey, { label: string; color: string }][])
+                  .filter(([key]) => jobCounts[key] > 0)
+                  .map(([key, cfg]) => (
+                    <tr key={key} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                      </td>
+                      <td className="py-2 text-right font-semibold text-slate-900">{jobCounts[key]}</td>
+                      <td className="py-2 text-right text-slate-400">
+                        {Math.round((jobCounts[key] / jobs.length) * 100)}%
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
       </div>
 
-      {/* Main Dashboard Widgets */}
+      {/* Action columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Widget 1: Tasks */}
-        <DashboardWidget 
-          title="Tasks" 
-          actionLabel="View all" 
-          icon={<CheckCircle2 size={18} className="text-emerald-500" />}
-        >
-          <ul className="divide-y divide-slate-100">
-            {tasks.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">No tasks found.</p>
-            ) : (
-              // 3. Map over the real array of tasks and render a component for each one
-              tasks.slice(0, 5).map((task: any) => (
-                <TaskItem 
-                  key={task.id} 
-                  title={task.title} 
-                  category={task.category || "General"} 
-                  isUrgent={task.is_urgent} 
-                />
-              ))
-            )}
-          </ul>
-        </DashboardWidget>
 
-        {/* Widget 2: Habit Streaks */}
-        <DashboardWidget 
-          title="Habit Streaks" 
-          actionLabel="Manage"
-          icon={<Flame size={18} className="text-indigo-500" />}
+        {/* Pending Tasks */}
+        <Panel
+          icon={<CheckCircle2 size={15} className="text-emerald-600" />}
+          title="Pending Tasks"
+          badge={pendingTasks.length}
+          badgeColor="bg-emerald-100 text-emerald-700"
         >
-           <ul className="space-y-5 mt-2">
-            {habits.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">No active habits.</p>
-              ) : (
-                habits.slice(0, 3).map((habit: any) => (
-                  <HabitItem 
-                    key={habit.id}
-                    title={habit.name} 
-                    streak={habit.current_streak || 0} 
-                    color="bg-indigo-500" 
-                    progress="w-[50%]" // You'd calculate this based on your habit logic
-                  />
-                ))
-            )}
-           </ul>
-        </DashboardWidget>
+          {pendingTasks.length === 0 ? (
+            <Empty message="All tasks complete!" />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {pendingTasks.map(task => (
+                <li key={task.id} className="py-3 flex items-start gap-3">
+                  <CheckCircle2 size={15} className="text-slate-200 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800">{task.name}</p>
+                    {task.due_date && (
+                      <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <Calendar size={10} />{fmtDate(task.due_date)}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
-        {/* Widget 3: Payment Reminders */}
-        <DashboardWidget 
-          title="Payment Reminders" 
-          actionLabel="Add new"
-          icon={<AlertCircle size={18} className="text-amber-500" />}
+        {/* Habits Today */}
+        <Panel
+          icon={<Flame size={15} className="text-orange-500" />}
+          title="Habits Today"
+          badge={habitsToDoToday.length}
+          badgeColor="bg-orange-100 text-orange-700"
         >
-          <ul className="divide-y divide-slate-100">
-             {payments.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">No upcoming payments.</p>
-              ) : (
-                payments.slice(0, 4).map((payment: any) => (
-                  <PaymentItem 
-                    key={payment.id}
-                    title={payment.description} 
-                    amount={`$${payment.amount}`} 
-                    due={payment.due_date} 
-                    isAlert={false} 
-                  />
-                ))
-             )}
-          </ul>
-        </DashboardWidget>
+          {habitsToDoToday.length === 0 ? (
+            <Empty message="All habits done for today!" />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {habitsToDoToday.map(habit => (
+                <li key={habit.id} className="py-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-800">{habit.name}</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md">
+                    <Flame size={11} />{habit.streak ?? 0}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
+        {/* Upcoming Payments */}
+        <Panel
+          icon={<CreditCard size={15} className="text-amber-600" />}
+          title="Upcoming Payments"
+          badge={unpaidPayments.length}
+          badgeColor="bg-amber-100 text-amber-700"
+        >
+          {unpaidPayments.length === 0 ? (
+            <Empty message="No outstanding payments." />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {unpaidPayments.map(payment => (
+                <li key={payment.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{payment.name}</p>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 block ${
+                      payment.days_until_due < 0
+                        ? "text-red-500"
+                        : payment.days_until_due <= 3
+                          ? "text-amber-500"
+                          : "text-slate-400"
+                    }`}>
+                      {payment.days_until_due < 0
+                        ? `${Math.abs(payment.days_until_due)}d overdue`
+                        : payment.days_until_due === 0
+                          ? "Due today"
+                          : `Due ${fmtDate(payment.due_date)}`}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
     </div>
   );
 }
 
-// --- Reusable UI Components ---
+// ---- Sub-components ----
 
-function StatCard({ title, value, subtitle, icon, bgAccent, borderColor }: { 
-  title: string, value: string, subtitle: string, icon: React.ReactNode, bgAccent: string, borderColor: string 
+function Panel({ icon, title, label, aside, badge, badgeColor, children }: {
+  icon: React.ReactNode;
+  title: string;
+  label?: string;
+  aside?: React.ReactNode;
+  badge?: number;
+  badgeColor?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-white p-6 rounded-2xl border ${borderColor} shadow-sm flex flex-col relative overflow-hidden group`}>
-      <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${bgAccent} opacity-50 group-hover:scale-110 transition-transform duration-500 blur-2xl`}></div>
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
-        <div className={`${bgAccent} p-2 rounded-xl`}>{icon}</div>
-      </div>
-      <div className="mt-auto relative z-10">
-        <span className="text-3xl font-extrabold text-slate-900">{value}</span>
-        <p className="text-sm font-medium text-slate-500 mt-1">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-function DashboardWidget({ title, actionLabel, icon, children }: { 
-  title: string, actionLabel: string, icon: React.ReactNode, children: React.ReactNode 
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {icon}
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">{title}</h2>
+          {label && <span className="text-xs text-slate-400 font-medium">{label}</span>}
+          {badge !== undefined && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
+          )}
         </div>
-        <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors">
-          {actionLabel}
-          <ArrowRight size={12} />
-        </button>
+        {aside}
       </div>
-      <div className="p-5 flex-1">
+      <div className="p-5 overflow-y-auto max-h-[420px]">
         {children}
       </div>
     </div>
   );
 }
 
-function TaskItem({ title, category, isUrgent }: { title: string, category: string, isUrgent: boolean }) {
-  return (
-    <li className="py-3 flex items-start gap-3 first:pt-0 last:pb-0 group cursor-pointer">
-      <button className="mt-0.5 flex-shrink-0 text-slate-300 group-hover:text-emerald-500 transition-colors">
-        <CheckCircle2 size={18} />
-      </button>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-slate-800 group-hover:text-slate-900 transition-colors">{title}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{category}</span>
-          {isUrgent && (
-             <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-sm">Urgent</span>
-          )}
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function HabitItem({ title, streak, color, progress }: { title: string, streak: number, color: string, progress: string }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-medium text-slate-800">{title}</span>
-        <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
-          <Flame size={12} className={streak > 5 ? "text-orange-500" : "text-slate-400"} />
-          {streak} days
-        </span>
-      </div>
-      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full ${color} ${progress} rounded-full`}></div>
-      </div>
-    </div>
-  );
-}
-
-function PaymentItem({ title, amount, due, isAlert }: { title: string, amount: string, due: string, isAlert: boolean }) {
-  return (
-    <li className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-      <div className="flex items-center gap-3">
-        <div className={`w-2 h-2 rounded-full ${isAlert ? 'bg-rose-500' : 'bg-slate-300'}`}></div>
-        <div>
-          <p className="text-sm font-medium text-slate-800">{title}</p>
-          <p className={`text-xs mt-0.5 font-medium ${isAlert ? 'text-rose-500' : 'text-slate-500'}`}>{due}</p>
-        </div>
-      </div>
-      <span className="text-sm font-bold text-slate-900">{amount}</span>
-    </li>
-  );
+function Empty({ message }: { message: string }) {
+  return <p className="text-sm text-slate-400 text-center py-6">{message}</p>;
 }
