@@ -7,4 +7,4 @@ pydantic-settings
 python-dotenv 
 httpx 
 beautifulsoup4 
-google-generativeai
+openai

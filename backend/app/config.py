@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     API_USER: str
     API_PASS: str
-    GEMINI_API_KEY: str
+    OPENAI_API_KEY: str
 
     # tell it to read from .env file
     model_config = SettingsConfigDict(

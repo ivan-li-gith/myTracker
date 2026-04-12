@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db_session
 from app.models.recipes import Recipe
 from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeUpdate
-from app.services.scraper import fetch_and_clean, extract_recipe_info
+from app.services.scraper import scrape_recipe
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
@@ -16,11 +16,10 @@ class ScrapeRequest(BaseModel):
 
 
 @router.post("/scrape")
-def scrape_recipe(body: ScrapeRequest):
+def scrape_recipe_endpoint(body: ScrapeRequest):
     """Scrape a recipe URL and return extracted fields. Does NOT save."""
     try:
-        raw_text = fetch_and_clean(body.url)
-        info = extract_recipe_info(raw_text)
+        info = scrape_recipe(body.url)
         return {**info, "source_url": body.url}
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Scraping failed: {str(e)}")

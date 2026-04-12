@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown, Loader2, Check, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { JobApplication } from "@/lib/types";
 
@@ -37,7 +37,7 @@ function fmtDate(s: string | null): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// ---- Status inline dropdown ----
+// ---- Status inline dropdown (opens upward when near bottom) ----
 
 function StatusDropdown({
   value,
@@ -47,7 +47,9 @@ function StatusDropdown({
   onChange: (s: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const cfg = statusCfg(value);
 
   useEffect(() => {
@@ -58,17 +60,27 @@ function StatusDropdown({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  function handleOpen(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropUp(window.innerHeight - rect.bottom < 220);
+    }
+    setOpen((o) => !o);
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        ref={btnRef}
+        onClick={handleOpen}
         className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition-opacity hover:opacity-80 ${cfg.style}`}
       >
         {cfg.label}
         <ChevronDown size={10} />
       </button>
       {open && (
-        <div className="absolute left-0 top-8 z-30 w-40 bg-white border border-slate-100 rounded-xl shadow-lg py-1">
+        <div className={`absolute left-0 z-30 w-40 bg-white border border-slate-100 rounded-xl shadow-lg py-1 ${dropUp ? "bottom-8" : "top-8"}`}>
           {Object.entries(STATUS_CONFIG).map(([key, { label, style }]) => (
             <button
               key={key}
@@ -98,15 +110,122 @@ const EMPTY_FORM = {
   notes: "",
 };
 
+// ---- Inline row for adding a new job ----
+
+function InlineAddRow({
+  onSave,
+  onCancel,
+}: {
+  onSave: (form: typeof EMPTY_FORM) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()) });
+  const [saving, setSaving] = useState(false);
+
+  function setField(key: keyof typeof EMPTY_FORM, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.company.trim() || !form.role.trim()) return;
+    setSaving(true);
+    await onSave(form);
+    setSaving(false);
+  }
+
+  const inputCls = "w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white";
+
+  return (
+    <tr className="bg-indigo-50/40">
+      <td className="px-3 py-2">
+        <input
+          autoFocus
+          type="text"
+          value={form.company}
+          onChange={(e) => setField("company", e.target.value)}
+          placeholder="Company"
+          className={inputCls}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          value={form.role}
+          onChange={(e) => setField("role", e.target.value)}
+          placeholder="Role"
+          className={inputCls}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={form.status}
+          onChange={(e) => setField("status", e.target.value)}
+          className={inputCls}
+        >
+          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="date"
+          value={form.date_applied}
+          onChange={(e) => setField("date_applied", e.target.value)}
+          className={inputCls}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={form.job_type}
+          onChange={(e) => setField("job_type", e.target.value)}
+          className={inputCls}
+        >
+          <option value="">—</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="onsite">Onsite</option>
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="url"
+          value={form.url}
+          onChange={(e) => setField("url", e.target.value)}
+          placeholder="https://..."
+          className={inputCls}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1 justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saving || !form.company.trim() || !form.role.trim()}
+            className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={13} />}
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ---- Page ----
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<JobApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editJob, setEditJob] = useState<JobApplication | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [addingRow, setAddingRow] = useState(false);
 
   // URL scraping flow
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -114,6 +233,7 @@ export default function JobsPage() {
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
 
+  // Edit modal form
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
@@ -146,6 +266,28 @@ export default function JobsPage() {
     setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
   }
 
+  // ---- Inline row save ----
+  async function saveInlineRow(form: typeof EMPTY_FORM) {
+    const body = {
+      company: form.company,
+      role: form.role,
+      url: form.url || null,
+      status: form.status || null,
+      date_applied: form.date_applied || null,
+      location: null,
+      job_type: form.job_type || null,
+      salary_range: null,
+      notes: null,
+    };
+    const created = await apiFetch("/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setJobs((prev) => [created, ...prev]);
+    setAddingRow(false);
+  }
+
   // ---- URL scraping ----
   async function handleScrape(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -171,7 +313,7 @@ export default function JobsPage() {
       });
       setShowUrlInput(false);
       setScrapeUrl("");
-      setShowAddModal(true);
+      setEditJob({ id: -1 } as JobApplication); // open edit modal with scraped data
     } catch (err) {
       setScrapeError(err instanceof Error ? err.message : "Scraping failed");
     } finally {
@@ -182,11 +324,6 @@ export default function JobsPage() {
   // ---- CRUD ----
   function setField(key: keyof typeof EMPTY_FORM, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
-  }
-
-  function openAdd() {
-    setForm({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()) });
-    setShowAddModal(true);
   }
 
   function openEdit(job: JobApplication) {
@@ -205,7 +342,6 @@ export default function JobsPage() {
   }
 
   function closeForm() {
-    setShowAddModal(false);
     setEditJob(null);
     setForm(EMPTY_FORM);
   }
@@ -224,7 +360,7 @@ export default function JobsPage() {
       notes: form.notes || null,
     };
 
-    if (editJob) {
+    if (editJob && editJob.id !== -1) {
       const updated = await apiFetch(`/jobs/${editJob.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -273,13 +409,6 @@ export default function JobsPage() {
             <Link2 size={15} />
             Add via URL
           </button>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={16} />
-            Add Manual
-          </button>
         </div>
       </div>
 
@@ -321,162 +450,159 @@ export default function JobsPage() {
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {jobs.length === 0 && !addingRow ? (
         <div className="text-center py-20">
           <p className="text-slate-400 text-sm mb-3">
-            {jobs.length === 0
-              ? "No applications yet. Add one manually or paste a job URL."
-              : "No applications with this status."}
+            No applications yet. Add one below or paste a job URL.
           </p>
-          {jobs.length === 0 && (
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-              >
-                Paste a job URL →
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          >
+            Paste a job URL →
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  {[
-                    ["Company", "text-left"],
-                    ["Role", "text-left"],
-                    ["Status", "text-left"],
-                    ["Date Applied", "text-left"],
-                    ["Location", "text-left"],
-                    ["Type", "text-left"],
-                    ["Salary", "text-left"],
-                    ["Notes", "text-left"],
-                    ["Link", "text-center"],
-                    ["", ""],
-                  ].map(([h, align], i) => (
-                    <th
-                      key={i}
-                      className={`${align} text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap`}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50/60 group transition-colors">
-                    {/* Company */}
-                    <td className="px-4 py-3 max-w-[160px]">
-                      <span className="text-sm font-semibold text-slate-900 truncate block">
-                        {job.company}
-                      </span>
-                    </td>
-
-                    {/* Role */}
-                    <td className="px-4 py-3 max-w-[180px]">
-                      <span className="text-sm text-slate-700 truncate block">{job.role}</span>
-                    </td>
-
-                    {/* Status — inline dropdown */}
-                    <td className="px-4 py-3">
-                      <StatusDropdown
-                        value={job.status}
-                        onChange={(s) => updateStatus(job.id, s)}
-                      />
-                    </td>
-
-                    {/* Date Applied */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-slate-500">{fmtDate(job.date_applied)}</span>
-                    </td>
-
-                    {/* Location */}
-                    <td className="px-4 py-3 max-w-[140px]">
-                      <span className="text-sm text-slate-500 truncate block">
-                        {job.location ?? <span className="text-slate-300">—</span>}
-                      </span>
-                    </td>
-
-                    {/* Job Type */}
-                    <td className="px-4 py-3">
-                      {job.job_type ? (
-                        <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
-                            JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {job.job_type}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-
-                    {/* Salary */}
-                    <td className="px-4 py-3 max-w-[120px]">
-                      <span className="text-sm text-slate-500 truncate block">
-                        {job.salary_range ?? <span className="text-slate-300">—</span>}
-                      </span>
-                    </td>
-
-                    {/* Notes */}
-                    <td className="px-4 py-3 max-w-[180px]">
-                      {job.notes ? (
-                        <span
-                          className="text-xs text-slate-400 truncate block"
-                          title={job.notes}
-                        >
-                          {job.notes}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
-                    </td>
-
-                    {/* Link */}
-                    <td className="px-4 py-3 text-center">
-                      {job.url ? (
-                        <a
-                          href={job.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          title="Open posting"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      ) : (
-                        <span className="text-slate-200">—</span>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(job)}
-                          className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteId(job.id)}
-                          className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {[
+                  ["Company", "text-left"],
+                  ["Role", "text-left"],
+                  ["Status", "text-left"],
+                  ["Date Applied", "text-left"],
+                  ["Type", "text-left"],
+                  ["Link", "text-center"],
+                  ["", ""],
+                ].map(([h, align], i) => (
+                  <th
+                    key={i}
+                    className={`${align} text-xs font-semibold text-slate-500 uppercase tracking-wide px-3 py-3 whitespace-nowrap`}
+                  >
+                    {h}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filtered.map((job) => (
+                <tr key={job.id} className="hover:bg-slate-50/60 group transition-colors">
+                  {/* Company */}
+                  <td className="px-3 py-3 max-w-[160px]">
+                    <span className="text-sm font-semibold text-slate-900 truncate block">
+                      {job.company}
+                    </span>
+                  </td>
+
+                  {/* Role */}
+                  <td className="px-3 py-3 max-w-[200px]">
+                    <span className="text-sm text-slate-700 truncate block">{job.role}</span>
+                  </td>
+
+                  {/* Status — inline dropdown */}
+                  <td className="px-3 py-3">
+                    <StatusDropdown
+                      value={job.status}
+                      onChange={(s) => updateStatus(job.id, s)}
+                    />
+                  </td>
+
+                  {/* Date Applied */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span className="text-sm text-slate-500">{fmtDate(job.date_applied)}</span>
+                  </td>
+
+                  {/* Job Type */}
+                  <td className="px-3 py-3">
+                    {job.job_type ? (
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                          JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {job.job_type}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+
+                  {/* Link */}
+                  <td className="px-3 py-3 text-center">
+                    {job.url ? (
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Open posting"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    ) : (
+                      <span className="text-slate-200">—</span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-3 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openEdit(job)}
+                        className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteId(job.id)}
+                        className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {/* Inline add row */}
+              {addingRow && (
+                <InlineAddRow
+                  onSave={saveInlineRow}
+                  onCancel={() => setAddingRow(false)}
+                />
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={7} className="px-3 py-2 border-t border-slate-100">
+                  {!addingRow && (
+                    <button
+                      onClick={() => setAddingRow(true)}
+                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium"
+                    >
+                      <Plus size={14} />
+                      Add row
+                    </button>
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* "+" button when table is empty (no jobs yet) */}
+      {jobs.length === 0 && !addingRow && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={() => setAddingRow(true)}
+            className="flex items-center gap-2 border border-dashed border-slate-300 text-slate-500 px-4 py-2 rounded-lg text-sm font-medium hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            <Plus size={15} />
+            Add row manually
+          </button>
         </div>
       )}
 
@@ -529,12 +655,12 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* Add / Edit Modal */}
-      {(showAddModal || editJob !== null) && (
+      {/* Edit Modal (all fields including notes, salary, location) */}
+      {editJob !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
-              {editJob ? "Edit Application" : "New Application"}
+              {editJob.id === -1 ? "New Application" : "Edit Application"}
             </h2>
             <form onSubmit={saveJob} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
@@ -659,7 +785,7 @@ export default function JobsPage() {
                   type="submit"
                   className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
-                  {editJob ? "Save changes" : "Save"}
+                  {editJob.id === -1 ? "Save" : "Save changes"}
                 </button>
               </div>
             </form>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  CheckCircle2, Flame, CreditCard, Briefcase, DollarSign, Calendar,
+  CheckCircle2, Flame, CreditCard, Briefcase, DollarSign, Calendar, Check,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication } from "@/lib/types";
@@ -70,6 +70,11 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<JobApplication[]>([]);
 
+  // Track items being checked (for animation)
+  const [checkingTasks, setCheckingTasks] = useState<Set<number>>(new Set());
+  const [checkingHabits, setCheckingHabits] = useState<Set<number>>(new Set());
+  const [checkingPayments, setCheckingPayments] = useState<Set<number>>(new Set());
+
   useEffect(() => {
     const month = currentMonth();
     Promise.allSettled([
@@ -88,6 +93,43 @@ export default function HomePage() {
       if (j.status === "fulfilled") setJobs(j.value || []);
     });
   }, []);
+
+  // ---- Check-off handlers ----
+
+  async function completeTask(id: number) {
+    setCheckingTasks(prev => new Set(prev).add(id));
+    await apiFetch(`/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: true }),
+    });
+    setTimeout(() => {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: true } : t));
+      setCheckingTasks(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }, 400);
+  }
+
+  async function logHabit(id: number) {
+    setCheckingHabits(prev => new Set(prev).add(id));
+    await apiFetch(`/habits/${id}/log`, { method: "POST" });
+    setTimeout(() => {
+      setHabits(prev => prev.map(h =>
+        h.id === id
+          ? { ...h, logged_dates: [...(h.logged_dates || []), todayStr()] }
+          : h
+      ));
+      setCheckingHabits(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }, 400);
+  }
+
+  async function markPaid(id: number) {
+    setCheckingPayments(prev => new Set(prev).add(id));
+    await apiFetch(`/payments/${id}/mark-paid`, { method: "POST" });
+    setTimeout(() => {
+      setPayments(prev => prev.map(p => p.id === id ? { ...p, is_paid: true } : p));
+      setCheckingPayments(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }, 400);
+  }
 
   // Derived data
   const pendingTasks = tasks
@@ -210,19 +252,31 @@ export default function HomePage() {
             <Empty message="All tasks complete!" />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {pendingTasks.map(task => (
-                <li key={task.id} className="py-3 flex items-start gap-3">
-                  <CheckCircle2 size={15} className="text-slate-200 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800">{task.name}</p>
-                    {task.due_date && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        <Calendar size={10} />{fmtDate(task.due_date)}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
+              {pendingTasks.map(task => {
+                const checking = checkingTasks.has(task.id);
+                return (
+                  <li
+                    key={task.id}
+                    className={`py-3 flex items-start gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
+                  >
+                    <button
+                      onClick={() => completeTask(task.id)}
+                      disabled={checking}
+                      className="mt-0.5 flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-emerald-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
+                    >
+                      {checking && <Check size={9} className="text-emerald-500" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800">{task.name}</p>
+                      {task.due_date && (
+                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          <Calendar size={10} />{fmtDate(task.due_date)}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Panel>
@@ -238,14 +292,29 @@ export default function HomePage() {
             <Empty message="All habits done for today!" />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {habitsToDoToday.map(habit => (
-                <li key={habit.id} className="py-3 flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-800">{habit.name}</span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md">
-                    <Flame size={11} />{habit.streak ?? 0}
-                  </span>
-                </li>
-              ))}
+              {habitsToDoToday.map(habit => {
+                const checking = checkingHabits.has(habit.id);
+                return (
+                  <li
+                    key={habit.id}
+                    className={`py-3 flex items-center justify-between gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <button
+                        onClick={() => logHabit(habit.id)}
+                        disabled={checking}
+                        className="flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-orange-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
+                      >
+                        {checking && <Check size={9} className="text-orange-500" />}
+                      </button>
+                      <span className="text-sm font-medium text-slate-800 truncate">{habit.name}</span>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md flex-shrink-0">
+                      <Flame size={11} />{habit.streak ?? 0}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Panel>
@@ -261,27 +330,40 @@ export default function HomePage() {
             <Empty message="No outstanding payments." />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {unpaidPayments.map(payment => (
-                <li key={payment.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{payment.name}</p>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 block ${
-                      payment.days_until_due < 0
-                        ? "text-red-500"
-                        : payment.days_until_due <= 3
-                          ? "text-amber-500"
-                          : "text-slate-400"
-                    }`}>
-                      {payment.days_until_due < 0
-                        ? `${Math.abs(payment.days_until_due)}d overdue`
-                        : payment.days_until_due === 0
-                          ? "Due today"
-                          : `Due ${fmtDate(payment.due_date)}`}
-                    </span>
-                  </div>
-                  <span className="text-sm font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
-                </li>
-              ))}
+              {unpaidPayments.map(payment => {
+                const checking = checkingPayments.has(payment.id);
+                return (
+                  <li
+                    key={payment.id}
+                    className={`py-3 flex items-center gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
+                  >
+                    <button
+                      onClick={() => markPaid(payment.id)}
+                      disabled={checking}
+                      className="flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-amber-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
+                    >
+                      {checking && <Check size={9} className="text-amber-500" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{payment.name}</p>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 block ${
+                        payment.days_until_due < 0
+                          ? "text-red-500"
+                          : payment.days_until_due <= 3
+                            ? "text-amber-500"
+                            : "text-slate-400"
+                      }`}>
+                        {payment.days_until_due < 0
+                          ? `${Math.abs(payment.days_until_due)}d overdue`
+                          : payment.days_until_due === 0
+                            ? "Due today"
+                            : `Due ${fmtDate(payment.due_date)}`}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Panel>
