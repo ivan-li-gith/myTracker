@@ -8,3 +8,4 @@ python-dotenv
 httpx 
 beautifulsoup4 
 openai
+python-multipart

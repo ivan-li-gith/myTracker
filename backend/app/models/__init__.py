@@ -6,3 +6,4 @@ from app.models.jobs import JobApplication
 from app.models.expenses import Expense, ExpenseSplit
 from app.models.recipes import Recipe
 from app.models.docs import Doc
+from app.models.resumes import Resume

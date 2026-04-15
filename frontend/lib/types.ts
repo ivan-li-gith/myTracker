@@ -58,7 +58,19 @@ export interface JobApplication {
   salary_range: string | null;
   location: string | null;
   job_type: string | null; // 'remote' | 'hybrid' | 'onsite'
+  salary_type: string | null; // 'hourly' | 'weekly' | 'monthly' | 'yearly'
   notes: string | null;
+  resume_id: number | null;
+  cover_letter_id: number | null;
+  created_at: string;
+}
+
+export interface Resume {
+  id: number;
+  name: string;
+  file_type: string; // 'resume' | 'cover_letter'
+  filename: string;
+  content_type: string;
   created_at: string;
 }
 
