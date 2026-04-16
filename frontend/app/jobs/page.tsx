@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown,
-  Loader2, Check, X, MessageSquare, Download,
+  Loader2, MessageSquare, Download, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { apiFetch, apiFetchRaw } from "@/lib/api";
 import { JobApplication, Resume } from "@/lib/types";
@@ -236,42 +236,6 @@ function FileDropup({
   );
 }
 
-// ---- File select for inline add row (simpler, no download needed) ----
-
-function FileSelect({
-  value,
-  options,
-  placeholder,
-  nullable,
-  onChange,
-}: {
-  value: number | null;
-  options: Resume[];
-  placeholder: string;
-  nullable: boolean;
-  onChange: (id: number | null) => void;
-}) {
-  if (options.length === 0) {
-    return (
-      <span className="text-[10px] text-slate-400 leading-tight">
-        <Link href="/resumes" className="text-indigo-400 hover:underline">Upload files</Link> first
-      </span>
-    );
-  }
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className="w-full border border-slate-200 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-    >
-      <option value="">{nullable ? "Not required" : placeholder}</option>
-      {options.map((r) => (
-        <option key={r.id} value={r.id}>{r.name}</option>
-      ))}
-    </select>
-  );
-}
-
 // ---- Comments cell ----
 
 function CommentCell({ value, onEdit }: { value: string | null; onEdit: () => void }) {
@@ -428,152 +392,53 @@ function SalaryCell({
   );
 }
 
-// ---- Inline form type ----
+// ---- Sorting ----
 
-interface InlineForm {
-  company: string;
-  role: string;
-  url: string;
-  status: string;
-  date_applied: string;
-  location: string;
-  job_type: string;
-  salary_range: string;
-  salary_type: string;
-  notes: string;
-  resume_id: number | null;
-  cover_letter_id: number | null;
-}
+type SortCol = "company" | "role" | "status" | "date_applied" | "job_type" | "location" | "salary_range" | "resume_id" | "cover_letter_id" | "notes";
+type SortDir = "asc" | "desc";
 
-const EMPTY_INLINE: InlineForm = {
-  company: "", role: "", url: "", status: "applied",
-  date_applied: "", location: "", job_type: "",
-  salary_range: "", salary_type: "", notes: "", resume_id: null, cover_letter_id: null,
+const STATUS_ORDER: Record<string, number> = {
+  applied: 0, phone_screen: 1, interview: 2, offer: 3, rejected: 4,
 };
 
-// ---- Inline row for adding a new job ----
+const COLUMNS: { label: string; align: string; width: string; sortKey: SortCol | null }[] = [
+  { label: "Company",      align: "text-left",   width: "w-[150px]", sortKey: "company" },
+  { label: "Role",         align: "text-left",   width: "w-[180px]", sortKey: "role" },
+  { label: "Status",       align: "text-left",   width: "w-[135px]", sortKey: "status" },
+  { label: "Date Applied", align: "text-left",   width: "w-[125px]", sortKey: "date_applied" },
+  { label: "Type",         align: "text-left",   width: "w-[85px]",  sortKey: "job_type" },
+  { label: "Location",     align: "text-left",   width: "w-[140px]", sortKey: "location" },
+  { label: "Salary",       align: "text-left",   width: "w-[180px]", sortKey: "salary_range" },
+  { label: "Resume",       align: "text-left",   width: "w-[140px]", sortKey: "resume_id" },
+  { label: "Cover Letter", align: "text-left",   width: "w-[140px]", sortKey: "cover_letter_id" },
+  { label: "Comments",     align: "text-left",   width: "w-[180px]", sortKey: "notes" },
+  { label: "",             align: "",            width: "w-[75px]",  sortKey: null },
+];
 
-function InlineAddRow({
-  onSave,
-  onCancel,
-  resumeOptions,
-  coverLetterOptions,
-}: {
-  onSave: (form: InlineForm) => Promise<void>;
-  onCancel: () => void;
-  resumeOptions: Resume[];
-  coverLetterOptions: Resume[];
-}) {
-  const [form, setForm] = useState<InlineForm>({ ...EMPTY_INLINE, date_applied: toLocalDate(new Date()) });
-  const [saving, setSaving] = useState(false);
-
-  function setField<K extends keyof InlineForm>(key: K, value: InlineForm[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
-
-  async function handleSave() {
-    if (!form.company.trim() || !form.role.trim()) return;
-    setSaving(true);
-    await onSave(form);
-    setSaving(false);
-  }
-
-  const inputCls = "w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white";
-
-  return (
-    <tr className="bg-indigo-50/40">
-      <td className="px-3 py-2 min-w-[140px]">
-        <input autoFocus type="text" value={form.company} onChange={(e) => setField("company", e.target.value)} placeholder="Company" className={inputCls} />
-      </td>
-      <td className="px-3 py-2 min-w-[180px]">
-        <input type="text" value={form.role} onChange={(e) => setField("role", e.target.value)} placeholder="Role" className={inputCls} />
-      </td>
-      <td className="px-3 py-2 min-w-[130px]">
-        <select value={form.status} onChange={(e) => setField("status", e.target.value)} className={inputCls}>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-      </td>
-      <td className="px-3 py-2 min-w-[140px]">
-        <input type="date" value={form.date_applied} onChange={(e) => setField("date_applied", e.target.value)} className={inputCls} />
-      </td>
-      <td className="px-3 py-2 min-w-[100px]">
-        <select value={form.job_type} onChange={(e) => setField("job_type", e.target.value)} className={inputCls}>
-          <option value="">—</option>
-          <option value="remote">Remote</option>
-          <option value="hybrid">Hybrid</option>
-          <option value="onsite">Onsite</option>
-        </select>
-      </td>
-      <td className="px-3 py-2 min-w-[130px]">
-        <input
-          type="text"
-          value={form.location}
-          onChange={(e) => setField("location", e.target.value)}
-          placeholder="City or Remote"
-          className={inputCls}
-        />
-      </td>
-      <td className="px-3 py-2 min-w-[200px]">
-        <div className="flex gap-1">
-          <select value={form.salary_type} onChange={(e) => setField("salary_type", e.target.value)} className={`${inputCls} w-24 flex-shrink-0`}>
-            <option value="">Type</option>
-            {SALARY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.long}</option>)}
-          </select>
-          <input
-            type="text"
-            value={form.salary_range}
-            onChange={(e) => setField("salary_range", e.target.value)}
-            placeholder="e.g. $80k–$120k"
-            className={`${inputCls} flex-1`}
-          />
-        </div>
-      </td>
-      <td className="px-3 py-2 min-w-[130px]">
-        <FileSelect
-          value={form.resume_id}
-          options={resumeOptions}
-          placeholder="None"
-          nullable={false}
-          onChange={(id) => setField("resume_id", id)}
-        />
-      </td>
-      <td className="px-3 py-2 min-w-[130px]">
-        <FileSelect
-          value={form.cover_letter_id}
-          options={coverLetterOptions}
-          placeholder="Not required"
-          nullable={true}
-          onChange={(id) => setField("cover_letter_id", id)}
-        />
-      </td>
-      <td className="px-3 py-2 min-w-[180px]">
-        <input
-          type="text"
-          value={form.notes}
-          onChange={(e) => setField("notes", e.target.value)}
-          placeholder="Comments..."
-          className={inputCls}
-        />
-      </td>
-      <td className="px-3 py-2 min-w-[180px]">
-        <input type="url" value={form.url} onChange={(e) => setField("url", e.target.value)} placeholder="https://..." className={inputCls} />
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-1 justify-end">
-          <button
-            onClick={handleSave}
-            disabled={saving || !form.company.trim() || !form.role.trim()}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={13} />}
-          </button>
-          <button onClick={onCancel} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-            <X size={13} />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
+function applySorting(jobs: JobApplication[], col: SortCol | null, dir: SortDir, resumes: Resume[]): JobApplication[] {
+  if (!col) return jobs;
+  const mult = dir === "asc" ? 1 : -1;
+  return [...jobs].sort((a, b) => {
+    let av: string | number, bv: string | number;
+    if (col === "status") {
+      av = STATUS_ORDER[a.status ?? ""] ?? 99;
+      bv = STATUS_ORDER[b.status ?? ""] ?? 99;
+    } else if (col === "resume_id") {
+      av = resumes.find((r) => r.id === a.resume_id)?.name ?? "";
+      bv = resumes.find((r) => r.id === b.resume_id)?.name ?? "";
+    } else if (col === "cover_letter_id") {
+      av = resumes.find((r) => r.id === a.cover_letter_id)?.name ?? "";
+      bv = resumes.find((r) => r.id === b.cover_letter_id)?.name ?? "";
+    } else {
+      av = (a[col] as string | null) ?? "";
+      bv = (b[col] as string | null) ?? "";
+    }
+    if (av === "" && bv !== "") return 1;
+    if (bv === "" && av !== "") return -1;
+    if (av < bv) return -1 * mult;
+    if (av > bv) return mult;
+    return 0;
+  });
 }
 
 // ---- Edit form state ----
@@ -581,6 +446,8 @@ function InlineAddRow({
 const EMPTY_FORM = {
   company: "", role: "", url: "", status: "applied",
   date_applied: "", location: "", job_type: "", salary_range: "", salary_type: "", notes: "",
+  resume_id: null as number | null,
+  cover_letter_id: null as number | null,
 };
 
 // ---- Page ----
@@ -592,7 +459,17 @@ export default function JobsPage() {
 
   const [editJob, setEditJob] = useState<JobApplication | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [addingRow, setAddingRow] = useState(false);
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
 
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [scrapeUrl, setScrapeUrl] = useState("");
@@ -623,7 +500,10 @@ export default function JobsPage() {
   const resumeOptions = resumes.filter((r) => r.file_type === "resume");
   const coverLetterOptions = resumes.filter((r) => r.file_type === "cover_letter");
 
-  const filtered = statusFilter === "all" ? jobs : jobs.filter((j) => j.status === statusFilter);
+  const filtered = applySorting(
+    statusFilter === "all" ? jobs : jobs.filter((j) => j.status === statusFilter),
+    sortCol, sortDir, resumes,
+  );
 
   const statusCounts = jobs.reduce<Record<string, number>>((acc, j) => {
     const s = j.status ?? "applied";
@@ -640,28 +520,9 @@ export default function JobsPage() {
     setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
   }
 
-  async function saveInlineRow(form: InlineForm) {
-    const body = {
-      company: form.company,
-      role: form.role,
-      url: form.url || null,
-      status: form.status || null,
-      date_applied: form.date_applied || null,
-      location: form.location || null,
-      job_type: form.job_type || null,
-      salary_range: form.salary_range || null,
-      salary_type: form.salary_type || null,
-      notes: form.notes || null,
-      resume_id: form.resume_id,
-      cover_letter_id: form.cover_letter_id,
-    };
-    const created = await apiFetch("/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setJobs((prev) => [...prev, created]);
-    setAddingRow(false);
+  function openNewJob() {
+    setForm({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()) });
+    setEditJob({ id: -1 } as JobApplication);
   }
 
   async function handleScrape(e: React.FormEvent<HTMLFormElement>) {
@@ -731,6 +592,8 @@ export default function JobsPage() {
       salary_range: job.salary_range ?? "",
       salary_type: job.salary_type ?? "",
       notes: job.notes ?? "",
+      resume_id: job.resume_id ?? null,
+      cover_letter_id: job.cover_letter_id ?? null,
     });
   }
 
@@ -752,6 +615,8 @@ export default function JobsPage() {
       salary_range: form.salary_range || null,
       salary_type: form.salary_type || null,
       notes: form.notes || null,
+      resume_id: form.resume_id,
+      cover_letter_id: form.cover_letter_id,
     };
     if (editJob && editJob.id !== -1) {
       const updated = await apiFetch(`/jobs/${editJob.id}`, {
@@ -764,9 +629,9 @@ export default function JobsPage() {
       const created = await apiFetch("/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, resume_id: null, cover_letter_id: null }),
+        body: JSON.stringify(body),
       });
-      setJobs((prev) => [...prev, created]);
+      setJobs((prev) => [created, ...prev]);
     }
     closeForm();
   }
@@ -792,13 +657,22 @@ export default function JobsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Job Tracker</h1>
           <p className="text-sm text-slate-400 mt-0.5">{todayLabel}</p>
         </div>
-        <button
-          onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
-          className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-        >
-          <Link2 size={15} />
-          Add via URL
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openNewJob}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <Plus size={15} />
+            Add
+          </button>
+          <button
+            onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
+            className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+          >
+            <Link2 size={15} />
+            Add via URL
+          </button>
+        </div>
       </div>
 
       {/* Filter pills */}
@@ -834,37 +708,47 @@ export default function JobsPage() {
       </div>
 
       {/* Table */}
-      {jobs.length === 0 && !addingRow ? (
+      {jobs.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-400 text-sm mb-3">No applications yet. Add one below or paste a job URL.</p>
-          <button
-            onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-          >
-            Paste a job URL →
-          </button>
+          <p className="text-slate-400 text-sm mb-3">No applications yet. Add one manually or paste a job URL.</p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={openNewJob}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+            >
+              Add manually →
+            </button>
+            <span className="text-slate-300">|</span>
+            <button
+              onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
+              className="text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
+            >
+              Paste a job URL →
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
           <table className="w-full" style={{ minWidth: "1500px" }}>
             <thead>
               <tr className="border-b border-slate-100">
-                {[
-                  ["Company",      "text-left",   "w-[150px]"],
-                  ["Role",         "text-left",   "w-[180px]"],
-                  ["Status",       "text-left",   "w-[135px]"],
-                  ["Date Applied", "text-left",   "w-[125px]"],
-                  ["Type",         "text-left",   "w-[85px]"],
-                  ["Location",     "text-left",   "w-[140px]"],
-                  ["Salary",       "text-left",   "w-[180px]"],
-                  ["Resume",       "text-left",   "w-[140px]"],
-                  ["Cover Letter", "text-left",   "w-[140px]"],
-                  ["Comments",     "text-left",   "w-[180px]"],
-                  ["Link",         "text-center", "w-[55px]"],
-                  ["",             "",            "w-[75px]"],
-                ].map(([h, align, w], i) => (
-                  <th key={i} className={`${align} ${w} text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap`}>
-                    {h}
+                {COLUMNS.map(({ label, align, width, sortKey }, i) => (
+                  <th
+                    key={i}
+                    onClick={() => sortKey && handleSort(sortKey)}
+                    className={`${align} ${width} text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap ${sortKey ? "cursor-pointer hover:text-slate-800 select-none" : ""}`}
+                  >
+                    {sortKey ? (
+                      <span className="inline-flex items-center gap-1">
+                        {label}
+                        {sortCol === sortKey
+                          ? sortDir === "asc"
+                            ? <ArrowUp size={11} className="text-indigo-500" />
+                            : <ArrowDown size={11} className="text-indigo-500" />
+                          : <ArrowUpDown size={11} className="opacity-25" />
+                        }
+                      </span>
+                    ) : label}
                   </th>
                 ))}
               </tr>
@@ -873,7 +757,21 @@ export default function JobsPage() {
               {filtered.map((job) => (
                 <tr key={job.id} className="hover:bg-slate-50/60 group transition-colors">
                   <td className="px-4 py-3">
-                    <span className="text-sm font-semibold text-slate-900 truncate block max-w-[140px]">{job.company}</span>
+                    {job.url ? (
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="group/link inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors truncate max-w-[140px]"
+                        title={job.url}
+                      >
+                        <span className="truncate">{job.company}</span>
+                        <ExternalLink size={11} className="flex-shrink-0 opacity-0 group-hover/link:opacity-60 transition-opacity" />
+                      </a>
+                    ) : (
+                      <span className="text-sm font-semibold text-slate-900 truncate block max-w-[140px]">{job.company}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-slate-700 truncate block max-w-[190px]">{job.role}</span>
@@ -925,20 +823,6 @@ export default function JobsPage() {
                   <td className="px-4 py-3">
                     <CommentCell value={job.notes} onEdit={() => openComment(job)} />
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    {job.url ? (
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        title="Open posting"
-                      >
-                        <ExternalLink size={14} />
-                      </a>
-                    ) : <span className="text-slate-200">—</span>}
-                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <button
@@ -958,43 +842,8 @@ export default function JobsPage() {
                 </tr>
               ))}
 
-              {addingRow && (
-                <InlineAddRow
-                  onSave={saveInlineRow}
-                  onCancel={() => setAddingRow(false)}
-                  resumeOptions={resumeOptions}
-                  coverLetterOptions={coverLetterOptions}
-                />
-              )}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={12} className="px-4 py-2 border-t border-slate-100">
-                  {!addingRow && (
-                    <button
-                      onClick={() => setAddingRow(true)}
-                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium"
-                    >
-                      <Plus size={14} />
-                      Add row
-                    </button>
-                  )}
-                </td>
-              </tr>
-            </tfoot>
           </table>
-        </div>
-      )}
-
-      {jobs.length === 0 && !addingRow && (
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={() => setAddingRow(true)}
-            className="flex items-center gap-2 border border-dashed border-slate-300 text-slate-500 px-4 py-2 rounded-lg text-sm font-medium hover:border-indigo-400 hover:text-indigo-600 transition-colors"
-          >
-            <Plus size={15} />
-            Add row manually
-          </button>
         </div>
       )}
 
@@ -1128,6 +977,42 @@ export default function JobsPage() {
                     placeholder="e.g. $80k – $120k"
                     className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Resume</label>
+                  {resumeOptions.length === 0 ? (
+                    <p className="text-xs text-slate-400 pt-1">
+                      <Link href="/resumes" className="text-indigo-500 hover:underline">Upload a resume</Link> first
+                    </p>
+                  ) : (
+                    <select
+                      value={form.resume_id ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, resume_id: e.target.value ? Number(e.target.value) : null }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="">— None</option>
+                      {resumeOptions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cover Letter</label>
+                  {coverLetterOptions.length === 0 ? (
+                    <p className="text-xs text-slate-400 pt-1">
+                      <Link href="/resumes" className="text-indigo-500 hover:underline">Upload a cover letter</Link> first
+                    </p>
+                  ) : (
+                    <select
+                      value={form.cover_letter_id ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, cover_letter_id: e.target.value ? Number(e.target.value) : null }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="">— Not required</option>
+                      {coverLetterOptions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  )}
                 </div>
               </div>
               <div>

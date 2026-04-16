@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function authHeaders(extra: HeadersInit = {}): Record<string, string> {
   const user = process.env.NEXT_PUBLIC_API_USER;
@@ -11,9 +11,15 @@ function authHeaders(extra: HeadersInit = {}): Record<string, string> {
  * A helper function for making requests to the backend API (the routes)
  */
 export async function apiFetch(path: string, options: RequestInit = {}) {
+  if (!API_URL) throw new Error("NEXT_PUBLIC_API_URL is not set — check .env.local and restart the dev server");
   const headers = authHeaders(options.headers as HeadersInit);
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch (err) {
+    throw new Error(`Network error reaching ${API_URL}${path} — is the backend running? (${err instanceof Error ? err.message : err})`);
+  }
+  if (!res.ok) throw new Error(`API error ${res.status} on ${options.method ?? "GET"} ${path}`);
   if (res.status === 204) return null;
   return res.json();
 }
