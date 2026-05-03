@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown,
+  Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown, ChevronRight,
   Loader2, MessageSquare, Download, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { apiFetch, apiFetchRaw } from "@/lib/api";
@@ -170,33 +170,31 @@ function FileDropup({
   }
 
   return (
-    <div ref={ref} className="relative flex items-center gap-1 min-w-0">
+    <div ref={ref} className="relative flex items-center gap-1.5 min-w-0">
       {selected ? (
         <>
-          {/* Name = download trigger */}
           <button
             onClick={handleDownload}
             disabled={downloading}
             title={`Download ${selected.name}`}
-            className="text-xs text-indigo-600 hover:underline truncate max-w-[110px] text-left leading-tight"
+            className="text-[15px] font-medium text-indigo-600 hover:text-indigo-700 truncate max-w-[160px] text-left leading-snug transition-colors"
           >
-            {downloading ? <Loader2 size={11} className="animate-spin inline" /> : selected.name}
+            {downloading ? <Loader2 size={13} className="animate-spin inline" /> : selected.name}
           </button>
-          {/* Chevron = open dropdown to change */}
           <button
             onClick={handleOpen}
             className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded"
           >
-            <ChevronDown size={10} />
+            <ChevronDown size={12} />
           </button>
         </>
       ) : (
         <button
           onClick={handleOpen}
-          className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          className="flex items-center gap-1 text-[15px] text-slate-400 hover:text-slate-600 transition-colors"
         >
           <span>{placeholder}</span>
-          <ChevronDown size={10} />
+          <ChevronDown size={12} />
         </button>
       )}
 
@@ -291,10 +289,10 @@ function LocationCell({ value, onSave }: { value: string | null; onSave: (v: str
   return (
     <button
       onClick={(e) => { e.stopPropagation(); setText(value ?? ""); setEditing(true); }}
-      className="text-sm text-slate-600 hover:text-slate-900 text-left truncate block max-w-[130px] leading-tight"
+      className="text-[15px] font-medium text-slate-800 hover:text-slate-900 text-left leading-snug transition-colors"
       title={value ?? "Click to set location"}
     >
-      {value ?? <span className="text-slate-300">—</span>}
+      {value ?? <span className="text-slate-400 font-normal">Add location</span>}
     </button>
   );
 }
@@ -343,15 +341,15 @@ function SalaryCell({
     <div ref={ref} className="relative">
       <button
         onClick={openEditor}
-        className="text-sm text-slate-600 hover:text-slate-900 text-left leading-tight"
+        className="text-[15px] font-medium text-slate-800 hover:text-slate-900 text-left leading-snug transition-colors"
       >
         {range ? (
           <span>
             {range}
-            {typeLabel && <span className="text-xs text-slate-400 ml-1">{typeLabel}</span>}
+            {typeLabel && <span className="text-sm font-normal text-slate-400 ml-1.5">{typeLabel}</span>}
           </span>
         ) : (
-          <span className="text-slate-300">—</span>
+          <span className="text-slate-400 font-normal">Add salary</span>
         )}
       </button>
 
@@ -402,17 +400,13 @@ const STATUS_ORDER: Record<string, number> = {
 };
 
 const COLUMNS: { label: string; align: string; width: string; sortKey: SortCol | null }[] = [
-  { label: "Company",      align: "text-left",   width: "w-[150px]", sortKey: "company" },
-  { label: "Role",         align: "text-left",   width: "w-[180px]", sortKey: "role" },
-  { label: "Status",       align: "text-left",   width: "w-[135px]", sortKey: "status" },
-  { label: "Date Applied", align: "text-left",   width: "w-[125px]", sortKey: "date_applied" },
-  { label: "Type",         align: "text-left",   width: "w-[85px]",  sortKey: "job_type" },
-  { label: "Location",     align: "text-left",   width: "w-[140px]", sortKey: "location" },
-  { label: "Salary",       align: "text-left",   width: "w-[180px]", sortKey: "salary_range" },
-  { label: "Resume",       align: "text-left",   width: "w-[140px]", sortKey: "resume_id" },
-  { label: "Cover Letter", align: "text-left",   width: "w-[140px]", sortKey: "cover_letter_id" },
-  { label: "Comments",     align: "text-left",   width: "w-[180px]", sortKey: "notes" },
-  { label: "",             align: "",            width: "w-[75px]",  sortKey: null },
+  { label: "",             align: "",            width: "w-[40px]",  sortKey: null },
+  { label: "Company",      align: "text-left",   width: "w-[200px]", sortKey: "company" },
+  { label: "Role",         align: "text-left",   width: "w-[260px]", sortKey: "role" },
+  { label: "Status",       align: "text-left",   width: "w-[150px]", sortKey: "status" },
+  { label: "Date Applied", align: "text-left",   width: "w-[140px]", sortKey: "date_applied" },
+  { label: "Type",         align: "text-left",   width: "w-[100px]", sortKey: "job_type" },
+  { label: "",             align: "",            width: "w-[80px]",  sortKey: null },
 ];
 
 function applySorting(jobs: JobApplication[], col: SortCol | null, dir: SortDir, resumes: Resume[]): JobApplication[] {
@@ -457,10 +451,19 @@ export default function JobsPage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [editJob, setEditJob] = useState<JobApplication | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [sortCol, setSortCol] = useState<SortCol | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortCol, setSortCol] = useState<SortCol | null>("date_applied");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function toggleRow(id: number) {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   function handleSort(col: SortCol) {
     if (sortCol === col) {
@@ -551,6 +554,8 @@ export default function JobsPage() {
         salary_range: data.salary_range ?? "",
         salary_type: "",
         notes: "",
+        resume_id: null,
+        cover_letter_id: null,
       });
       setShowUrlInput(false);
       setScrapeUrl("");
@@ -729,7 +734,7 @@ export default function JobsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-          <table className="w-full" style={{ minWidth: "1500px" }}>
+          <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 {COLUMNS.map(({ label, align, width, sortKey }, i) => (
@@ -753,95 +758,153 @@ export default function JobsPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filtered.map((job) => (
-                <tr key={job.id} className="hover:bg-slate-50/60 group transition-colors">
-                  <td className="px-4 py-3">
-                    {job.url ? (
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="group/link inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors truncate max-w-[140px]"
-                        title={job.url}
-                      >
-                        <span className="truncate">{job.company}</span>
-                        <ExternalLink size={11} className="flex-shrink-0 opacity-0 group-hover/link:opacity-60 transition-opacity" />
-                      </a>
-                    ) : (
-                      <span className="text-sm font-semibold text-slate-900 truncate block max-w-[140px]">{job.company}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-slate-700 truncate block max-w-[190px]">{job.role}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusDropup value={job.status} onChange={(s) => updateField(job.id, { status: s })} />
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="text-sm text-slate-500">{fmtDate(job.date_applied)}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {job.job_type ? (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"}`}>
-                        {job.job_type}
-                      </span>
-                    ) : <span className="text-slate-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <LocationCell
-                      value={job.location}
-                      onSave={(v) => updateField(job.id, { location: v } as Partial<JobApplication>)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <SalaryCell
-                      range={job.salary_range}
-                      type={job.salary_type}
-                      onSave={(range, type) => updateField(job.id, { salary_range: range, salary_type: type } as Partial<JobApplication>)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <FileDropup
-                      value={job.resume_id}
-                      options={resumeOptions}
-                      placeholder="None"
-                      nullable={false}
-                      onChange={(id) => updateField(job.id, { resume_id: id } as Partial<JobApplication>)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <FileDropup
-                      value={job.cover_letter_id}
-                      options={coverLetterOptions}
-                      placeholder="Not required"
-                      nullable={true}
-                      onChange={(id) => updateField(job.id, { cover_letter_id: id } as Partial<JobApplication>)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <CommentCell value={job.notes} onEdit={() => openComment(job)} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEdit(job)}
-                        className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteId(job.id)}
-                        className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {filtered.map((job) => {
+                const expanded = expandedRows.has(job.id);
+                return (
+                  <React.Fragment key={job.id}>
+                    <tr
+                      onClick={() => toggleRow(job.id)}
+                      className={`cursor-pointer group transition-colors border-b border-slate-50 ${expanded ? "bg-slate-50" : "hover:bg-slate-50/60"}`}
+                    >
+                      {/* Chevron */}
+                      <td className="px-4 py-4 w-[40px]">
+                        <ChevronRight
+                          size={15}
+                          className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90 text-indigo-500" : ""}`}
+                        />
+                      </td>
+                      {/* Company */}
+                      <td className="px-4 py-4">
+                        {job.url ? (
+                          <a
+                            href={job.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="group/link inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+                            title={job.url}
+                          >
+                            {job.company}
+                            <ExternalLink size={11} className="flex-shrink-0 opacity-0 group-hover/link:opacity-60 transition-opacity" />
+                          </a>
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-900">{job.company}</span>
+                        )}
+                      </td>
+                      {/* Role */}
+                      <td className="px-4 py-4">
+                        <span className="text-sm text-slate-700">{job.role}</span>
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <StatusDropup value={job.status} onChange={(s) => updateField(job.id, { status: s })} />
+                      </td>
+                      {/* Date Applied */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className="text-sm text-slate-500">{fmtDate(job.date_applied)}</span>
+                      </td>
+                      {/* Type */}
+                      <td className="px-4 py-4">
+                        {job.job_type ? (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"}`}>
+                            {job.job_type}
+                          </span>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                      {/* Actions */}
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(job)}
+                            className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(job.id)}
+                            className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
 
+                    {/* Expanded detail row */}
+                    {expanded && (
+                      <tr key={`${job.id}-expanded`} className="border-b border-slate-100">
+                        <td colSpan={7} className="px-8 py-6 bg-[#f5f5f7]">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            {[
+                              {
+                                label: "Location",
+                                content: (
+                                  <LocationCell
+                                    value={job.location}
+                                    onSave={(v) => updateField(job.id, { location: v } as Partial<JobApplication>)}
+                                  />
+                                ),
+                              },
+                              {
+                                label: "Salary",
+                                content: (
+                                  <SalaryCell
+                                    range={job.salary_range}
+                                    type={job.salary_type}
+                                    onSave={(range, type) => updateField(job.id, { salary_range: range, salary_type: type } as Partial<JobApplication>)}
+                                  />
+                                ),
+                              },
+                              {
+                                label: "Resume",
+                                content: (
+                                  <FileDropup
+                                    value={job.resume_id}
+                                    options={resumeOptions}
+                                    placeholder="None"
+                                    nullable={false}
+                                    onChange={(id) => updateField(job.id, { resume_id: id } as Partial<JobApplication>)}
+                                  />
+                                ),
+                              },
+                              {
+                                label: "Cover Letter",
+                                content: (
+                                  <FileDropup
+                                    value={job.cover_letter_id}
+                                    options={coverLetterOptions}
+                                    placeholder="Not required"
+                                    nullable={true}
+                                    onChange={(id) => updateField(job.id, { cover_letter_id: id } as Partial<JobApplication>)}
+                                  />
+                                ),
+                              },
+                            ].map(({ label, content }) => (
+                              <div key={label} className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
+                                <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">{label}</p>
+                                {content}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
+                            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">Notes</p>
+                            <button onClick={() => openComment(job)} className="text-left w-full group/notes">
+                              {job.notes ? (
+                                <p className="text-[15px] text-slate-700 leading-relaxed group-hover/notes:text-slate-900 transition-colors whitespace-pre-wrap">{job.notes}</p>
+                              ) : (
+                                <p className="text-[15px] text-slate-400 group-hover/notes:text-slate-500 transition-colors flex items-center gap-2">
+                                  <MessageSquare size={15} /> Add a note...
+                                </p>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

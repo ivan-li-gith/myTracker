@@ -48,6 +48,13 @@ function fmtDate(s: string) {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 // ---- Status config ----
 
 type StatusKey = "applied" | "phone_screen" | "interview" | "offer" | "rejected";
@@ -60,6 +67,78 @@ const STATUS_CONFIG: Record<StatusKey, { label: string; color: string }> = {
   rejected:     { label: "Rejected",     color: "text-red-600 bg-red-50" },
 };
 
+// ---- Progress Ring ----
+
+function ProgressRing({ value, max, color, trackColor = "#f1f5f9", label, sublabel }: {
+  value: number;
+  max: number;
+  color: string;
+  trackColor?: string;
+  label: string;
+  sublabel: string;
+}) {
+  const r = 30;
+  const circumference = 2 * Math.PI * r;
+  const pct = max === 0 ? 0 : Math.min(value / max, 1);
+  const offset = circumference * (1 - pct);
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative w-[76px] h-[76px]">
+        <svg width="76" height="76" viewBox="0 0 76 76" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="38" cy="38" r={r} fill="none" stroke={trackColor} strokeWidth="7" />
+          <circle
+            cx="38" cy="38" r={r} fill="none"
+            stroke={color} strokeWidth="7"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1)" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[17px] font-bold text-slate-900">{value}</span>
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-[13px] font-semibold text-slate-800">{label}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{sublabel}</p>
+      </div>
+    </div>
+  );
+}
+
+// ---- Focus Card ----
+
+function FocusCard({ icon, accent, title, subtitle, onAction, actionLabel, checking }: {
+  icon: React.ReactNode;
+  accent: string;
+  title: string;
+  subtitle?: string;
+  onAction: () => void;
+  actionLabel: React.ReactNode;
+  checking: boolean;
+}) {
+  return (
+    <div className={`bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 flex items-center gap-4 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${accent}`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-semibold text-slate-900 truncate">{title}</p>
+        {subtitle && <p className="text-[12px] text-slate-400 mt-0.5">{subtitle}</p>}
+      </div>
+      <button
+        onClick={onAction}
+        disabled={checking}
+        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border-2 border-slate-200 hover:border-current transition-colors disabled:cursor-not-allowed"
+      >
+        {checking ? <Check size={13} className="text-slate-400" /> : actionLabel}
+      </button>
+    </div>
+  );
+}
+
 // ---- Page ----
 
 export default function HomePage() {
@@ -70,7 +149,6 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<JobApplication[]>([]);
 
-  // Track items being checked (for animation)
   const [checkingTasks, setCheckingTasks] = useState<Set<number>>(new Set());
   const [checkingHabits, setCheckingHabits] = useState<Set<number>>(new Set());
   const [checkingPayments, setCheckingPayments] = useState<Set<number>>(new Set());
@@ -114,9 +192,7 @@ export default function HomePage() {
     await apiFetch(`/habits/${id}/log`, { method: "POST" });
     setTimeout(() => {
       setHabits(prev => prev.map(h =>
-        h.id === id
-          ? { ...h, logged_dates: [...(h.logged_dates || []), todayStr()] }
-          : h
+        h.id === id ? { ...h, logged_dates: [...(h.logged_dates || []), todayStr()] } : h
       ));
       setCheckingHabits(prev => { const s = new Set(prev); s.delete(id); return s; });
     }, 400);
@@ -131,7 +207,8 @@ export default function HomePage() {
     }, 400);
   }
 
-  // Derived data
+  // ---- Derived data ----
+
   const pendingTasks = tasks
     .filter(t => !t.completed)
     .sort((a, b) => {
@@ -142,6 +219,7 @@ export default function HomePage() {
     });
 
   const habitsToDoToday = habits.filter(isHabitNeededToday);
+  const habitsLoggedToday = habits.filter(h => h.logged_dates?.includes(todayStr()));
 
   const unpaidPayments = payments
     .filter(p => !p.is_paid)
@@ -154,26 +232,135 @@ export default function HomePage() {
     {}
   );
 
-  return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+  const activeJobs = jobs.filter(j => j.status === "phone_screen" || j.status === "interview").length;
 
-      {/* Header */}
+  // ---- Today's Focus items ----
+
+  const focusTask = pendingTasks[0] ?? null;
+  const focusHabit = habitsToDoToday[0] ?? null;
+  const focusPayment = unpaidPayments[0] ?? null;
+  const allCaughtUp = !focusTask && !focusHabit && !focusPayment;
+
+  // ---- Ring metrics ----
+
+  const habitsTotal = habitsLoggedToday.length + habitsToDoToday.length;
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+
+  return (
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-10">
+
+      {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-0.5">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+          {getGreeting()}, Ivan
+        </h1>
+        <p className="text-base text-slate-400 mt-1">
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </p>
       </div>
 
-      {/* Analytics row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Today's Focus */}
+      <section>
+        <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
+          Today&apos;s Focus
+        </h2>
+        {allCaughtUp ? (
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <CheckCircle2 size={20} className="text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-[15px] font-semibold text-slate-900">You&apos;re all caught up</p>
+              <p className="text-[12px] text-slate-400 mt-0.5">Nothing urgent today — enjoy the day.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {focusTask && (
+              <FocusCard
+                icon={<CheckCircle2 size={18} className="text-emerald-600" />}
+                accent="bg-emerald-50"
+                title={focusTask.name}
+                subtitle={focusTask.due_date ? `Due ${fmtDate(focusTask.due_date)}` : "Task"}
+                onAction={() => completeTask(focusTask.id)}
+                actionLabel={<Check size={13} className="text-slate-300" />}
+                checking={checkingTasks.has(focusTask.id)}
+              />
+            )}
+            {focusHabit && (
+              <FocusCard
+                icon={<Flame size={18} className="text-orange-500" />}
+                accent="bg-orange-50"
+                title={focusHabit.name}
+                subtitle={`${focusHabit.streak ?? 0} day streak`}
+                onAction={() => logHabit(focusHabit.id)}
+                actionLabel={<Check size={13} className="text-slate-300" />}
+                checking={checkingHabits.has(focusHabit.id)}
+              />
+            )}
+            {focusPayment && (
+              <FocusCard
+                icon={<CreditCard size={18} className="text-amber-600" />}
+                accent="bg-amber-50"
+                title={focusPayment.name}
+                subtitle={
+                  focusPayment.days_until_due < 0
+                    ? `${Math.abs(focusPayment.days_until_due)}d overdue · ${fmtAmount(focusPayment.amount)}`
+                    : focusPayment.days_until_due === 0
+                      ? `Due today · ${fmtAmount(focusPayment.amount)}`
+                      : `Due ${fmtDate(focusPayment.due_date)} · ${fmtAmount(focusPayment.amount)}`
+                }
+                onAction={() => markPaid(focusPayment.id)}
+                actionLabel={<Check size={13} className="text-slate-300" />}
+                checking={checkingPayments.has(focusPayment.id)}
+              />
+            )}
+          </div>
+        )}
+      </section>
 
-        {/* Expenses panel */}
+      {/* Progress Rings */}
+      <section>
+        <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
+          Progress
+        </h2>
+        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] py-8 px-6">
+          <div className="flex items-center justify-around max-w-sm mx-auto">
+            <ProgressRing
+              value={habitsLoggedToday.length}
+              max={habitsTotal}
+              color="#f97316"
+              label="Habits"
+              sublabel={`${habitsLoggedToday.length} of ${habitsTotal} today`}
+            />
+            <div className="w-px h-16 bg-slate-100" />
+            <ProgressRing
+              value={completedTasks}
+              max={totalTasks}
+              color="#6366f1"
+              label="Tasks"
+              sublabel={`${pendingTasks.length} remaining`}
+            />
+            <div className="w-px h-16 bg-slate-100" />
+            <ProgressRing
+              value={activeJobs}
+              max={jobs.length}
+              color="#0ea5e9"
+              label="Jobs"
+              sublabel={`${activeJobs} active`}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Analytics row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Panel
           icon={<DollarSign size={15} className="text-emerald-600" />}
           title="Expenses"
           label={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-          aside={<span className="text-lg font-bold text-slate-900">{fmtAmount(expenseSummary?.total)}</span>}
+          aside={<span className="text-base font-bold text-slate-900">{fmtAmount(expenseSummary?.total)}</span>}
         >
           {!expenseSummary || expenseSummary.by_category.length === 0 ? (
             <Empty message="No expenses this month." />
@@ -190,10 +377,10 @@ export default function HomePage() {
                   .sort((a, b) => b.total - a.total)
                   .map((row, i) => (
                     <tr key={i} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2 text-slate-700">
+                      <td className="py-2.5 text-slate-700">
                         {row.category_id ? catMap.get(row.category_id) ?? "Uncategorized" : "Uncategorized"}
                       </td>
-                      <td className="py-2 text-right font-semibold text-slate-900">{fmtAmount(row.total)}</td>
+                      <td className="py-2.5 text-right font-semibold text-slate-900">{fmtAmount(row.total)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -201,11 +388,10 @@ export default function HomePage() {
           )}
         </Panel>
 
-        {/* Jobs pipeline panel */}
         <Panel
           icon={<Briefcase size={15} className="text-indigo-600" />}
           title="Job Pipeline"
-          aside={<span className="text-xs text-slate-500 font-medium">{jobs.length} total</span>}
+          aside={<span className="text-xs text-slate-400 font-medium">{jobs.length} total</span>}
         >
           {jobs.length === 0 ? (
             <Empty message="No job applications yet." />
@@ -223,11 +409,11 @@ export default function HomePage() {
                   .filter(([key]) => jobCounts[key] > 0)
                   .map(([key, cfg]) => (
                     <tr key={key} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2">
+                      <td className="py-2.5">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       </td>
-                      <td className="py-2 text-right font-semibold text-slate-900">{jobCounts[key]}</td>
-                      <td className="py-2 text-right text-slate-400">
+                      <td className="py-2.5 text-right font-semibold text-slate-900">{jobCounts[key]}</td>
+                      <td className="py-2.5 text-right text-slate-400">
                         {Math.round((jobCounts[key] / jobs.length) * 100)}%
                       </td>
                     </tr>
@@ -239,9 +425,8 @@ export default function HomePage() {
       </div>
 
       {/* Action columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* Pending Tasks */}
         <Panel
           icon={<CheckCircle2 size={15} className="text-emerald-600" />}
           title="Pending Tasks"
@@ -267,9 +452,9 @@ export default function HomePage() {
                       {checking && <Check size={9} className="text-emerald-500" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800">{task.name}</p>
+                      <p className="text-[15px] font-medium text-slate-800">{task.name}</p>
                       {task.due_date && (
-                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                           <Calendar size={10} />{fmtDate(task.due_date)}
                         </span>
                       )}
@@ -281,7 +466,6 @@ export default function HomePage() {
           )}
         </Panel>
 
-        {/* Habits Today */}
         <Panel
           icon={<Flame size={15} className="text-orange-500" />}
           title="Habits Today"
@@ -307,7 +491,7 @@ export default function HomePage() {
                       >
                         {checking && <Check size={9} className="text-orange-500" />}
                       </button>
-                      <span className="text-sm font-medium text-slate-800 truncate">{habit.name}</span>
+                      <span className="text-[15px] font-medium text-slate-800 truncate">{habit.name}</span>
                     </div>
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md flex-shrink-0">
                       <Flame size={11} />{habit.streak ?? 0}
@@ -319,7 +503,6 @@ export default function HomePage() {
           )}
         </Panel>
 
-        {/* Upcoming Payments */}
         <Panel
           icon={<CreditCard size={15} className="text-amber-600" />}
           title="Upcoming Payments"
@@ -345,8 +528,8 @@ export default function HomePage() {
                       {checking && <Check size={9} className="text-amber-500" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{payment.name}</p>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 block ${
+                      <p className="text-[15px] font-medium text-slate-800 truncate">{payment.name}</p>
+                      <span className={`text-[11px] font-semibold uppercase tracking-wider mt-0.5 block ${
                         payment.days_until_due < 0
                           ? "text-red-500"
                           : payment.days_until_due <= 3
@@ -360,7 +543,7 @@ export default function HomePage() {
                             : `Due ${fmtDate(payment.due_date)}`}
                       </span>
                     </div>
-                    <span className="text-sm font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
+                    <span className="text-[15px] font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
                   </li>
                 );
               })}
@@ -384,11 +567,11 @@ function Panel({ icon, title, label, aside, badge, badgeColor, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+    <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {icon}
-          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">{title}</h2>
+          <h2 className="text-[11px] font-semibold text-slate-900 uppercase tracking-[0.08em]">{title}</h2>
           {label && <span className="text-xs text-slate-400 font-medium">{label}</span>}
           {badge !== undefined && (
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
@@ -404,5 +587,5 @@ function Panel({ icon, title, label, aside, badge, badgeColor, children }: {
 }
 
 function Empty({ message }: { message: string }) {
-  return <p className="text-sm text-slate-400 text-center py-6">{message}</p>;
+  return <p className="text-[13px] text-slate-400 text-center py-6">{message}</p>;
 }
