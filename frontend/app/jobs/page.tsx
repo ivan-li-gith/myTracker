@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  Plus, Pencil, Trash2, ExternalLink, Link2, ChevronDown, ChevronRight,
+  Plus, Pencil, Trash2, ExternalLink, ChevronDown, ChevronRight,
   Loader2, MessageSquare, Download, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { apiFetch, apiFetchRaw } from "@/lib/api";
@@ -36,6 +36,11 @@ const SALARY_TYPES = [
 
 function salaryTypeLabel(type: string | null) {
   return SALARY_TYPES.find((t) => t.value === type)?.label ?? null;
+}
+
+function extractVersion(name: string): number {
+  const m = name.match(/v(\d+)/i);
+  return m ? parseInt(m[1]) : 0;
 }
 
 function statusCfg(s: string | null) {
@@ -297,7 +302,32 @@ function LocationCell({ value, onSave }: { value: string | null; onSave: (v: str
   );
 }
 
-// ---- Salary cell (popover with type selector + amount) ----
+// ---- Salary helpers ----
+
+function parseSalaryRange(range: string | null): { low: string; high: string } {
+  if (!range) return { low: "", high: "" };
+  const parts = range.split("-");
+  return { low: parts[0] ?? "", high: parts[1] ?? "" };
+}
+
+function buildSalaryRange(low: string, high: string): string | null {
+  const l = low.trim();
+  if (!l) return null;
+  const h = high.trim();
+  return h ? `${l}-${h}` : l;
+}
+
+function formatSalaryDisplay(range: string | null, type: string | null): string | null {
+  if (!range) return null;
+  const typeLabel = salaryTypeLabel(type);
+  const useK = type === "monthly" || type === "yearly";
+  const parts = range.split("-");
+  const fmt = (v: string) => (useK ? `$${v}K` : `$${v}`);
+  const display = parts.length > 1 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : fmt(parts[0]);
+  return typeLabel ? `${display} ${typeLabel}` : display;
+}
+
+// ---- Salary cell (popover with type selector + low/high inputs) ----
 
 function SalaryCell({
   range,
@@ -310,8 +340,9 @@ function SalaryCell({
 }) {
   const [open, setOpen] = useState(false);
   const [dir, setDir] = useState<"up" | "down">("up");
-  const [editRange, setEditRange] = useState(range ?? "");
   const [editType, setEditType] = useState(type ?? "");
+  const [editLow, setEditLow] = useState(() => parseSalaryRange(range).low);
+  const [editHigh, setEditHigh] = useState(() => parseSalaryRange(range).high);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -324,18 +355,22 @@ function SalaryCell({
 
   function openEditor(e: React.MouseEvent) {
     e.stopPropagation();
-    setEditRange(range ?? "");
+    const parsed = parseSalaryRange(range);
     setEditType(type ?? "");
-    if (!open && ref.current) setDir(getDropDir(ref.current, 210));
+    setEditLow(parsed.low);
+    setEditHigh(parsed.high);
+    if (!open && ref.current) setDir(getDropDir(ref.current, 240));
     setOpen((o) => !o);
   }
 
   function save() {
     setOpen(false);
-    onSave(editRange.trim() || null, editType || null);
+    onSave(buildSalaryRange(editLow, editHigh), editType || null);
   }
 
-  const typeLabel = salaryTypeLabel(type);
+  const useK = editType === "monthly" || editType === "yearly";
+  const placeholder = useK ? "e.g. 80" : "e.g. 25";
+  const suffix = useK ? "K" : "";
 
   return (
     <div ref={ref} className="relative">
@@ -344,17 +379,14 @@ function SalaryCell({
         className="text-[15px] font-medium text-slate-800 hover:text-slate-900 text-left leading-snug transition-colors"
       >
         {range ? (
-          <span>
-            {range}
-            {typeLabel && <span className="text-sm font-normal text-slate-400 ml-1.5">{typeLabel}</span>}
-          </span>
+          <span>{formatSalaryDisplay(range, type)}</span>
         ) : (
           <span className="text-slate-400 font-normal">Add salary</span>
         )}
       </button>
 
       {open && (
-        <div className={`absolute left-0 z-30 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-3 flex flex-col gap-2 ${dir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
+        <div className={`absolute left-0 z-30 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-3 flex flex-col gap-2 ${dir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
           <div>
             <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Type</label>
             <select
@@ -368,17 +400,34 @@ function SalaryCell({
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Amount</label>
-            <input
-              autoFocus
-              type="text"
-              value={editRange}
-              onChange={(e) => setEditRange(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && save()}
-              placeholder="e.g. $80k – $120k"
-              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">
+                Low{suffix && ` (${suffix})`}
+              </label>
+              <input
+                autoFocus
+                type="number"
+                value={editLow}
+                onChange={(e) => setEditLow(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && save()}
+                placeholder={placeholder}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">
+                High{suffix && ` (${suffix})`} <span className="text-slate-300 normal-case font-normal">optional</span>
+              </label>
+              <input
+                type="number"
+                value={editHigh}
+                onChange={(e) => setEditHigh(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && save()}
+                placeholder={placeholder}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
           </div>
           <div className="flex gap-2 justify-end pt-1">
             <button onClick={() => setOpen(false)} className="text-xs text-slate-500 hover:text-slate-800 transition-colors">Cancel</button>
@@ -439,7 +488,9 @@ function applySorting(jobs: JobApplication[], col: SortCol | null, dir: SortDir,
 
 const EMPTY_FORM = {
   company: "", role: "", url: "", status: "applied",
-  date_applied: "", location: "", job_type: "", salary_range: "", salary_type: "", notes: "",
+  date_applied: "", location: "", job_type: "",
+  salary_low: "", salary_high: "", salary_type: "", salary_range: "",
+  notes: "",
   resume_id: null as number | null,
   cover_letter_id: null as number | null,
 };
@@ -473,11 +524,6 @@ export default function JobsPage() {
       setSortDir("asc");
     }
   }
-
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [scrapeUrl, setScrapeUrl] = useState("");
-  const [scraping, setScraping] = useState(false);
-  const [scrapeError, setScrapeError] = useState<string | null>(null);
 
   const [commentJob, setCommentJob] = useState<JobApplication | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -524,47 +570,9 @@ export default function JobsPage() {
   }
 
   function openNewJob() {
-    setForm({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()) });
+    const latestResume = [...resumeOptions].sort((a, b) => extractVersion(b.name) - extractVersion(a.name))[0] ?? null;
+    setForm({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()), resume_id: latestResume?.id ?? null });
     setEditJob({ id: -1 } as JobApplication);
-  }
-
-  async function handleScrape(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!scrapeUrl.trim()) return;
-    if (scrapeUrl.includes("linkedin.com")) {
-      setScrapeError("LinkedIn blocks automated scraping. Try Indeed, Greenhouse, Lever, or the company's careers page.");
-      return;
-    }
-    setScraping(true);
-    setScrapeError(null);
-    try {
-      const data = await apiFetch("/jobs/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: scrapeUrl.trim() }),
-      });
-      setForm({
-        company: data.company ?? "",
-        role: data.role ?? "",
-        url: data.url ?? scrapeUrl.trim(),
-        status: "applied",
-        date_applied: toLocalDate(new Date()),
-        location: data.location ?? "",
-        job_type: data.job_type ?? "",
-        salary_range: data.salary_range ?? "",
-        salary_type: "",
-        notes: "",
-        resume_id: null,
-        cover_letter_id: null,
-      });
-      setShowUrlInput(false);
-      setScrapeUrl("");
-      setEditJob({ id: -1 } as JobApplication);
-    } catch (err) {
-      setScrapeError(err instanceof Error ? err.message : "Scraping failed");
-    } finally {
-      setScraping(false);
-    }
   }
 
   function openComment(job: JobApplication) {
@@ -586,6 +594,7 @@ export default function JobsPage() {
 
   function openEdit(job: JobApplication) {
     setEditJob(job);
+    const { low, high } = parseSalaryRange(job.salary_range);
     setForm({
       company: job.company,
       role: job.role,
@@ -594,6 +603,8 @@ export default function JobsPage() {
       date_applied: job.date_applied ?? "",
       location: job.location ?? "",
       job_type: job.job_type ?? "",
+      salary_low: low,
+      salary_high: high,
       salary_range: job.salary_range ?? "",
       salary_type: job.salary_type ?? "",
       notes: job.notes ?? "",
@@ -607,8 +618,7 @@ export default function JobsPage() {
     setForm(EMPTY_FORM);
   }
 
-  async function saveJob(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function doSaveJob() {
     const body = {
       company: form.company,
       role: form.role,
@@ -617,7 +627,7 @@ export default function JobsPage() {
       date_applied: form.date_applied || null,
       location: form.location || null,
       job_type: form.job_type || null,
-      salary_range: form.salary_range || null,
+      salary_range: buildSalaryRange(form.salary_low, form.salary_high),
       salary_type: form.salary_type || null,
       notes: form.notes || null,
       resume_id: form.resume_id,
@@ -638,7 +648,19 @@ export default function JobsPage() {
       });
       setJobs((prev) => [created, ...prev]);
     }
+  }
+
+  async function saveJob(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await doSaveJob();
     closeForm();
+  }
+
+  async function saveJobAndAddAnother() {
+    await doSaveJob();
+    const latestResume = [...resumeOptions].sort((a, b) => extractVersion(b.name) - extractVersion(a.name))[0] ?? null;
+    setForm({ ...EMPTY_FORM, date_applied: form.date_applied, status: form.status, resume_id: latestResume?.id ?? null });
+    setEditJob({ id: -1 } as JobApplication);
   }
 
   async function confirmDelete() {
@@ -669,13 +691,6 @@ export default function JobsPage() {
           >
             <Plus size={15} />
             Add
-          </button>
-          <button
-            onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
-            className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-          >
-            <Link2 size={15} />
-            Add via URL
           </button>
         </div>
       </div>
@@ -715,22 +730,13 @@ export default function JobsPage() {
       {/* Table */}
       {jobs.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-400 text-sm mb-3">No applications yet. Add one manually or paste a job URL.</p>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={openNewJob}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-            >
-              Add manually →
-            </button>
-            <span className="text-slate-300">|</span>
-            <button
-              onClick={() => { setScrapeUrl(""); setScrapeError(null); setShowUrlInput(true); }}
-              className="text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
-            >
-              Paste a job URL →
-            </button>
-          </div>
+          <p className="text-slate-400 text-sm mb-3">No applications yet.</p>
+          <button
+            onClick={openNewJob}
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          >
+            Add your first application →
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
@@ -910,36 +916,6 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* URL Scrape Modal */}
-      {showUrlInput && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-1">Add via Job URL</h2>
-            <p className="text-sm text-slate-500 mb-4">Paste the job posting URL and we&apos;ll extract the details automatically.</p>
-            <form onSubmit={handleScrape} className="flex flex-col gap-3">
-              <input
-                type="url"
-                value={scrapeUrl}
-                onChange={(e) => { setScrapeUrl(e.target.value); setScrapeError(null); }}
-                placeholder="https://..."
-                required
-                autoFocus
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {scrapeError && (
-                <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{scrapeError}</p>
-              )}
-              <div className="flex gap-3 justify-end pt-1">
-                <button type="button" onClick={() => setShowUrlInput(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
-                <button type="submit" disabled={scraping} className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60">
-                  {scraping ? <><Loader2 size={14} className="animate-spin" /> Scraping...</> : "Scrape →"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Comment modal */}
       {commentJob !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -1024,22 +1000,44 @@ export default function JobsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Salary</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <select
                     value={form.salary_type}
                     onChange={(e) => setField("salary_type", e.target.value)}
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white w-36 flex-shrink-0"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   >
                     <option value="">— Type</option>
                     {SALARY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.long}</option>)}
                   </select>
-                  <input
-                    type="text"
-                    value={form.salary_range}
-                    onChange={(e) => setField("salary_range", e.target.value)}
-                    placeholder="e.g. $80k – $120k"
-                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  {form.salary_type && (() => {
+                    const useK = form.salary_type === "monthly" || form.salary_type === "yearly";
+                    const suffix = useK ? " (K)" : "";
+                    const ph = useK ? "e.g. 80" : "e.g. 25";
+                    return (
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-xs text-slate-500 mb-1">Low{suffix}</label>
+                          <input
+                            type="number"
+                            value={form.salary_low}
+                            onChange={(e) => setField("salary_low", e.target.value)}
+                            placeholder={ph}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs text-slate-500 mb-1">High{suffix} <span className="text-slate-300">optional</span></label>
+                          <input
+                            type="number"
+                            value={form.salary_high}
+                            onChange={(e) => setField("salary_high", e.target.value)}
+                            placeholder={ph}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1084,6 +1082,15 @@ export default function JobsPage() {
               </div>
               <div className="flex gap-3 justify-end pt-1">
                 <button type="button" onClick={closeForm} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                {editJob.id === -1 && (
+                  <button
+                    type="button"
+                    onClick={saveJobAndAddAnother}
+                    className="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Save & add another
+                  </button>
+                )}
                 <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                   {editJob.id === -1 ? "Save" : "Save changes"}
                 </button>

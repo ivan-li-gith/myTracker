@@ -15,6 +15,7 @@ class Expense(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     date: Mapped[date] = mapped_column(Date)
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"))
+    credit_card_id: Mapped[Optional[int]] = mapped_column(ForeignKey("credit_cards.id"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
 

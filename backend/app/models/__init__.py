@@ -4,6 +4,7 @@ from app.models.tasks import Task
 from app.models.payments import Payment
 from app.models.jobs import JobApplication
 from app.models.expenses import Expense, ExpenseSplit
+from app.models.credit_cards import CreditCard
 from app.models.recipes import Recipe
 from app.models.docs import Doc
 from app.models.resumes import Resume

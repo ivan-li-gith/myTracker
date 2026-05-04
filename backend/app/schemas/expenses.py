@@ -8,6 +8,7 @@ class ExpenseBase(BaseModel):
     amount: Decimal
     date: date
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     notes: Optional[str] = None
 
 class ExpenseCreate(ExpenseBase):
@@ -18,6 +19,7 @@ class ExpenseUpdate(BaseModel):
     amount: Optional[Decimal] = None
     date: Optional[date] = None
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     notes: Optional[str] = None
 
 class ExpenseRead(ExpenseBase):

@@ -27,3 +27,13 @@ body {
 .md-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
 .md-body th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; }
 .md-body td { border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; }
+
+/* Confetti celebration animation */
+@keyframes confetti-rise {
+  0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  60%  { opacity: 0.9; }
+  100% { transform: translateY(-220px) rotate(720deg) scale(0.6); opacity: 0; }
+}
+.confetti-piece {
+  animation: confetti-rise var(--conf-dur, 1.5s) ease-out var(--conf-delay, 0s) both;
+}

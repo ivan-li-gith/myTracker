@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import QuickAddFAB from "@/components/QuickAddFAB";
+import NotificationScheduler from "@/components/NotificationScheduler";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -28,6 +30,8 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       >
         {children}
       </main>
+      <QuickAddFAB />
+      <NotificationScheduler />
     </>
   );
 }

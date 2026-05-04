@@ -86,7 +86,15 @@ export interface Expense {
   amount: number;
   date: string; // YYYY-MM-DD
   category_id: number | null;
+  credit_card_id: number | null;
   notes: string | null;
+}
+
+export interface CreditCard {
+  id: number;
+  name: string;
+  last_four: string | null;
+  color: string | null;
 }
 
 export interface ExpenseSummary {

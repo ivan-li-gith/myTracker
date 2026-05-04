@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2, Flame, CreditCard, Briefcase, DollarSign, Calendar, Check,
 } from "lucide-react";
@@ -25,6 +25,12 @@ function getWeekStart() {
   const monday = new Date(d);
   monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d + n);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function countLogsThisWeek(loggedDates: string[]) {
@@ -139,6 +145,107 @@ function FocusCard({ icon, accent, title, subtitle, onAction, actionLabel, check
   );
 }
 
+// ---- Confetti ----
+
+const CONFETTI_COLORS = ["#f97316", "#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+function Confetti({ active }: { active: boolean }) {
+  if (!active) return null;
+  const pieces = Array.from({ length: 36 }, (_, i) => ({
+    id: i,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    left: 5 + (i / 36) * 90 + (Math.sin(i * 2.4) * 5),
+    bottom: 15 + Math.abs(Math.sin(i * 1.3)) * 30,
+    size: 7 + (i % 5),
+    delay: (i % 8) * 0.12,
+    duration: 1.2 + (i % 4) * 0.2,
+    round: i % 3 !== 0,
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          className={`absolute confetti-piece ${p.round ? "rounded-full" : "rounded-sm"}`}
+          style={{
+            backgroundColor: p.color,
+            left: `${p.left}%`,
+            bottom: `${p.bottom}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            "--conf-delay": `${p.delay}s`,
+            "--conf-dur": `${p.duration}s`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---- Weekly Summary ----
+
+function WeeklySummary({ habits }: { habits: HabitWithStreak[] }) {
+  const weekStart = getWeekStart();
+  const today = todayStr();
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const passedDays = weekDays.filter((d) => d <= today);
+  const loggedDays = passedDays.filter((day) => habits.some((h) => h.logged_dates?.includes(day)));
+
+  const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+  const perfectSoFar = passedDays.length > 0 && loggedDays.length === passedDays.length;
+
+  return (
+    <section>
+      <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
+        This Week
+      </h2>
+      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+        <div className="flex items-center justify-between gap-6 flex-wrap">
+          <div>
+            <p className="text-3xl font-bold text-slate-900 tracking-tight">
+              {loggedDays.length}
+              <span className="text-slate-300 text-2xl">/{passedDays.length}</span>
+            </p>
+            <p className="text-[13px] text-slate-500 mt-1">habit days logged this week</p>
+            {perfectSoFar && passedDays.length >= 3 && (
+              <p className="text-xs font-semibold text-emerald-600 mt-2">🏆 Perfect week so far!</p>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            {weekDays.map((day, i) => {
+              const isPast = day <= today;
+              const isToday = day === today;
+              const logged = habits.some((h) => h.logged_dates?.includes(day));
+              return (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${
+                      !isPast
+                        ? "bg-slate-50 text-slate-200"
+                        : logged
+                          ? "bg-orange-100 text-orange-600"
+                          : isToday
+                            ? "bg-slate-100 text-slate-400 ring-2 ring-slate-300"
+                            : "bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    {logged && isPast ? "✓" : ""}
+                  </div>
+                  <span className={`text-[10px] font-medium ${isToday ? "text-slate-600" : "text-slate-300"}`}>
+                    {DAY_LABELS[i]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ---- Page ----
 
 export default function HomePage() {
@@ -152,6 +259,9 @@ export default function HomePage() {
   const [checkingTasks, setCheckingTasks] = useState<Set<number>>(new Set());
   const [checkingHabits, setCheckingHabits] = useState<Set<number>>(new Set());
   const [checkingPayments, setCheckingPayments] = useState<Set<number>>(new Set());
+
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevHabitsToDoCount = useRef(-1);
 
   useEffect(() => {
     const month = currentMonth();
@@ -171,6 +281,21 @@ export default function HomePage() {
       if (j.status === "fulfilled") setJobs(j.value || []);
     });
   }, []);
+
+  // Confetti: trigger when habitsToDoToday transitions from >0 to 0
+  const habitsToDoToday = habits.filter(isHabitNeededToday);
+
+  useEffect(() => {
+    if (prevHabitsToDoCount.current === -1) {
+      prevHabitsToDoCount.current = habitsToDoToday.length;
+      return;
+    }
+    if (prevHabitsToDoCount.current > 0 && habitsToDoToday.length === 0 && habits.length > 0) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3500);
+    }
+    prevHabitsToDoCount.current = habitsToDoToday.length;
+  }, [habitsToDoToday.length, habits.length]);
 
   // ---- Check-off handlers ----
 
@@ -218,7 +343,6 @@ export default function HomePage() {
       return a.due_date.localeCompare(b.due_date);
     });
 
-  const habitsToDoToday = habits.filter(isHabitNeededToday);
   const habitsLoggedToday = habits.filter(h => h.logged_dates?.includes(todayStr()));
 
   const unpaidPayments = payments
@@ -234,21 +358,17 @@ export default function HomePage() {
 
   const activeJobs = jobs.filter(j => j.status === "phone_screen" || j.status === "interview").length;
 
-  // ---- Today's Focus items ----
-
   const focusTask = pendingTasks[0] ?? null;
   const focusHabit = habitsToDoToday[0] ?? null;
   const focusPayment = unpaidPayments[0] ?? null;
   const allCaughtUp = !focusTask && !focusHabit && !focusPayment;
 
-  // ---- Ring metrics ----
-
   const habitsTotal = habitsLoggedToday.length + habitsToDoToday.length;
   const completedTasks = tasks.filter(t => t.completed).length;
-  const totalTasks = tasks.length;
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-10">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-10 pb-24">
+      <Confetti active={showConfetti} />
 
       {/* Greeting */}
       <div>
@@ -337,7 +457,7 @@ export default function HomePage() {
             <div className="w-px h-16 bg-slate-100" />
             <ProgressRing
               value={completedTasks}
-              max={totalTasks}
+              max={tasks.length}
               color="#6366f1"
               label="Tasks"
               sublabel={`${pendingTasks.length} remaining`}
@@ -353,6 +473,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Weekly Summary */}
+      {habits.length > 0 && <WeeklySummary habits={habits} />}
 
       {/* Analytics row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -473,7 +596,7 @@ export default function HomePage() {
           badgeColor="bg-orange-100 text-orange-700"
         >
           {habitsToDoToday.length === 0 ? (
-            <Empty message="All habits done for today!" />
+            <Empty message="All habits done for today! 🎉" />
           ) : (
             <ul className="divide-y divide-slate-100">
               {habitsToDoToday.map(habit => {

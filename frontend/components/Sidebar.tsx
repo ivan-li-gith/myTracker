@@ -23,7 +23,7 @@ interface NavItem {
   children?: NavChild[];
 }
 
-const NAV: NavItem[] = [
+const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/tasks", label: "Habits & Tasks", icon: CheckSquare },
   { href: "/payments", label: "Payments & Expenses", icon: CreditCard },
@@ -33,6 +33,9 @@ const NAV: NavItem[] = [
       { href: "/resumes", label: "Resumes", icon: FileText },
     ],
   },
+];
+
+const MORE_NAV: NavItem[] = [
   { href: "/docs", label: "Docs", icon: BookOpen },
   { href: "/recipes", label: "Recipes", icon: ChefHat },
 ];
@@ -58,6 +61,7 @@ function getWeekStart() {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreExpanded, setMoreExpanded] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -106,102 +110,99 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return href === "/" ? pathname === "/" : pathname.startsWith(href);
   }
 
-  // Desktop nav content
-  const desktopNav = (
-    <nav className="flex flex-col gap-0.5 mt-4 flex-1 overflow-y-auto">
-      {NAV.map((item) => {
-        const active = isActive(item.href);
-        const Icon = item.icon;
-        const hasActiveChild = item.children?.some((c) => isActive(c.href));
-        const badge = badges[item.href];
+  function renderNavItem(item: NavItem, isMobile = false) {
+    const active = isActive(item.href);
+    const Icon = item.icon;
+    const hasActiveChild = item.children?.some((c) => isActive(c.href));
+    const badge = badges[item.href];
 
-        return (
-          <div key={item.href}>
-            <Link
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={`relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 ${
-                collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2"
-              } ${
-                active || hasActiveChild
-                  ? "bg-slate-100 text-slate-900"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <Icon
-                size={18}
-                className={`flex-shrink-0 ${active || hasActiveChild ? "text-indigo-600" : "text-slate-400"}`}
-              />
-              {!collapsed && (
-                <>
-                  <span className="truncate flex-1">{item.label}</span>
-                  {badge !== undefined && (
-                    <span className="ml-auto text-[11px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full leading-none">
-                      {badge}
-                    </span>
-                  )}
-                </>
+    return (
+      <div key={item.href}>
+        <Link
+          href={item.href}
+          title={collapsed && !isMobile ? item.label : undefined}
+          onClick={isMobile ? () => setMobileOpen(false) : undefined}
+          className={`relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 ${
+            collapsed && !isMobile ? "justify-center px-0 py-2.5" : "px-3 py-2"
+          } ${
+            active || hasActiveChild
+              ? "bg-slate-100 text-slate-900"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+          }`}
+        >
+          <Icon
+            size={18}
+            className={`flex-shrink-0 ${active || hasActiveChild ? "text-indigo-600" : "text-slate-400"}`}
+          />
+          {(!collapsed || isMobile) && (
+            <>
+              <span className="truncate flex-1">{item.label}</span>
+              {badge !== undefined && (
+                <span className="ml-auto text-[11px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full leading-none">
+                  {badge}
+                </span>
               )}
-              {collapsed && badge !== undefined && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
-              )}
-            </Link>
+            </>
+          )}
+          {collapsed && !isMobile && badge !== undefined && (
+            <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
+          )}
+        </Link>
 
-            {/* Children — only shown when expanded */}
-            {!collapsed && item.children && (
-              <div className="ml-3 pl-3 border-l border-slate-200 mt-0.5 mb-0.5 flex flex-col gap-0.5">
-                {item.children.map((child) => {
-                  const childActive = isActive(child.href);
-                  const ChildIcon = child.icon;
-                  return (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-                        childActive
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                      }`}
-                    >
-                      <ChildIcon
-                        size={14}
-                        className={`flex-shrink-0 ${childActive ? "text-indigo-500" : "text-slate-400"}`}
-                      />
-                      <span className="truncate">{child.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Collapsed children — show as standalone icon rows */}
-            {collapsed && item.children && (
-              <div className="flex flex-col gap-0.5 mt-0.5">
-                {item.children.map((child) => {
-                  const childActive = isActive(child.href);
-                  const ChildIcon = child.icon;
-                  return (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      title={child.label}
-                      className={`flex items-center justify-center py-2 rounded-md transition-all duration-150 ${
-                        childActive
-                          ? "bg-slate-100 text-indigo-500"
-                          : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                      }`}
-                    >
-                      <ChildIcon size={15} className="flex-shrink-0" />
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+        {/* Children — expanded only */}
+        {(!collapsed || isMobile) && item.children && (
+          <div className="ml-3 pl-3 border-l border-slate-200 mt-0.5 mb-0.5 flex flex-col gap-0.5">
+            {item.children.map((child) => {
+              const childActive = isActive(child.href);
+              const ChildIcon = child.icon;
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  onClick={isMobile ? () => setMobileOpen(false) : undefined}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+                    childActive
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                  }`}
+                >
+                  <ChildIcon
+                    size={14}
+                    className={`flex-shrink-0 ${childActive ? "text-indigo-500" : "text-slate-400"}`}
+                  />
+                  <span className="truncate">{child.label}</span>
+                </Link>
+              );
+            })}
           </div>
-        );
-      })}
-    </nav>
-  );
+        )}
+
+        {/* Collapsed children — standalone icons */}
+        {collapsed && !isMobile && item.children && (
+          <div className="flex flex-col gap-0.5 mt-0.5">
+            {item.children.map((child) => {
+              const childActive = isActive(child.href);
+              const ChildIcon = child.icon;
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  title={child.label}
+                  className={`flex items-center justify-center py-2 rounded-md transition-all duration-150 ${
+                    childActive
+                      ? "bg-slate-100 text-indigo-500"
+                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                  }`}
+                >
+                  <ChildIcon size={15} className="flex-shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const userProfile = collapsed ? (
     <div className="mt-auto border-t border-slate-200 pt-3 pb-2 flex justify-center">
@@ -222,6 +223,60 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </button>
     </div>
   );
+
+  function renderMoreSection(isMobile = false) {
+    const isMoreActive = MORE_NAV.some((item) => isActive(item.href));
+
+    if (collapsed && !isMobile) {
+      // Collapsed: show More items as plain icons, no toggle needed
+      return (
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-0.5">
+          {MORE_NAV.map((item) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={`flex items-center justify-center py-2.5 rounded-md transition-all duration-150 ${
+                  active
+                    ? "bg-slate-100 text-indigo-600"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                }`}
+              >
+                <Icon size={18} />
+              </Link>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-3 pt-2 border-t border-slate-100">
+        <button
+          onClick={() => setMoreExpanded((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 w-full rounded-md text-xs font-semibold transition-colors ${
+            isMoreActive
+              ? "text-slate-700"
+              : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <ChevronRight
+            size={13}
+            className={`transition-transform duration-150 flex-shrink-0 ${moreExpanded || isMoreActive ? "rotate-90" : ""}`}
+          />
+          More
+        </button>
+        {(moreExpanded || isMoreActive) && (
+          <div className="mt-0.5 flex flex-col gap-0.5">
+            {MORE_NAV.map((item) => renderNavItem(item, isMobile))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -252,7 +307,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </button>
         </div>
 
-        {desktopNav}
+        <nav className="flex flex-col gap-0.5 mt-4 flex-1 overflow-y-auto">
+          {PRIMARY_NAV.map((item) => renderNavItem(item))}
+          {renderMoreSection()}
+        </nav>
         {userProfile}
       </aside>
 
@@ -295,58 +353,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <X size={20} />
               </button>
             </div>
-            {/* Mobile nav — same structure but always expanded */}
             <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto">
-              {NAV.map((item) => {
-                const active = isActive(item.href);
-                const Icon = item.icon;
-                const hasActiveChild = item.children?.some((c) => isActive(c.href));
-                const badge = badges[item.href];
-                return (
-                  <div key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                        active || hasActiveChild
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <Icon size={18} className={active || hasActiveChild ? "text-indigo-600" : "text-slate-400"} />
-                      <span className="flex-1">{item.label}</span>
-                      {badge !== undefined && (
-                        <span className="text-[11px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full leading-none">
-                          {badge}
-                        </span>
-                      )}
-                    </Link>
-                    {item.children && (
-                      <div className="ml-3 pl-3 border-l border-slate-200 mt-0.5 mb-0.5 flex flex-col gap-0.5">
-                        {item.children.map((child) => {
-                          const childActive = isActive(child.href);
-                          const ChildIcon = child.icon;
-                          return (
-                            <Link
-                              key={child.href}
-                              href={child.href}
-                              onClick={() => setMobileOpen(false)}
-                              className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                                childActive
-                                  ? "bg-slate-100 text-slate-900"
-                                  : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                              }`}
-                            >
-                              <ChildIcon size={14} className={childActive ? "text-indigo-500" : "text-slate-400"} />
-                              {child.label}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {PRIMARY_NAV.map((item) => renderNavItem(item, true))}
+              {renderMoreSection(true)}
             </nav>
             <div className="mt-auto border-t border-slate-200 pt-4 pb-2">
               <button className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
