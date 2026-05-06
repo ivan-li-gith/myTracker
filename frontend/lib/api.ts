@@ -19,7 +19,14 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   } catch (err) {
     throw new Error(`Network error reaching ${API_URL}${path} — is the backend running? (${err instanceof Error ? err.message : err})`);
   }
-  if (!res.ok) throw new Error(`API error ${res.status} on ${options.method ?? "GET"} ${path}`);
+  if (!res.ok) {
+    let msg = `API error ${res.status} on ${options.method ?? "GET"} ${path}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) msg += `: ${typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)}`;
+    } catch { /* ignore parse errors */ }
+    throw new Error(msg);
+  }
   if (res.status === 204) return null;
   return res.json();
 }

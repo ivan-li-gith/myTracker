@@ -10,6 +10,9 @@ class PaymentBase(BaseModel):
     due_date: date
     recurrence: Optional[str] = None  # 'monthly' | 'yearly' | 'one-time'
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
+    billing_start_date: Optional[date] = None
+    billing_end_date: Optional[date] = None
     is_paid: bool = False
     notes: Optional[str] = None
 
@@ -24,6 +27,9 @@ class PaymentUpdate(BaseModel):
     due_date: Optional[date] = None
     recurrence: Optional[str] = None
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
+    billing_start_date: Optional[date] = None
+    billing_end_date: Optional[date] = None
     is_paid: Optional[bool] = None
     notes: Optional[str] = None
 

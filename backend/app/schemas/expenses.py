@@ -1,12 +1,12 @@
 from pydantic import BaseModel, ConfigDict
-from datetime import date, datetime
+from datetime import date as Date, datetime
 from decimal import Decimal
 from typing import Optional
 
 class ExpenseBase(BaseModel):
     name: str
     amount: Decimal
-    date: date
+    date: Date
     category_id: Optional[int] = None
     credit_card_id: Optional[int] = None
     notes: Optional[str] = None
@@ -17,7 +17,7 @@ class ExpenseCreate(ExpenseBase):
 class ExpenseUpdate(BaseModel):
     name: Optional[str] = None
     amount: Optional[Decimal] = None
-    date: Optional[date] = None
+    date: Optional[Date] = None
     category_id: Optional[int] = None
     credit_card_id: Optional[int] = None
     notes: Optional[str] = None

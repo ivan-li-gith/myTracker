@@ -1,11 +1,13 @@
 import calendar
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db_session
+from app.models.expenses import Expense
 from app.models.payments import Payment
 from app.schemas.payments import PaymentCreate, PaymentRead, PaymentReadWithDays, PaymentUpdate
 
@@ -26,9 +28,24 @@ def _bump_due_date(d: date, recurrence: str) -> date:
     if recurrence == "yearly":
         try:
             return d.replace(year=d.year + 1)
-        except ValueError:  # Feb 29 on non-leap year
+        except ValueError:
             return d.replace(year=d.year + 1, day=28)
     return d
+
+
+async def _calculate_statement_amount(
+    session: AsyncSession,
+    credit_card_id: int,
+    billing_start: date,
+    billing_end: date,
+) -> Decimal:
+    result = await session.execute(
+        select(func.coalesce(func.sum(Expense.amount), 0))
+        .where(Expense.credit_card_id == credit_card_id)
+        .where(Expense.date >= billing_start)
+        .where(Expense.date <= billing_end)
+    )
+    return result.scalar()
 
 
 @router.get("", response_model=list[PaymentReadWithDays])
@@ -39,11 +56,18 @@ async def list_payments(session: AsyncSession = Depends(get_db_session)):
 
 @router.post("", response_model=PaymentReadWithDays, status_code=201)
 async def create_payment(body: PaymentCreate, session: AsyncSession = Depends(get_db_session)):
-    payment = Payment(**body.model_dump())
+    data = body.model_dump()
+    if data.get("credit_card_id") and data.get("billing_start_date") and data.get("billing_end_date"):
+        data["amount"] = await _calculate_statement_amount(
+            session, data["credit_card_id"], data["billing_start_date"], data["billing_end_date"]
+        )
+    payment = Payment(**data)
     session.add(payment)
+    await session.flush()
+    payment_id = payment.id
     await session.commit()
-    await session.refresh(payment)
-    return _with_days(payment)
+    result = await session.execute(select(Payment).where(Payment.id == payment_id))
+    return _with_days(result.scalar_one())
 
 
 @router.patch("/{payment_id}", response_model=PaymentReadWithDays)
@@ -58,9 +82,29 @@ async def update_payment(
         raise HTTPException(status_code=404, detail="Payment not found")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(payment, key, value)
+    await session.flush()
+    payment_id_cap = payment.id
     await session.commit()
-    await session.refresh(payment)
-    return _with_days(payment)
+    result2 = await session.execute(select(Payment).where(Payment.id == payment_id_cap))
+    return _with_days(result2.scalar_one())
+
+
+@router.post("/{payment_id}/recalculate", response_model=PaymentReadWithDays)
+async def recalculate_payment(payment_id: int, session: AsyncSession = Depends(get_db_session)):
+    result = await session.execute(select(Payment).where(Payment.id == payment_id))
+    payment = result.scalar_one_or_none()
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if not (payment.credit_card_id and payment.billing_start_date and payment.billing_end_date):
+        raise HTTPException(status_code=400, detail="Payment has no billing period configured")
+    payment.amount = await _calculate_statement_amount(
+        session, payment.credit_card_id, payment.billing_start_date, payment.billing_end_date
+    )
+    await session.flush()
+    payment_id_cap = payment.id
+    await session.commit()
+    result2 = await session.execute(select(Payment).where(Payment.id == payment_id_cap))
+    return _with_days(result2.scalar_one())
 
 
 @router.post("/{payment_id}/mark-paid", response_model=PaymentReadWithDays)
@@ -76,9 +120,11 @@ async def mark_paid(payment_id: int, session: AsyncSession = Depends(get_db_sess
     else:
         payment.is_paid = True
 
+    await session.flush()
+    payment_id_cap = payment.id
     await session.commit()
-    await session.refresh(payment)
-    return _with_days(payment)
+    result2 = await session.execute(select(Payment).where(Payment.id == payment_id_cap))
+    return _with_days(result2.scalar_one())
 
 
 @router.delete("/{payment_id}", status_code=204)

@@ -95,6 +95,21 @@ export interface CreditCard {
   name: string;
   last_four: string | null;
   color: string | null;
+  billing_start_day: number | null;
+  billing_end_day: number | null;
+  due_date_day: number | null;
+  category_id: number | null;
+}
+
+export interface CardStatement {
+  statement_id: number | null;
+  credit_card_id: number;
+  month: string; // YYYY-MM
+  billing_start: string; // YYYY-MM-DD
+  billing_end: string;   // YYYY-MM-DD
+  due_date: string;      // YYYY-MM-DD
+  amount: number;
+  is_paid: boolean;
 }
 
 export interface ExpenseSummary {
@@ -112,6 +127,31 @@ export interface ExpenseSplit {
   created_at: string;
 }
 
+export interface PriceHistoryEntry {
+  id: number;
+  recurring_charge_id: number;
+  amount: number;
+  effective_from: string; // YYYY-MM-DD, always the 1st of a month
+}
+
+export interface CancellationPeriod {
+  id: number;
+  recurring_charge_id: number;
+  canceled_from: string;       // YYYY-MM-DD, always 1st of month
+  reactivated_from: string | null; // YYYY-MM-DD, or null if still canceled
+}
+
+export interface RecurringCharge {
+  id: number;
+  name: string;
+  amount: number;
+  charge_date: number; // 1-31, day of month
+  category_id: number | null;
+  notes: string | null;
+  price_history: PriceHistoryEntry[];
+  cancellation_periods: CancellationPeriod[];
+}
+
 export interface Payment {
   id: number;
   name: string;
@@ -119,6 +159,9 @@ export interface Payment {
   due_date: string; // YYYY-MM-DD
   recurrence: string | null; // 'monthly' | 'yearly' | 'one-time'
   category_id: number | null;
+  credit_card_id: number | null;
+  billing_start_date: string | null; // YYYY-MM-DD
+  billing_end_date: string | null;   // YYYY-MM-DD
   is_paid: boolean;
   notes: string | null;
   days_until_due: number;
