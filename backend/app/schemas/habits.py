@@ -7,6 +7,7 @@ class HabitBase(BaseModel):
     name: str
     target_freq: Optional[int] = None
     archived: bool = False
+    category: str = "standard"
 
 
 class HabitCreate(HabitBase):
@@ -17,6 +18,7 @@ class HabitUpdate(BaseModel):
     name: Optional[str] = None
     target_freq: Optional[int] = None
     archived: Optional[bool] = None
+    category: Optional[str] = None
 
 
 class HabitRead(HabitBase):

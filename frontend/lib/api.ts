@@ -16,8 +16,14 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, { ...options, headers });
-  } catch (err) {
-    throw new Error(`Network error reaching ${API_URL}${path} — is the backend running? (${err instanceof Error ? err.message : err})`);
+  } catch {
+    // Retry once after a short delay to handle transient backend restarts
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    } catch (retryErr) {
+      throw new Error(`Network error reaching ${API_URL}${path} — is the backend running? (${retryErr instanceof Error ? retryErr.message : retryErr})`);
+    }
   }
   if (!res.ok) {
     let msg = `API error ${res.status} on ${options.method ?? "GET"} ${path}`;

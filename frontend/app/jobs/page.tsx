@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import {
   Plus, Pencil, Trash2, ExternalLink, ChevronDown, ChevronRight,
   Loader2, MessageSquare, Download, ArrowUp, ArrowDown, ArrowUpDown,
+  FileText, FileBadge, Upload, X,
 } from "lucide-react";
 import { apiFetch, apiFetchRaw } from "@/lib/api";
 import { JobApplication, Resume } from "@/lib/types";
@@ -131,12 +131,14 @@ function FileDropup({
   placeholder,
   nullable,
   onChange,
+  onOpenResumes,
 }: {
   value: number | null;
   options: Resume[];
   placeholder: string;
   nullable: boolean;
   onChange: (id: number | null) => void;
+  onOpenResumes?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dir, setDir] = useState<"up" | "down">("up");
@@ -156,7 +158,7 @@ function FileDropup({
   if (options.length === 0) {
     return (
       <span className="text-xs text-slate-400 whitespace-nowrap">
-        <Link href="/resumes" className="text-indigo-500 hover:underline">Add files</Link> first
+        <button onClick={onOpenResumes} className="text-indigo-500 hover:underline">Add files</button> first
       </span>
     );
   }
@@ -529,6 +531,18 @@ export default function JobsPage() {
   const [commentText, setCommentText] = useState("");
   const [savingComment, setSavingComment] = useState(false);
 
+  // Resumes & Cover Letters panel
+  const [showResumesPanel, setShowResumesPanel] = useState(false);
+  const [downloadingResumeId, setDownloadingResumeId] = useState<number | null>(null);
+  const [deleteResumeId, setDeleteResumeId] = useState<number | null>(null);
+  const [showResumeUpload, setShowResumeUpload] = useState(false);
+  const [resumeUploadName, setResumeUploadName] = useState("");
+  const [resumeUploadType, setResumeUploadType] = useState<"resume" | "cover_letter">("resume");
+  const [resumeUploadFile, setResumeUploadFile] = useState<File | null>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadError, setResumeUploadError] = useState<string | null>(null);
+  const resumeFileRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
@@ -663,6 +677,53 @@ export default function JobsPage() {
     setEditJob({ id: -1 } as JobApplication);
   }
 
+  async function handleResumeDownload(resume: Resume) {
+    setDownloadingResumeId(resume.id);
+    try {
+      const res = await apiFetchRaw(`/resumes/${resume.id}/download`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = resume.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ } finally {
+      setDownloadingResumeId(null);
+    }
+  }
+
+  async function handleResumeUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resumeUploadFile || !resumeUploadName.trim()) return;
+    setResumeUploading(true);
+    setResumeUploadError(null);
+    try {
+      const form = new FormData();
+      form.append("name", resumeUploadName.trim());
+      form.append("file_type", resumeUploadType);
+      form.append("file", resumeUploadFile);
+      const created = await apiFetch("/resumes", { method: "POST", body: form });
+      setResumes((prev) => [created, ...prev]);
+      setShowResumeUpload(false);
+      setResumeUploadName("");
+      setResumeUploadType("resume");
+      setResumeUploadFile(null);
+      if (resumeFileRef.current) resumeFileRef.current.value = "";
+    } catch {
+      setResumeUploadError("Upload failed. Please try again.");
+    } finally {
+      setResumeUploading(false);
+    }
+  }
+
+  async function confirmResumeDelete() {
+    if (deleteResumeId === null) return;
+    await apiFetch(`/resumes/${deleteResumeId}`, { method: "DELETE" });
+    setResumes((prev) => prev.filter((r) => r.id !== deleteResumeId));
+    setDeleteResumeId(null);
+  }
+
   async function confirmDelete() {
     if (deleteId === null) return;
     await apiFetch(`/jobs/${deleteId}`, { method: "DELETE" });
@@ -685,6 +746,13 @@ export default function JobsPage() {
           <p className="text-sm text-slate-400 mt-0.5">{todayLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowResumesPanel(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
+          >
+            <FileText size={14} />
+            Resumes
+          </button>
           <button
             onClick={openNewJob}
             className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
@@ -871,6 +939,7 @@ export default function JobsPage() {
                                     placeholder="None"
                                     nullable={false}
                                     onChange={(id) => updateField(job.id, { resume_id: id } as Partial<JobApplication>)}
+                                    onOpenResumes={() => setShowResumesPanel(true)}
                                   />
                                 ),
                               },
@@ -883,6 +952,7 @@ export default function JobsPage() {
                                     placeholder="Not required"
                                     nullable={true}
                                     onChange={(id) => updateField(job.id, { cover_letter_id: id } as Partial<JobApplication>)}
+                                    onOpenResumes={() => setShowResumesPanel(true)}
                                   />
                                 ),
                               },
@@ -1045,7 +1115,7 @@ export default function JobsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Resume</label>
                   {resumeOptions.length === 0 ? (
                     <p className="text-xs text-slate-400 pt-1">
-                      <Link href="/resumes" className="text-indigo-500 hover:underline">Upload a resume</Link> first
+                      <button onClick={() => setShowResumesPanel(true)} className="text-indigo-500 hover:underline">Upload a resume</button> first
                     </p>
                   ) : (
                     <select
@@ -1062,7 +1132,7 @@ export default function JobsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Cover Letter</label>
                   {coverLetterOptions.length === 0 ? (
                     <p className="text-xs text-slate-400 pt-1">
-                      <Link href="/resumes" className="text-indigo-500 hover:underline">Upload a cover letter</Link> first
+                      <button onClick={() => setShowResumesPanel(true)} className="text-indigo-500 hover:underline">Upload a cover letter</button> first
                     </p>
                   ) : (
                     <select
@@ -1109,6 +1179,164 @@ export default function JobsPage() {
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
               <button onClick={confirmDelete} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resumes & Cover Letters panel */}
+      {showResumesPanel && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:rounded-xl sm:max-w-2xl shadow-xl flex flex-col max-h-[90dvh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Resumes & Cover Letters</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{resumes.length} file{resumes.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowResumeUpload((v) => !v); setResumeUploadError(null); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <Upload size={13} /> Upload
+                </button>
+                <button onClick={() => { setShowResumesPanel(false); setShowResumeUpload(false); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {showResumeUpload && (
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <form onSubmit={handleResumeUpload} className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={resumeUploadName}
+                        onChange={(e) => setResumeUploadName(e.target.value)}
+                        placeholder="e.g. Software Engineer Resume 2026"
+                        required
+                        autoFocus
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Type</label>
+                      <select
+                        value={resumeUploadType}
+                        onChange={(e) => setResumeUploadType(e.target.value as "resume" | "cover_letter")}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      >
+                        <option value="resume">Resume</option>
+                        <option value="cover_letter">Cover Letter</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">File</label>
+                    <input
+                      ref={resumeFileRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      required
+                      onChange={(e) => setResumeUploadFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">PDF, DOC, DOCX, or TXT</p>
+                  </div>
+                  {resumeUploadError && (
+                    <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{resumeUploadError}</p>
+                  )}
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => setShowResumeUpload(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                    <button
+                      type="submit"
+                      disabled={resumeUploading || !resumeUploadFile || !resumeUploadName.trim()}
+                      className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                    >
+                      {resumeUploading ? <><Loader2 size={13} className="animate-spin" /> Uploading...</> : <><Upload size={13} /> Upload</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+              {resumes.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-slate-400 text-sm mb-3">No files uploaded yet.</p>
+                  <button onClick={() => setShowResumeUpload(true)} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                    Upload your first file →
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {(["resume", "cover_letter"] as const).map((type) => {
+                    const list = resumes.filter((r) => r.file_type === type);
+                    if (list.length === 0) return null;
+                    const isResume = type === "resume";
+                    return (
+                      <div key={type}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {isResume
+                            ? <FileText size={13} className="text-indigo-500" />
+                            : <FileBadge size={13} className="text-violet-500" />}
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            {isResume ? "Resumes" : "Cover Letters"}
+                          </span>
+                        </div>
+                        <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
+                          <ul className="divide-y divide-slate-50">
+                            {list.map((r) => (
+                              <li key={r.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors group">
+                                <div className={`p-1.5 rounded-lg shrink-0 ${isResume ? "bg-indigo-100 text-indigo-700" : "bg-violet-100 text-violet-700"}`}>
+                                  {isResume ? <FileText size={13} /> : <FileBadge size={13} />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate">{r.name}</p>
+                                  <p className="text-xs text-slate-400">{r.filename} · {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                                </div>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => handleResumeDownload(r)}
+                                    disabled={downloadingResumeId === r.id}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                    title="Download"
+                                  >
+                                    {downloadingResumeId === r.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteResumeId(r.id)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteResumeId !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-base font-semibold text-slate-900 mb-1">Delete file?</h2>
+            <p className="text-sm text-slate-500 mb-5">This will permanently remove the file. Any jobs referencing it will lose the link.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteResumeId(null)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+              <button onClick={confirmResumeDelete} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Delete</button>
             </div>
           </div>
         </div>

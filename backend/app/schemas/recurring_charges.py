@@ -38,7 +38,9 @@ class RecurringChargeBase(BaseModel):
     amount: Decimal
     charge_date: int
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     notes: Optional[str] = None
+    split_with: Optional[str] = None
 
 
 class RecurringChargeCreate(RecurringChargeBase):
@@ -50,7 +52,9 @@ class RecurringChargeUpdate(BaseModel):
     amount: Optional[Decimal] = None
     charge_date: Optional[int] = None
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     notes: Optional[str] = None
+    split_with: Optional[str] = None
 
 
 class RecurringChargeRead(RecurringChargeBase):

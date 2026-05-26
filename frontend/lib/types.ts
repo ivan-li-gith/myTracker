@@ -14,6 +14,7 @@ export interface Habit {
   target_freq?: number;
   archived: boolean;
   created_at: string;
+  category: string; // "morning" | "night" | "standard"
 }
 
 export interface HabitWithStreak extends Habit {
@@ -88,6 +89,9 @@ export interface Expense {
   category_id: number | null;
   credit_card_id: number | null;
   notes: string | null;
+  split_with: string | null; // comma-separated names, e.g. "April,Jess"
+  service_period_start: string | null; // YYYY-MM-DD
+  service_period_end: string | null;   // YYYY-MM-DD
 }
 
 export interface CreditCard {
@@ -95,10 +99,6 @@ export interface CreditCard {
   name: string;
   last_four: string | null;
   color: string | null;
-  billing_start_day: number | null;
-  billing_end_day: number | null;
-  due_date_day: number | null;
-  category_id: number | null;
 }
 
 export interface CardStatement {
@@ -147,9 +147,89 @@ export interface RecurringCharge {
   amount: number;
   charge_date: number; // 1-31, day of month
   category_id: number | null;
+  credit_card_id: number | null;
   notes: string | null;
+  split_with: string | null; // comma-separated names
   price_history: PriceHistoryEntry[];
   cancellation_periods: CancellationPeriod[];
+}
+
+export interface Bank {
+  id: number;
+  name: string;
+}
+
+export interface Person {
+  id: number;
+  name: string;
+}
+
+export interface MoneyTransfer {
+  id: number;
+  name: string | null;
+  date: string; // YYYY-MM-DD
+  direction: string; // 'sent' | 'received'
+  person: string;
+  platform: string | null;
+  bank_id: number | null;
+  category_id: number | null;
+  amount: number;
+  notes: string | null;
+  split_with: string | null;
+  created_at: string;
+}
+
+export interface UtilityBillPriceHistoryEntry {
+  id: number;
+  utility_bill_id: number;
+  amount: number;
+  effective_from: string; // YYYY-MM-DD
+}
+
+export interface UtilityBill {
+  id: number;
+  utility: string;
+  is_recurring: boolean;
+  service_period_start: string | null;
+  service_period_end: string | null;
+  charge_date: string | null;
+  charge_day: number | null;
+  billing_start: string | null; // YYYY-MM-DD (first of month)
+  amount: number;
+  split_with: string | null;
+  notes: string | null;
+  price_history: UtilityBillPriceHistoryEntry[];
+  created_at: string;
+}
+
+export interface UtilityReimbursement {
+  id: number;
+  person: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Loan {
+  id: number;
+  name: string;
+  disbursement_date: string; // YYYY-MM-DD
+  original_principal: number;
+  unpaid_principal: number;
+  interest_rate: number; // stored as percentage, e.g. 4.5 = 4.5%
+  unpaid_interest: number;
+  total_interest_paid: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface CreditCardReminder {
+  id: number;
+  card_name: string;
+  owner: string | null;
+  due_day: number;
+  created_at: string;
 }
 
 export interface Payment {

@@ -65,12 +65,15 @@ async def get_summary(
 @router.get("", response_model=list[ExpenseRead])
 async def list_expenses(
     month: Optional[str] = None,
+    year: Optional[int] = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     query = select(Expense)
     if month is not None:
         start, end = _month_range(month)
         query = query.where(Expense.date >= start, Expense.date <= end)
+    elif year is not None:
+        query = query.where(Expense.date >= date(year, 1, 1), Expense.date <= date(year, 12, 31))
     result = await session.execute(query.order_by(Expense.date.desc()))
     return result.scalars().all()
 

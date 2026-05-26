@@ -8,13 +8,15 @@ import { HabitWithStreak } from "@/lib/types";
 
 interface Props {
   onCreated?: (habit: HabitWithStreak) => void;
+  defaultCategory?: string;
 }
 
-export default function AddHabitModal({ onCreated }: Props) {
+export default function AddHabitModal({ onCreated, defaultCategory = "standard" }: Props) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState("7");
+  const [frequency, setFrequency] = useState("none");
+  const [category, setCategory] = useState(defaultCategory);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -25,10 +27,11 @@ export default function AddHabitModal({ onCreated }: Props) {
       const habit = await apiFetch("/habits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, target_freq: parseInt(frequency) }),
+        body: JSON.stringify({ name, target_freq: frequency === "none" ? null : parseInt(frequency), category }),
       });
       setName("");
-      setFrequency("7");
+      setFrequency("none");
+      setCategory(defaultCategory);
       setIsOpen(false);
       if (onCreated) {
         onCreated(habit);
@@ -82,12 +85,36 @@ export default function AddHabitModal({ onCreated }: Props) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                <div className="flex gap-2">
+                  {(["morning", "standard", "night"] as const).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors capitalize ${
+                        category === c
+                          ? c === "morning"
+                            ? "bg-amber-100 text-amber-700 border-amber-300"
+                            : c === "night"
+                            ? "bg-indigo-100 text-indigo-700 border-indigo-300"
+                            : "bg-orange-100 text-orange-700 border-orange-300"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {c === "morning" ? "☀️ Morning" : c === "night" ? "🌙 Night" : "Daily"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Frequency (Times per week)</label>
                 <select
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                 >
+                  <option value="none">No target (daily streak)</option>
                   {[1,2,3,4,5,6].map(n => (
                     <option key={n} value={n}>{n} time{n > 1 ? "s" : ""} a week</option>
                   ))}

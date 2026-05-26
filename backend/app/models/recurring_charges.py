@@ -14,7 +14,9 @@ class RecurringCharge(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     charge_date: Mapped[int] = mapped_column(Integer)  # day of month 1-31
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
+    credit_card_id: Mapped[Optional[int]] = mapped_column(ForeignKey("credit_cards.id", ondelete="SET NULL"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    split_with: Mapped[Optional[str]] = mapped_column(Text)
     price_history: Mapped[list["RecurringChargePriceHistory"]] = relationship(
         "RecurringChargePriceHistory",
         back_populates="charge",

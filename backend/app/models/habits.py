@@ -13,6 +13,7 @@ class Habit(Base):
     target_freq: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    category: Mapped[str] = mapped_column(Text, default="standard")
 
 
 class HabitLog(Base):

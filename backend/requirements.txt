@@ -11,3 +11,4 @@ openai
 python-multipart
 anthropic
 pymupdf
+Pillow

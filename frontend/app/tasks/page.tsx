@@ -2,16 +2,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  CheckCircle2, Circle, MoreHorizontal,
-  Flame, Calendar, Trash2,
+  CheckCircle2, Circle,
+  Flame, Calendar, Trash2, ChevronLeft, ChevronRight, ChevronDown,
+  MoreHorizontal, Pencil,
 } from "lucide-react";
 import AddTaskModal from "@/components/AddTaskModal";
 import AddHabitModal from "@/components/AddHabitModal";
+import EditTaskModal from "@/components/EditTaskModal";
+import EditHabitModal from "@/components/EditHabitModal";
 import { apiFetch } from "@/lib/api";
 import { Task, HabitWithStreak } from "@/lib/types";
 
 function todayStr() {
   const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function dateToStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -21,6 +28,40 @@ function getWeekStart() {
   const monday = new Date(d);
   monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
+function getWeekDays(weekOffset: number) {
+  const now = new Date();
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - now.getDay() - weekOffset * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    return { dateStr: dateToStr(d), dayNum: d.getDate(), label: d.toLocaleDateString("en-US", { weekday: "short" }) };
+  });
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+}
+
+// Positive = days past due, 0 = due today, negative = days until due
+function calcDaysOverdue(dueDateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr + "T00:00:00");
+  return Math.floor((today.getTime() - due.getTime()) / 86_400_000);
+}
+
+function weekRangeLabel(days: ReturnType<typeof getWeekDays>) {
+  const first = new Date(days[0].dateStr + "T00:00:00");
+  const last = new Date(days[6].dateStr + "T00:00:00");
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short" });
+  if (first.getMonth() === last.getMonth()) {
+    return `${fmt(first)} ${first.getDate()} – ${last.getDate()}`;
+  }
+  return `${fmt(first)} ${first.getDate()} – ${fmt(last)} ${last.getDate()}`;
 }
 
 // ---- Confetti ----
@@ -61,11 +102,68 @@ function Confetti({ active }: { active: boolean }) {
   );
 }
 
+// ---- Collapsible Section Shell ----
+
+function CollapsibleSection({
+  title,
+  icon,
+  badge,
+  titleClass = "text-slate-900",
+  action,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  icon?: string | null;
+  badge?: React.ReactNode;
+  titleClass?: string;
+  action?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 min-w-0 group"
+        >
+          <ChevronDown
+            size={15}
+            className={`shrink-0 text-slate-400 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+          />
+          {icon && <span className="text-base leading-none shrink-0">{icon}</span>}
+          <h2 className={`text-sm font-bold uppercase tracking-wider ${titleClass}`}>{title}</h2>
+          {badge && <div className="shrink-0">{badge}</div>}
+        </button>
+        {action}
+      </div>
+      {open && children}
+    </section>
+  );
+}
+
 // ---- Habit Week Calendar ----
 
-function HabitCalendar({ habits }: { habits: HabitWithStreak[] }) {
-  const now = new Date();
+function HabitCalendar({
+  habits,
+  weekOffset,
+  onPrevWeek,
+  onNextWeek,
+  selectedDate,
+  onSelectDate,
+}: {
+  habits: HabitWithStreak[];
+  weekOffset: number;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+}) {
+  const today = todayStr();
   const maxPerDay = habits.length || 1;
+  const weekDays = getWeekDays(weekOffset);
 
   const logCounts = new Map<string, number>();
   habits.forEach((h) => {
@@ -74,22 +172,8 @@ function HabitCalendar({ habits }: { habits: HabitWithStreak[] }) {
     });
   });
 
-  function toStr(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }
-
-  const todayStr = toStr(now);
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - now.getDay()); // getDay() returns 0 for Sunday
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + i);
-    return { dateStr: toStr(d), dayNum: d.getDate(), label: d.toLocaleDateString("en-US", { weekday: "short" }) };
-  });
-
   function cellStyle(dateStr: string): { bg: string; text: string; sub: string } {
-    const isFuture = dateStr > todayStr;
+    const isFuture = dateStr > today;
     const count = logCounts.get(dateStr) || 0;
     if (isFuture) return { bg: "bg-slate-50 border border-slate-100", text: "text-slate-300", sub: "" };
     if (count === 0) return { bg: "bg-white border border-slate-200", text: "text-slate-400", sub: "" };
@@ -101,22 +185,45 @@ function HabitCalendar({ habits }: { habits: HabitWithStreak[] }) {
 
   return (
     <div>
-      <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
-        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">This Week</h2>
+      <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+          {weekOffset === 0 ? "This Week" : weekRangeLabel(weekDays)}
+        </h2>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onPrevWeek}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Previous week"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={onNextWeek}
+            disabled={weekOffset === 0}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Next week"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map(({ dateStr, dayNum, label }) => {
-          const isToday = dateStr === todayStr;
+          const isToday = dateStr === today;
+          const isSelected = dateStr === selectedDate;
+          const isFuture = dateStr > today;
           const count = logCounts.get(dateStr) || 0;
           const { bg, text, sub } = cellStyle(dateStr);
           return (
-            <div
+            <button
               key={dateStr}
+              disabled={isFuture}
+              onClick={() => onSelectDate(dateStr)}
               title={count > 0 ? `${count}/${habits.length} habits logged` : label}
-              className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-colors ${bg} ${
-                isToday ? "ring-2 ring-indigo-400 ring-offset-2" : ""
-              }`}
+              className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-colors w-full ${bg} ${
+                isSelected ? "ring-2 ring-indigo-500 ring-offset-2" : ""
+              } ${isFuture ? "cursor-not-allowed" : "cursor-pointer hover:opacity-80"}`}
             >
               <span className={`text-[11px] font-semibold uppercase tracking-wide leading-none ${isToday ? "text-indigo-400" : "text-slate-400"}`}>
                 {label}
@@ -124,151 +231,158 @@ function HabitCalendar({ habits }: { habits: HabitWithStreak[] }) {
               <span className={`text-2xl font-bold leading-none ${isToday ? "text-indigo-600" : text}`}>
                 {dayNum}
               </span>
-              {count > 0 && habits.length > 0 && (
-                <span className={`text-[10px] font-semibold leading-none ${sub}`}>
-                  {count}/{habits.length}
-                </span>
-              )}
-            </div>
+              {isToday && !isSelected
+                ? <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-0.5" />
+                : count > 0 && habits.length > 0
+                  ? <span className={`text-[10px] font-semibold leading-none ${sub}`}>{count}/{habits.length}</span>
+                  : null
+              }
+            </button>
           );
         })}
       </div>
+
+      {weekOffset > 0 && (
+        <p className="mt-3 text-xs text-slate-400 text-center">
+          Viewing {weekOffset === 1 ? "last week" : `${weekOffset} weeks ago`} — click a day to edit
+        </p>
+      )}
     </div>
   );
 }
 
-// ---- Habit Card ----
+// ---- Row Action Menu ----
 
-function HabitCard({
-  habit,
-  onLog,
-  onDelete,
-}: {
-  habit: HabitWithStreak;
-  onLog: () => void;
-  onDelete: () => void;
-}) {
-  const today = todayStr();
-  const loggedToday = habit.logged_dates?.includes(today);
-  const [menuOpen, setMenuOpen] = useState(false);
+function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Swipe-to-log for mobile
-  const touchStartX = useRef(0);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const SWIPE_THRESHOLD = 80;
-
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-    setSwipeOffset(0);
-  }
-
-  function handleTouchMove(e: React.TouchEvent) {
-    if (loggedToday) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    if (dx > 0) setSwipeOffset(Math.min(dx, 120));
-  }
-
-  function handleTouchEnd() {
-    if (!loggedToday && swipeOffset >= SWIPE_THRESHOLD) onLog();
-    setSwipeOffset(0);
+  function handleOpen(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
   }
 
   return (
-    <div
-      className="relative overflow-hidden rounded-xl"
-      style={{ touchAction: "pan-y" }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Swipe reveal */}
-      {!loggedToday && (
-        <div className="absolute inset-0 bg-emerald-50 flex items-center pl-4 gap-2">
-          <CheckCircle2 size={18} className="text-emerald-500" />
-          <span className="text-sm font-semibold text-emerald-600">Log habit</span>
+    <div className="shrink-0">
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        className="p-1 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded transition-all"
+        aria-label="Row actions"
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {open && (
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 60 }}
+          className="bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-28 text-sm"
+        >
+          <button
+            onClick={() => { setOpen(false); onEdit(); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <Pencil size={13} /> Edit
+          </button>
+          <button
+            onClick={() => { setOpen(false); onDelete(); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 size={13} /> Delete
+          </button>
         </div>
       )}
-      {/* Card content */}
-      <div
-        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between group transition-colors ${
-          loggedToday ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 hover:border-indigo-300"
-        }`}
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: swipeOffset === 0 ? "transform 0.2s ease" : "none",
-        }}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <span className={`font-medium line-clamp-2 transition-colors ${
-            loggedToday ? "text-emerald-700" : "text-slate-800 group-hover:text-indigo-700"
-          }`}>
-            {habit.name}
-          </span>
-          <div className="flex items-center gap-1 shrink-0 ml-2">
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-              habit.streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-50 text-slate-400"
-            }`}>
-              <Flame size={14} className={habit.streak > 0 ? "text-orange-500" : "text-slate-300"} />
-              <span className="text-xs font-bold">{habit.streak ?? 0}</span>
-            </div>
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen((v) => !v)}
-                className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-slate-600 rounded-md transition-all"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-7 z-10 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-32 text-sm">
-                  <button
-                    onClick={() => { setMenuOpen(false); onDelete(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-red-500 hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={onLog}
-          disabled={loggedToday}
-          className={`w-full py-2 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-2 ${
-            loggedToday
-              ? "bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default"
-              : "bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 border-slate-100 hover:border-emerald-100"
-          }`}
-        >
-          <CheckCircle2 size={16} />
-          {loggedToday ? "Done today!" : "Complete"}
-        </button>
-      </div>
     </div>
   );
 }
 
-// ---- Task List Item (with swipe-to-complete) ----
+// ---- Habit Row ----
+
+function HabitRow({
+  habit,
+  selectedDate,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  habit: HabitWithStreak;
+  selectedDate: string;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const isLogged = habit.logged_dates?.includes(selectedDate);
+
+  return (
+    <li
+      className={`flex items-center gap-3 px-4 py-2.5 group transition-colors ${
+        isLogged ? "bg-emerald-50/50" : "hover:bg-slate-50"
+      }`}
+    >
+      <button
+        onClick={onToggle}
+        className="shrink-0 transition-colors"
+        aria-label={isLogged ? "Mark incomplete" : "Mark complete"}
+      >
+        {isLogged
+          ? <CheckCircle2 size={20} className="text-emerald-500" />
+          : <Circle size={20} className="text-slate-300 hover:text-emerald-400" />
+        }
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <span
+          className={`block truncate text-sm font-medium transition-colors ${
+            isLogged ? "text-slate-400" : "text-slate-700"
+          }`}
+        >
+          {habit.name}
+        </span>
+        {habit.target_freq != null && (
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {habit.target_freq === 7 ? "Every day" : `${habit.target_freq}× a week`}
+          </p>
+        )}
+      </div>
+
+      {habit.streak > 0 && (
+        <div className="flex items-center gap-0.5 shrink-0 text-orange-400">
+          <Flame size={12} />
+          <span className="text-xs font-semibold">{habit.streak}</span>
+        </div>
+      )}
+
+      <RowMenu onEdit={onEdit} onDelete={onDelete} />
+    </li>
+  );
+}
+
+// ---- Task List Item ----
 
 function TaskListItem({
   task,
   onToggle,
+  onEdit,
   onDelete,
 }: {
   task: Task;
   onToggle: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const touchStartX = useRef(0);
@@ -299,53 +413,70 @@ function TaskListItem({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Swipe reveal background */}
       {!task.completed && (
-        <div className="absolute inset-0 bg-emerald-50 flex items-center pl-5 gap-2 pointer-events-none">
-          <CheckCircle2 size={18} className="text-emerald-500" />
-          <span className="text-sm font-semibold text-emerald-600">Complete</span>
+        <div className="absolute inset-0 bg-emerald-50 flex items-center pl-4 gap-2 pointer-events-none">
+          <CheckCircle2 size={16} className="text-emerald-500" />
+          <span className="text-xs font-semibold text-emerald-600">Complete</span>
         </div>
       )}
-      {/* Row content */}
+      {/* Content div has a CSS transform for swipe — RowMenu must live outside it
+          because transform creates a containing block that breaks position:fixed */}
       <div
-        className="relative flex items-center justify-between p-4 bg-white hover:bg-slate-50 transition-colors"
+        className={`relative flex items-start gap-3 pl-4 pr-10 py-2.5 bg-white transition-colors ${
+          task.completed ? "" : "hover:bg-slate-50"
+        }`}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: swipeOffset === 0 ? "transform 0.2s ease" : "none",
         }}
       >
-        <div className="flex items-start gap-4 flex-1">
-          <button
-            onClick={onToggle}
-            className={`flex-shrink-0 mt-0.5 transition-colors ${
-              task.completed ? "text-emerald-500" : "text-slate-300 hover:text-emerald-500"
-            }`}
-          >
-            {task.completed ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-          </button>
-          <div className="flex-1">
-            <p className={`text-[15px] font-medium transition-colors ${
-              task.completed ? "text-slate-400 line-through" : "text-slate-800 group-hover:text-slate-900"
+        <button
+          onClick={onToggle}
+          className={`shrink-0 mt-0.5 transition-colors ${
+            task.completed ? "text-emerald-500" : "text-slate-300 hover:text-emerald-500"
+          }`}
+        >
+          {task.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`truncate text-sm font-medium transition-colors ${
+              task.completed ? "text-slate-400 line-through" : "text-slate-700"
             }`}>
               {task.name}
-            </p>
-            {!task.completed && task.due_date && (
-              <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-sm">
-                <Calendar size={10} />
-                {task.due_date}
-              </span>
-            )}
+            </span>
+            {!task.completed && task.due_date && (() => {
+              const overdue = calcDaysOverdue(task.due_date!);
+              if (overdue > 0) return (
+                <span
+                  title={`Due ${task.due_date}`}
+                  className="shrink-0 inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded"
+                >
+                  {overdue} {overdue === 1 ? "day" : "days"} overdue
+                </span>
+              );
+              if (overdue === 0) return (
+                <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  <Calendar size={9} /> Due today
+                </span>
+              );
+              return (
+                <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  <Calendar size={9} /> {task.due_date}
+                </span>
+              );
+            })()}
           </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Created {formatDate(task.created_at)}
+          </p>
         </div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pl-4">
-          <button
-            onClick={onDelete}
-            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-            aria-label="Delete task"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+      </div>
+
+      {/* RowMenu is outside the transformed div so its fixed dropdown hits the viewport */}
+      <div className="absolute right-4 inset-y-0 flex items-center z-10">
+        <RowMenu onEdit={onEdit} onDelete={onDelete} />
       </div>
     </li>
   );
@@ -356,6 +487,11 @@ function TaskListItem({
 export default function TasksAndHabitsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [habits, setHabits] = useState<HabitWithStreak[]>([]);
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingHabit, setEditingHabit] = useState<HabitWithStreak | null>(null);
+  const [completedFilter, setCompletedFilter] = useState<"today" | "all">("today");
 
   const [showConfetti, setShowConfetti] = useState(false);
   const prevHabitsNeededCount = useRef(-1);
@@ -390,7 +526,10 @@ export default function TasksAndHabitsPage() {
   }, [habitsNeededCount, habits.length]);
 
   const pendingTasks = tasks.filter((t) => !t.completed);
-  const completedTasks = tasks.filter((t) => t.completed);
+  const allCompletedTasks = tasks.filter((t) => t.completed);
+  const completedTasks = completedFilter === "today"
+    ? allCompletedTasks.filter((t) => !!t.completed_at && dateToStr(new Date(t.completed_at)) === selectedDate)
+    : allCompletedTasks;
 
   async function toggleTask(task: Task) {
     const updated = await apiFetch(`/tasks/${task.id}`, {
@@ -406,9 +545,49 @@ export default function TasksAndHabitsPage() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }
 
-  async function logHabit(habit: HabitWithStreak) {
-    const updated = await apiFetch(`/habits/${habit.id}/log`, { method: "POST" });
-    setHabits((prev) => prev.map((h) => (h.id === habit.id ? updated : h)));
+  async function toggleHabit(habit: HabitWithStreak) {
+    const date = selectedDate;
+    const isLogged = habit.logged_dates.includes(date);
+
+    // Optimistic update
+    setHabits((prev) =>
+      prev.map((h) =>
+        h.id === habit.id
+          ? {
+              ...h,
+              logged_dates: isLogged
+                ? h.logged_dates.filter((d) => d !== date)
+                : [...h.logged_dates, date],
+            }
+          : h
+      )
+    );
+
+    try {
+      if (isLogged) {
+        await apiFetch(`/habits/${habit.id}/log?log_date=${date}`, { method: "DELETE" });
+      } else {
+        await apiFetch(`/habits/${habit.id}/log`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logged_at: `${date}T12:00:00Z` }),
+        });
+      }
+    } catch {
+      // Rollback on error
+      setHabits((prev) =>
+        prev.map((h) =>
+          h.id === habit.id
+            ? {
+                ...h,
+                logged_dates: isLogged
+                  ? [...h.logged_dates, date]
+                  : h.logged_dates.filter((d) => d !== date),
+              }
+            : h
+        )
+      );
+    }
   }
 
   async function deleteHabit(id: number) {
@@ -422,108 +601,179 @@ export default function TasksAndHabitsPage() {
 
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Habits & Tasks</h1>
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Reminders</h1>
       </div>
 
       {/* Habit History Calendar */}
       {habits.length > 0 && (
         <section className="mb-12">
-          <HabitCalendar habits={habits} />
+          <HabitCalendar
+            habits={habits}
+            weekOffset={weekOffset}
+            onPrevWeek={() => setWeekOffset((o) => o + 1)}
+            onNextWeek={() => setWeekOffset((o) => Math.max(0, o - 1))}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
         </section>
       )}
 
-      {/* Habits Section */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Daily Habits</h2>
-            <span className="bg-orange-100 text-orange-700 py-0.5 px-2 rounded-full text-xs font-bold">
-              {habits.length} Active
-            </span>
-          </div>
-          <AddHabitModal onCreated={(h) => setHabits((prev) => [h, ...prev])} />
-        </div>
+      {/* Habit Sections */}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {habits.length === 0 ? (
-            <div className="col-span-full bg-white rounded-xl border border-slate-200 border-dashed p-6 text-center">
-              <p className="text-sm text-slate-500 font-medium">No active habits tracked.</p>
+      {(
+        [
+          { key: "morning", label: "Morning Routine", icon: "☀️", titleClass: "text-amber-600", badgeClass: "bg-amber-100 text-amber-700" },
+          { key: "standard", label: "Daily Habits",   icon: "🎯", titleClass: "text-slate-900", badgeClass: "bg-orange-100 text-orange-700" },
+          { key: "night",   label: "Night Routine",   icon: "🌙", titleClass: "text-indigo-700", badgeClass: "bg-indigo-100 text-indigo-700" },
+        ] as const
+      ).map(({ key, label, icon, titleClass, badgeClass }) => {
+        const group = habits.filter((h) => (h.category ?? "standard") === key);
+        return (
+          <CollapsibleSection
+            key={key}
+            title={label}
+            icon={icon}
+            titleClass={titleClass}
+            badge={
+              <span className={`py-0.5 px-2 rounded-full text-xs font-bold ${badgeClass}`}>
+                {group.length}
+              </span>
+            }
+            action={
+              <AddHabitModal
+                defaultCategory={key}
+                onCreated={(h) => setHabits((prev) => [h, ...prev])}
+              />
+            }
+          >
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {group.length === 0 ? (
+                <div className="px-4 py-5 text-center">
+                  <p className="text-sm text-slate-400">No {label.toLowerCase()} habits yet.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {group.map((habit) => (
+                    <HabitRow
+                      key={habit.id}
+                      habit={habit}
+                      selectedDate={selectedDate}
+                      onToggle={() => toggleHabit(habit)}
+                      onEdit={() => setEditingHabit(habit)}
+                      onDelete={() => deleteHabit(habit.id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </CollapsibleSection>
+        );
+      })}
+
+      {/* Task Sections */}
+      <CollapsibleSection
+        title="Pending Tasks"
+        icon="📋"
+        badge={
+          <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full text-xs font-bold">
+            {pendingTasks.length}
+          </span>
+        }
+        action={<AddTaskModal onCreated={(t) => setTasks((prev) => [t, ...prev])} />}
+      >
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          {pendingTasks.length === 0 ? (
+            <div className="px-4 py-5 text-center">
+              <p className="text-sm text-slate-400">All caught up!</p>
             </div>
           ) : (
-            habits.map((habit) => (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                onLog={() => logHabit(habit)}
-                onDelete={() => deleteHabit(habit.id)}
-              />
-            ))
+            <ul className="divide-y divide-slate-100">
+              {pendingTasks.map((task) => (
+                <TaskListItem
+                  key={task.id}
+                  task={task}
+                  onToggle={() => toggleTask(task)}
+                  onEdit={() => setEditingTask(task)}
+                  onDelete={() => deleteTask(task.id)}
+                />
+              ))}
+            </ul>
           )}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      {/* Tasks */}
-      <div className="space-y-10">
-        {/* Pending */}
-        <section>
-          <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Pending Tasks</h2>
-              <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full text-xs font-bold">
-                {pendingTasks.length}
-              </span>
+      {allCompletedTasks.length > 0 && (
+        <CollapsibleSection
+          title="Completed"
+          icon="✅"
+          titleClass="text-slate-500"
+          badge={
+            <span className="bg-slate-100 text-slate-500 py-0.5 px-2 rounded-full text-xs font-bold">
+              {completedTasks.length}
+            </span>
+          }
+          action={
+            <div className="flex gap-1">
+              {(["today", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setCompletedFilter(f)}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors capitalize ${
+                    completedFilter === f
+                      ? "bg-slate-200 text-slate-700"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {f === "today" ? "Today" : "All"}
+                </button>
+              ))}
             </div>
-            <AddTaskModal onCreated={(t) => setTasks((prev) => [t, ...prev])} />
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            {pendingTasks.length === 0 ? (
-              <div className="p-10 text-center flex flex-col items-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                  <CheckCircle2 size={24} className="text-slate-300" />
-                </div>
-                <p className="text-[15px] text-slate-500 font-medium">You are all caught up!</p>
-                <p className="text-sm text-slate-400 mt-1">Enjoy your free time.</p>
+          }
+          defaultOpen={false}
+        >
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden opacity-75">
+            {completedTasks.length === 0 ? (
+              <div className="px-4 py-5 text-center">
+                <p className="text-sm text-slate-400">No tasks completed today.</p>
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {pendingTasks.map((task) => (
+                {completedTasks.map((task) => (
                   <TaskListItem
                     key={task.id}
                     task={task}
                     onToggle={() => toggleTask(task)}
+                    onEdit={() => setEditingTask(task)}
                     onDelete={() => deleteTask(task.id)}
                   />
                 ))}
               </ul>
             )}
           </div>
-        </section>
+        </CollapsibleSection>
+      )}
 
-        {/* Completed */}
-        {completedTasks.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
-              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Completed</h2>
-              <span className="bg-slate-100 text-slate-500 py-0.5 px-2 rounded-full text-xs font-bold">
-                {completedTasks.length}
-              </span>
-            </div>
-            <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden opacity-80">
-              <ul className="divide-y divide-slate-200/60">
-                {completedTasks.map((task) => (
-                  <TaskListItem
-                    key={task.id}
-                    task={task}
-                    onToggle={() => toggleTask(task)}
-                    onDelete={() => deleteTask(task.id)}
-                  />
-                ))}
-              </ul>
-            </div>
-          </section>
-        )}
-      </div>
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          onSaved={(updated) => {
+            setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            setEditingTask(null);
+          }}
+          onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {editingHabit && (
+        <EditHabitModal
+          habit={editingHabit}
+          onSaved={(updated) => {
+            setHabits((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+            setEditingHabit(null);
+          }}
+          onClose={() => setEditingHabit(null)}
+        />
+      )}
     </div>
   );
 }

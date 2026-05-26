@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CheckSquare, CreditCard, Briefcase, BookOpen, ChefHat,
-  Menu, X, LayoutDashboard, User, Activity, FileText,
+  CheckSquare, CreditCard, Briefcase,
+  Menu, X, LayoutDashboard, User, Activity,
   PanelLeftClose, PanelLeftOpen, ChevronRight,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -25,20 +25,12 @@ interface NavItem {
 
 const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Home", icon: LayoutDashboard },
-  { href: "/tasks", label: "Habits & Tasks", icon: CheckSquare },
-  { href: "/payments", label: "Payments & Expenses", icon: CreditCard },
-  {
-    href: "/jobs", label: "Jobs", icon: Briefcase,
-    children: [
-      { href: "/resumes", label: "Resumes", icon: FileText },
-    ],
-  },
+  { href: "/tasks", label: "Reminders", icon: CheckSquare },
+  { href: "/payments", label: "Finance", icon: CreditCard },
+  { href: "/jobs", label: "Jobs", icon: Briefcase },
 ];
 
-const MORE_NAV: NavItem[] = [
-  { href: "/docs", label: "Docs", icon: BookOpen },
-  { href: "/recipes", label: "Recipes", icon: ChefHat },
-];
+const MORE_NAV: NavItem[] = [];
 
 interface SidebarProps {
   collapsed: boolean;

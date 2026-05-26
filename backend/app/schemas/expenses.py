@@ -10,6 +10,9 @@ class ExpenseBase(BaseModel):
     category_id: Optional[int] = None
     credit_card_id: Optional[int] = None
     notes: Optional[str] = None
+    split_with: Optional[str] = None
+    service_period_start: Optional[Date] = None
+    service_period_end: Optional[Date] = None
 
 class ExpenseCreate(ExpenseBase):
     pass
@@ -21,6 +24,9 @@ class ExpenseUpdate(BaseModel):
     category_id: Optional[int] = None
     credit_card_id: Optional[int] = None
     notes: Optional[str] = None
+    split_with: Optional[str] = None
+    service_period_start: Optional[Date] = None
+    service_period_end: Optional[Date] = None
 
 class ExpenseRead(ExpenseBase):
     id: int

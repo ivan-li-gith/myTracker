@@ -17,6 +17,9 @@ class Expense(Base):
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
     credit_card_id: Mapped[Optional[int]] = mapped_column(ForeignKey("credit_cards.id", ondelete="SET NULL"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    split_with: Mapped[Optional[str]] = mapped_column(Text)
+    service_period_start: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    service_period_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
 
 class ExpenseSplit(Base):
