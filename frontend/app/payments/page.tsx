@@ -6,10 +6,10 @@ import {
   CreditCard as CreditCardIcon, Receipt, MoreHorizontal,
   CheckCircle2, Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2,
   ScanLine, Upload, Loader2, Users, ChevronDown,
-  TrendingDown, Wallet, Tag, RefreshCw, DollarSign, ArrowDownLeft, ArrowUpRight, Send, RotateCcw, Search, Zap, GraduationCap, AlertCircle, Bell,
+  TrendingDown, Wallet, Tag, RefreshCw, DollarSign, ArrowDownLeft, ArrowUpRight, Send, RotateCcw, Zap, GraduationCap, Search,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { Expense, Category, CreditCard, RecurringCharge, PriceHistoryEntry, CancellationPeriod, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan, CreditCardReminder } from "@/lib/types";
+import { Expense, Category, CreditCard, RecurringCharge, PriceHistoryEntry, CancellationPeriod, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan } from "@/lib/types";
 
 // ---- Price history helper ----
 
@@ -59,12 +59,12 @@ function formatPriceRange(entry: PriceHistoryEntry, nextEntry: PriceHistoryEntry
 
 // ---- Helpers ----
 
-function fmtAmount(n: number | null | undefined) {
+function formatAmount(n: number | null | undefined) {
   if (n == null) return "—";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
-function fmtDate(s: string) {
+function formatDate(s: string) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -297,160 +297,143 @@ function FinanceSummary({
   const [showAllCards, setShowAllCards] = useState(false);
 
   return (
-    <div className="mb-6 flex flex-col gap-3">
-      {/* Hero + mini-stats bar */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-stretch divide-x divide-slate-100">
-          {/* Hero: Total */}
-          <div className="px-5 py-3 shrink-0 flex flex-col justify-center min-w-[140px]">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Total</p>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{fmtAmount(grandTotal)}</p>
-            <p className="text-[10px] text-slate-400 mt-1">one-time + recurring + transfers</p>
+    <div className="mb-6 flex flex-col gap-4">
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Wallet size={13} className="text-indigo-400" />
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total</p>
           </div>
-
-          {/* Mini stats */}
-          <div className="flex-1 flex flex-wrap items-center gap-x-5 gap-y-0.5 px-5 py-3">
-            {/* One-time */}
-            <div className="flex items-baseline gap-1.5">
-              <Wallet size={11} className="text-indigo-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">One-time</span>
-              <span className="text-sm font-bold text-slate-800">{fmtAmount(netSpend)}</span>
-              {positiveCount > 0 && <span className="text-[10px] text-slate-400">{positiveCount} exp.</span>}
-            </div>
-
-            {/* Recurring */}
-            <div className="flex items-baseline gap-1.5">
-              <RefreshCw size={11} className="text-violet-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Recurring</span>
-              <span className="text-sm font-bold text-slate-800">{fmtAmount(recurringTotal)}</span>
-              {applicableRecurring.length > 0 && <span className="text-[10px] text-slate-400">{applicableRecurring.length} charges</span>}
-            </div>
-
-            {/* Transfers */}
-            <div className="flex items-baseline gap-1.5">
-              <Send size={11} className="text-violet-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Transfers</span>
-              <span className={`text-sm font-bold ${transfersTotal < 0 ? "text-emerald-600" : "text-slate-800"}`}>{fmtAmount(transfersTotal)}</span>
-              {transferCount > 0 && <span className="text-[10px] text-slate-400">{transferCount} this month</span>}
-            </div>
-
-            {/* Transactions */}
-            <div className="flex items-baseline gap-1.5">
-              <Receipt size={11} className="text-indigo-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Txns</span>
-              <span className="text-sm font-bold text-slate-800">{expenses.length}</span>
-              {positiveCount > 0 && <span className="text-[10px] text-slate-400">avg {fmtAmount(grossSpend / positiveCount)}</span>}
-            </div>
-
-            {/* Refunds */}
-            {refundCount > 0 && (
-              <div className="flex items-baseline gap-1.5">
-                <RotateCcw size={11} className="text-emerald-500 shrink-0 self-center" />
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Refunds</span>
-                <span className="text-sm font-bold text-emerald-600">{fmtAmount(refunds)}</span>
-                <span className="text-[10px] text-slate-400">{refundCount} item{refundCount !== 1 ? "s" : ""}</span>
-              </div>
-            )}
-          </div>
+          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(grandTotal)}</p>
+          <p className="text-[10px] text-slate-400 mt-1.5">one-time + recurring + transfers</p>
         </div>
 
-        {/* Loan strip — only shown if loans exist */}
-        {loans.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-0.5 px-5 py-2 border-t border-slate-100 bg-slate-50/70">
-            <div className="flex items-baseline gap-1.5">
-              <GraduationCap size={11} className="text-slate-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Loan Balance</span>
-              <span className="text-sm font-bold text-slate-800">
-                {fmtAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <TrendingDown size={11} className="text-indigo-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Principal</span>
-              <span className="text-sm font-bold text-slate-800">
-                {fmtAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
-              </span>
-              <span className="text-[10px] text-slate-400">{loans.length} loan{loans.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <AlertCircle size={11} className="text-amber-400 shrink-0 self-center" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Interest</span>
-              <span className="text-sm font-bold text-slate-800">
-                {fmtAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
-              </span>
-            </div>
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Receipt size={13} className="text-indigo-400" />
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">One-time</p>
           </div>
-        )}
+          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(netSpend)}</p>
+          <p className="text-[10px] text-slate-400 mt-1.5">
+            {positiveCount} expense{positiveCount !== 1 ? "s" : ""}
+            {refundCount > 0 && ` · ${refundCount} refund${refundCount !== 1 ? "s" : ""} (${formatAmount(refunds)})`}
+          </p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <RefreshCw size={13} className="text-violet-400" />
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Recurring</p>
+          </div>
+          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(recurringTotal)}</p>
+          <p className="text-[10px] text-slate-400 mt-1.5">{applicableRecurring.length} charge{applicableRecurring.length !== 1 ? "s" : ""} applied</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Send size={13} className="text-violet-400" />
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transfers</p>
+          </div>
+          <p className={`text-2xl font-bold leading-none ${transfersTotal < 0 ? "text-emerald-600" : "text-slate-900"}`}>
+            {formatAmount(transfersTotal)}
+          </p>
+          <p className="text-[10px] text-slate-400 mt-1.5">{transferCount} this month</p>
+        </div>
       </div>
 
-      {showBreakdowns && (
-        <div className={`grid gap-4 ${catBreakdown.length > 0 && cardBreakdown.length > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
-          {catBreakdown.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <Tag size={14} className="text-slate-400" />
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">By Category</h3>
-              </div>
-              <div className="flex flex-col gap-3">
-                {(showAllCats ? catBreakdown : catBreakdown.slice(0, TOP_N)).map((cat) => (
-                  <div key={cat.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-slate-700 truncate mr-2">{cat.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
-                        <span className="text-sm font-semibold text-slate-800">{fmtAmount(cat.total)}</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {catBreakdown.length > TOP_N && (
-                <button
-                  onClick={() => setShowAllCats((v) => !v)}
-                  className="mt-3 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
-                >
-                  <ChevronDown size={13} className={`transition-transform ${showAllCats ? "rotate-180" : ""}`} />
-                  {showAllCats ? "Show less" : `${catBreakdown.length - TOP_N} more`}
-                </button>
-              )}
+      {/* Loan summary strip */}
+      {loans.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 shadow-sm flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div className="flex items-center gap-2">
+            <GraduationCap size={14} className="text-indigo-400 shrink-0" />
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Loan Balance</p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">
+                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
+              </p>
             </div>
-          )}
+          </div>
+          <div className="w-px h-8 bg-slate-100 hidden sm:block" />
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Principal</p>
+            <p className="text-sm font-bold text-slate-900 mt-0.5">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
+              <span className="text-[10px] font-normal text-slate-400 ml-1">{loans.length} loan{loans.length !== 1 ? "s" : ""}</span>
+            </p>
+          </div>
+          <div className="w-px h-8 bg-slate-100 hidden sm:block" />
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Accrued Interest</p>
+            <p className="text-sm font-bold text-amber-600 mt-0.5">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
+            </p>
+          </div>
+        </div>
+      )}
 
-          {cardBreakdown.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <CreditCardIcon size={14} className="text-slate-400" />
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">By Credit Card</h3>
+      {/* Spend by Category */}
+      {catBreakdown.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Tag size={14} className="text-slate-400" />
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Category</h3>
+          </div>
+          <div className="flex flex-col gap-3">
+            {(showAllCats ? catBreakdown : catBreakdown.slice(0, TOP_N)).map((cat) => (
+              <div key={cat.name} className="flex items-center gap-4">
+                <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{cat.name}</span>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
+                </div>
+                <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                  <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
+                  <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
+                </div>
               </div>
-              <div className="flex flex-col gap-3">
-                {(showAllCards ? cardBreakdown : cardBreakdown.slice(0, TOP_N)).map((card) => (
-                  <div key={card.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-slate-700 truncate mr-2">{card.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
-                        <span className="text-sm font-semibold text-slate-800">{fmtAmount(card.total)}</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
-                    </div>
-                  </div>
-                ))}
+            ))}
+          </div>
+          {catBreakdown.length > TOP_N && (
+            <button
+              onClick={() => setShowAllCats((v) => !v)}
+              className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+            >
+              <ChevronDown size={13} className={`transition-transform ${showAllCats ? "rotate-180" : ""}`} />
+              {showAllCats ? "Show less" : `${catBreakdown.length - TOP_N} more`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Spend by Credit Card */}
+      {cardBreakdown.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCardIcon size={14} className="text-slate-400" />
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Credit Card</h3>
+          </div>
+          <div className="flex flex-col gap-3">
+            {(showAllCards ? cardBreakdown : cardBreakdown.slice(0, TOP_N)).map((card) => (
+              <div key={card.name} className="flex items-center gap-4">
+                <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
+                </div>
+                <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                  <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
+                  <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
+                </div>
               </div>
-              {cardBreakdown.length > TOP_N && (
-                <button
-                  onClick={() => setShowAllCards((v) => !v)}
-                  className="mt-3 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
-                >
-                  <ChevronDown size={13} className={`transition-transform ${showAllCards ? "rotate-180" : ""}`} />
-                  {showAllCards ? "Show less" : `${cardBreakdown.length - TOP_N} more`}
-                </button>
-              )}
-            </div>
+            ))}
+          </div>
+          {cardBreakdown.length > TOP_N && (
+            <button
+              onClick={() => setShowAllCards((v) => !v)}
+              className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+            >
+              <ChevronDown size={13} className={`transition-transform ${showAllCards ? "rotate-180" : ""}`} />
+              {showAllCards ? "Show less" : `${cardBreakdown.length - TOP_N} more`}
+            </button>
           )}
         </div>
       )}
@@ -748,7 +731,6 @@ const TRANSFER_PLATFORMS = ["Zelle", "Venmo", "Cash App", "PayPal", "Apple Pay",
 const UTILITY_NAMES = ["Electric", "Water", "Internet", "Gas", "Trash"];
 const EMPTY_BILL = { utility: "", is_recurring: false, service_period_start: "", service_period_end: "", charge_date: "", charge_day: "", billing_start: "", amount: "", split_with: "", notes: "" };
 const EMPTY_LOAN = { name: "", disbursement_date: "", original_principal: "", unpaid_principal: "", interest_rate: "", unpaid_interest: "", total_interest_paid: "0", notes: "" };
-const EMPTY_CC_REMINDER = { card_name: "", owner: "", due_day: "" };
 
 // ---- Page ----
 
@@ -758,10 +740,11 @@ export default function PaymentsAndExpensesPage() {
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [recurringCharges, setRecurringCharges] = useState<RecurringCharge[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "recurring" | "transfer" | "loan" | "cc_reminder"; id: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "recurring" | "transfer" | "loan"; id: number } | null>(null);
 
   const [showScanModal, setShowScanModal] = useState(false);
   const [monthTotal, setMonthTotal] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "recurring" | "transfers" | "loans">("overview");
 
   // Expanded transaction groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -798,6 +781,7 @@ export default function PaymentsAndExpensesPage() {
   const [cardFilterIds, setCardFilterIds] = useState<Set<number | null>>(new Set());
   const [ccFilterDropOpen, setCcFilterDropOpen] = useState(false);
   const ccFilterDropRef = useRef<HTMLDivElement>(null);
+  const [catFilterId, setCatFilterId] = useState<number | null | "all">("all");
 
   // Inline category creation (expense modal)
   const [addingCat, setAddingCat] = useState(false);
@@ -871,13 +855,6 @@ export default function PaymentsAndExpensesPage() {
   const [utilLogPriceForm, setUtilLogPriceForm] = useState({ amount: "", effectiveMonth: "" });
   const [utilLogPriceSaveError, setUtilLogPriceSaveError] = useState<string | null>(null);
 
-  // Credit card reminders
-  const [ccReminders, setCcReminders] = useState<CreditCardReminder[]>([]);
-  const [ccRemindersOpen, setCcRemindersOpen] = useState(true);
-  const [showCcReminderModal, setShowCcReminderModal] = useState(false);
-  const [editCcReminder, setEditCcReminder] = useState<CreditCardReminder | null>(null);
-  const [ccReminderForm, setCcReminderForm] = useState(EMPTY_CC_REMINDER);
-  const [ccReminderSaveError, setCcReminderSaveError] = useState<string | null>(null);
 
   // College loans
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -892,6 +869,9 @@ export default function PaymentsAndExpensesPage() {
   const [expensesOpen, setExpensesOpen] = useState(true);
   const [transfersOpen, setTransfersOpen] = useState(true);
   const [owedOpen, setOwedOpen] = useState(true);
+  const [trendHalf, setTrendHalf] = useState<"H1" | "H2">("H1");
+  const [showAllCats, setShowAllCats] = useState(false);
+  const [showAllCards, setShowAllCards] = useState(false);
   const [expandedOwedIds, setExpandedOwedIds] = useState<Set<string>>(new Set());
   const [expandedLedgerGroups, setExpandedLedgerGroups] = useState<Set<string>>(new Set());
   const [recordPaymentId, setRecordPaymentId] = useState<string | null>(null);
@@ -903,14 +883,6 @@ export default function PaymentsAndExpensesPage() {
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [allTransfers, setAllTransfers] = useState<MoneyTransfer[]>([]);
 
-  // Global year search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [yearExpenses, setYearExpenses] = useState<Expense[]>([]);
-  const [yearTransfers, setYearTransfers] = useState<MoneyTransfer[]>([]);
-  const [yearDataLoaded, setYearDataLoaded] = useState(false);
-  const [yearDataLoading, setYearDataLoading] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     apiFetch("/categories").then(setExpenseCategories).catch(console.error);
@@ -923,7 +895,6 @@ export default function PaymentsAndExpensesPage() {
     apiFetch("/utility-bills").then(setUtilityBills).catch(console.error);
     apiFetch("/utility-reimbursements").then(setUtilityReimbursements).catch(console.error);
     apiFetch("/loans").then(setLoans).catch(console.error);
-    apiFetch("/credit-card-reminders").then(setCcReminders).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -938,7 +909,6 @@ export default function PaymentsAndExpensesPage() {
       if (transferSplitDropRef.current && !transferSplitDropRef.current.contains(e.target as Node)) setTransferSplitDropOpen(false);
       if (billSplitDropRef.current && !billSplitDropRef.current.contains(e.target as Node)) setBillSplitDropOpen(false);
       if (ccFilterDropRef.current && !ccFilterDropRef.current.contains(e.target as Node)) setCcFilterDropOpen(false);
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
@@ -964,9 +934,9 @@ export default function PaymentsAndExpensesPage() {
 
   // Group expenses by name (with optional CC filter applied first)
   type ExpenseGroup = { key: string; name: string; items: Expense[]; total: number };
-  const filteredExpenses = cardFilterIds.size === 0
-    ? expenses
-    : expenses.filter((e) => cardFilterIds.has(e.credit_card_id));
+  const filteredExpenses = expenses
+    .filter((e) => cardFilterIds.size === 0 || cardFilterIds.has(e.credit_card_id))
+    .filter((e) => catFilterId === "all" || e.category_id === catFilterId);
   const expenseGroups: ExpenseGroup[] = [];
   for (const expense of filteredExpenses) {
     const key = expense.name.toLowerCase().trim();
@@ -1039,7 +1009,7 @@ export default function PaymentsAndExpensesPage() {
     setNewCardColor("blue");
   }
 
-  async function addCardInline() {
+  async function addCardInline(target: "expense" | "recurring") {
     const name = newCardName.trim();
     if (!name) return;
     const created = await apiFetch("/credit-cards", {
@@ -1048,20 +1018,11 @@ export default function PaymentsAndExpensesPage() {
       body: JSON.stringify({ name, color: newCardColor }),
     });
     setCreditCards((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setExpenseForm((f) => ({ ...f, credit_card_id: String(created.id) }));
-    resetInlineCard();
-  }
-
-  async function addRecurringCardInline() {
-    const name = newCardName.trim();
-    if (!name) return;
-    const created = await apiFetch("/credit-cards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color: newCardColor }),
-    });
-    setCreditCards((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setRecurringForm((f) => ({ ...f, credit_card_id: String(created.id) }));
+    if (target === "expense") {
+      setExpenseForm((f) => ({ ...f, credit_card_id: String(created.id) }));
+    } else {
+      setRecurringForm((f) => ({ ...f, credit_card_id: String(created.id) }));
+    }
     resetInlineCard();
   }
 
@@ -1073,26 +1034,6 @@ export default function PaymentsAndExpensesPage() {
   }
 
   // ---- Year search ----
-
-  function openYearSearch() {
-    setSearchOpen(true);
-    if (yearDataLoaded || yearDataLoading) return;
-    setYearDataLoading(true);
-    const year = new Date().getFullYear();
-    Promise.all([
-      apiFetch(`/expenses?year=${year}`),
-      apiFetch(`/money-transfers?year=${year}`),
-    ]).then(([exps, trans]: [Expense[], MoneyTransfer[]]) => {
-      setYearExpenses(exps);
-      setYearTransfers(trans);
-      setYearDataLoaded(true);
-    }).catch(console.error).finally(() => setYearDataLoading(false));
-  }
-
-  function clearSearch() {
-    setSearchQuery("");
-    setSearchOpen(false);
-  }
 
   // ---- Money Transfers ----
 
@@ -1147,7 +1088,7 @@ export default function PaymentsAndExpensesPage() {
     setShowTransferModal(true);
   }
 
-  async function doSaveTransfer(): Promise<void> {
+  async function persistTransfer(): Promise<void> {
     if (!transferForm.person.trim()) {
       throw new Error(transferForm.direction === "sent" ? "Please select who you sent to." : "Please select who you received from.");
     }
@@ -1188,7 +1129,7 @@ export default function PaymentsAndExpensesPage() {
     e.preventDefault();
     setTransferSaveError(null);
     try {
-      await doSaveTransfer();
+      await persistTransfer();
       setShowTransferModal(false);
       setEditTransfer(null);
       setTransferForm(EMPTY_TRANSFER);
@@ -1203,7 +1144,7 @@ export default function PaymentsAndExpensesPage() {
   async function saveTransferAndAddAnother() {
     setTransferSaveError(null);
     try {
-      await doSaveTransfer();
+      await persistTransfer();
       setTransferForm((f) => ({ ...EMPTY_TRANSFER, date: f.date, direction: f.direction }));
       setTransferSplitPeople([]);
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
@@ -1413,16 +1354,14 @@ export default function PaymentsAndExpensesPage() {
     setAddingPerson(false);
   }
 
-  async function deleteCategory(id: number) {
+  async function deleteCategory(id: number, target: "expense" | "recurring" = "expense") {
     await apiFetch(`/categories/${id}`, { method: "DELETE" });
     setExpenseCategories((prev) => prev.filter((c) => c.id !== id));
-    if (expenseForm.category_id === String(id)) setExpenseForm((f) => ({ ...f, category_id: "" }));
-  }
-
-  async function deleteRecurringCategory(id: number) {
-    await apiFetch(`/categories/${id}`, { method: "DELETE" });
-    setExpenseCategories((prev) => prev.filter((c) => c.id !== id));
-    if (recurringForm.category_id === String(id)) setRecurringForm((f) => ({ ...f, category_id: "" }));
+    if (target === "expense") {
+      if (expenseForm.category_id === String(id)) setExpenseForm((f) => ({ ...f, category_id: "" }));
+    } else {
+      if (recurringForm.category_id === String(id)) setRecurringForm((f) => ({ ...f, category_id: "" }));
+    }
   }
 
   async function removePerson(name: string) {
@@ -1469,7 +1408,7 @@ export default function PaymentsAndExpensesPage() {
     setShowExpenseModal(true);
   }
 
-  async function doSaveExpense(): Promise<Expense | null> {
+  async function persistExpense(): Promise<Expense | null> {
     const amount = parseFloat(expenseForm.amount);
     if (isNaN(amount)) throw new Error("Amount is required and must be a valid number");
     const body = {
@@ -1507,7 +1446,7 @@ export default function PaymentsAndExpensesPage() {
     e.preventDefault();
     setExpenseSaveError(null);
     try {
-      await doSaveExpense();
+      await persistExpense();
       setShowExpenseModal(false);
       setEditExpense(null);
       setExpenseForm(EMPTY_EXPENSE);
@@ -1520,7 +1459,7 @@ export default function PaymentsAndExpensesPage() {
   async function saveExpenseAndAddAnother() {
     setExpenseSaveError(null);
     try {
-      await doSaveExpense();
+      await persistExpense();
       setExpenseForm({ ...EMPTY_EXPENSE, date: expenseForm.date });
       resetSplit();
     } catch (err) {
@@ -1735,43 +1674,6 @@ export default function PaymentsAndExpensesPage() {
 
   // ---- Credit Card Reminders ----
 
-  async function saveCcReminder(e: React.FormEvent) {
-    e.preventDefault();
-    setCcReminderSaveError(null);
-    const due_day = parseInt(ccReminderForm.due_day);
-    if (isNaN(due_day) || due_day < 1 || due_day > 31) {
-      setCcReminderSaveError("Due day must be between 1 and 31");
-      return;
-    }
-    try {
-      const body = {
-        card_name: ccReminderForm.card_name.trim(),
-        owner: ccReminderForm.owner.trim() || null,
-        due_day,
-      };
-      if (editCcReminder) {
-        await apiFetch(`/credit-card-reminders/${editCcReminder.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      } else {
-        await apiFetch("/credit-card-reminders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      }
-      const fresh: CreditCardReminder[] = await apiFetch("/credit-card-reminders");
-      setCcReminders(fresh ?? []);
-      setShowCcReminderModal(false);
-      setEditCcReminder(null);
-      setCcReminderForm(EMPTY_CC_REMINDER);
-    } catch (err) {
-      setCcReminderSaveError(err instanceof Error ? err.message : "Failed to save reminder");
-    }
-  }
-
   // ---- Misc ----
 
   async function confirmDelete() {
@@ -1783,9 +1685,6 @@ export default function PaymentsAndExpensesPage() {
       await apiFetch(`/loans/${deleteTarget.id}`, { method: "DELETE" });
       const fresh: Loan[] = await apiFetch("/loans");
       setLoans(fresh ?? []);
-    } else if (deleteTarget.type === "cc_reminder") {
-      await apiFetch(`/credit-card-reminders/${deleteTarget.id}`, { method: "DELETE" });
-      setCcReminders((prev) => prev.filter((r) => r.id !== deleteTarget.id));
     } else {
       await apiFetch(`/money-transfers/${deleteTarget.id}`, { method: "DELETE" });
       setMoneyTransfers((prev) => prev.filter((t) => t.id !== deleteTarget.id));
@@ -1830,93 +1729,8 @@ export default function PaymentsAndExpensesPage() {
     return todayDay >= charge.charge_date;
   }
 
-  // ---- Search results ----
-  type SearchItem = {
-    kind: "expense" | "recurring" | "transfer";
-    key: string;
-    date: string;
-    month: string;
-    name: string;
-    category: string | null;
-    amount: number;
-    isReturn?: boolean;
-    isSent?: boolean;
-  };
-
-  const searchYear = new Date().getFullYear();
-  const searchMonthMax = new Date().getMonth() + 1;
-  const allCatsMap = new Map(expenseCategories.map((c) => [c.id, c.name]));
-  const q = searchQuery.toLowerCase().trim();
-
-  const rawSearchItems: SearchItem[] = [];
-  if (q && yearDataLoaded) {
-    for (const e of yearExpenses) {
-      const catName = allCatsMap.get(e.category_id ?? -1) ?? null;
-      if (
-        e.name.toLowerCase().includes(q) ||
-        catName?.toLowerCase().includes(q) ||
-        e.notes?.toLowerCase().includes(q)
-      ) {
-        rawSearchItems.push({
-          kind: "expense", key: `e-${e.id}`,
-          date: e.date, month: e.date.slice(0, 7),
-          name: e.name, category: catName,
-          amount: Number(e.amount), isReturn: Number(e.amount) < 0,
-        });
-      }
-    }
-    for (let m = 1; m <= searchMonthMax; m++) {
-      const monthStr = `${searchYear}-${String(m).padStart(2, "0")}`;
-      for (const rc of recurringCharges) {
-        if (isCanceledForMonth(rc, monthStr)) continue;
-        const catName = allCatsMap.get(rc.category_id ?? -1) ?? null;
-        if (rc.name.toLowerCase().includes(q) || catName?.toLowerCase().includes(q) || rc.notes?.toLowerCase().includes(q)) {
-          const lastDay = new Date(searchYear, m, 0).getDate();
-          const day = Math.min(rc.charge_date, lastDay);
-          rawSearchItems.push({
-            kind: "recurring", key: `r-${rc.id}-${monthStr}`,
-            date: `${monthStr}-${String(day).padStart(2, "0")}`,
-            month: monthStr, name: rc.name,
-            category: catName, amount: getPriceForMonth(rc, monthStr),
-          });
-        }
-      }
-    }
-    for (const t of yearTransfers) {
-      if (
-        t.name?.toLowerCase().includes(q) ||
-        t.person.toLowerCase().includes(q) ||
-        t.platform?.toLowerCase().includes(q) ||
-        t.notes?.toLowerCase().includes(q) ||
-        (t.bank_id != null && banks.find((b) => b.id === t.bank_id)?.name.toLowerCase().includes(q))
-      ) {
-        const bankName = t.bank_id != null ? banks.find((b) => b.id === t.bank_id)?.name : undefined;
-        rawSearchItems.push({
-          kind: "transfer", key: `t-${t.id}`,
-          date: t.date, month: t.date.slice(0, 7),
-          name: t.name || (t.direction === "sent" ? `Sent to ${t.person}` : `Received from ${t.person}`),
-          category: [t.platform, bankName].filter(Boolean).join(" · ") || null,
-          amount: Number(t.amount),
-          isSent: t.direction === "sent",
-        });
-      }
-    }
-    rawSearchItems.sort((a, b) => b.date.localeCompare(a.date));
-  }
-
-  const searchGroups: { month: string; label: string; items: SearchItem[] }[] = [];
-  for (const item of rawSearchItems) {
-    let group = searchGroups.find((g) => g.month === item.month);
-    if (!group) {
-      const [y, m] = item.month.split("-").map(Number);
-      const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      group = { month: item.month, label, items: [] };
-      searchGroups.push(group);
-    }
-    group.items.push(item);
-  }
-
   // All-time per-person split ledger
+  const allCatsMap = new Map(expenseCategories.map((c) => [c.id, c.name]));
   const ledgerToday = new Date();
   const ledgerTodayMonth = `${ledgerToday.getFullYear()}-${String(ledgerToday.getMonth() + 1).padStart(2, "0")}`;
   const ledgerTodayDay = ledgerToday.getDate();
@@ -2075,120 +1889,372 @@ export default function PaymentsAndExpensesPage() {
     setRecordPaymentNotes("");
   }
 
+  const trendYear = new Date().getFullYear();
+  const trendCurrentCalMonth = new Date().getMonth() + 1;
+  const showHalfToggle = trendCurrentCalMonth > 6;
+  const trendStart = trendHalf === "H1" ? 1 : 7;
+  const trendMonths = Array.from({ length: 6 }, (_, i) => {
+    const m = trendStart + i;
+    return `${trendYear}-${String(m).padStart(2, "0")}`;
+  });
+  const trendData = trendMonths.map((m) => ({
+    month: m,
+    label: new Date(m + "-02").toLocaleString("default", { month: "short" }),
+    total: allExpenses.filter((e) => e.date.startsWith(m) && Number(e.amount) > 0).reduce((s, e) => s + Number(e.amount), 0),
+  }));
+  const trendMax = Math.max(...trendData.map((d) => d.total), 1);
+
+  // Summary card and overview breakdown computations
+  const summaryGrossSpend = expenses.reduce((s, e) => Number(e.amount) > 0 ? s + Number(e.amount) : s, 0);
+  const summaryRefunds = expenses.reduce((s, e) => Number(e.amount) < 0 ? s + Math.abs(Number(e.amount)) : s, 0);
+  const summaryNetSpend = summaryGrossSpend - summaryRefunds;
+  const summaryPositiveCount = expenses.filter((e) => Number(e.amount) > 0).length;
+  const summaryRefundCount = expenses.filter((e) => Number(e.amount) < 0).length;
+  const summaryApplicableRecurring = recurringCharges.filter((c) => {
+    if (isCanceledForMonth(c, selectedMonth)) return false;
+    if (selectedMonth < todayMonthStr) return true;
+    if (selectedMonth > todayMonthStr) return false;
+    return todayDay >= c.charge_date;
+  });
+  const summaryRecurringTotal = summaryApplicableRecurring.reduce((s, c) => s + getPriceForMonth(c, selectedMonth), 0);
+  const summarySent = moneyTransfers.filter((t) => t.direction === "sent").reduce((s, t) => s + Number(t.amount), 0);
+  const summaryReceived = moneyTransfers.filter((t) => t.direction === "received").reduce((s, t) => s + Number(t.amount), 0);
+  const summaryGrandTotal = summaryNetSpend + summaryRecurringTotal + (summarySent - summaryReceived);
+
+  const TOP_N = 5;
+  const overviewCatTotals = new Map<number | null, number>();
+  for (const e of expenses) {
+    const amt = Number(e.amount);
+    if (amt > 0) overviewCatTotals.set(e.category_id, (overviewCatTotals.get(e.category_id) ?? 0) + amt);
+  }
+  for (const rc of summaryApplicableRecurring) {
+    const amt = getPriceForMonth(rc, selectedMonth);
+    overviewCatTotals.set(rc.category_id, (overviewCatTotals.get(rc.category_id) ?? 0) + amt);
+  }
+  const overviewCatGross = Array.from(overviewCatTotals.values()).reduce((s, v) => s + v, 0);
+  const overviewCatBreakdown = Array.from(overviewCatTotals.entries())
+    .map(([id, total], i) => ({
+      name: id != null ? (expenseCategories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized",
+      total,
+      pct: overviewCatGross > 0 ? (total / overviewCatGross) * 100 : 0,
+      color: BAR_COLORS[i % BAR_COLORS.length],
+    }))
+    .sort((a, b) => b.total - a.total);
+  const overviewCardTotals = new Map<number | null, number>();
+  for (const e of expenses) {
+    const amt = Number(e.amount);
+    if (amt > 0) overviewCardTotals.set(e.credit_card_id, (overviewCardTotals.get(e.credit_card_id) ?? 0) + amt);
+  }
+  for (const rc of summaryApplicableRecurring) {
+    const amt = getPriceForMonth(rc, selectedMonth);
+    overviewCardTotals.set(rc.credit_card_id, (overviewCardTotals.get(rc.credit_card_id) ?? 0) + amt);
+  }
+  const overviewCardGross = Array.from(overviewCardTotals.values()).reduce((s, v) => s + v, 0);
+  const overviewCardBreakdown = Array.from(overviewCardTotals.entries())
+    .map(([id, total], i) => {
+      const card = creditCards.find((c) => c.id === id);
+      return {
+        name: card ? `${card.name}${card.last_four ? ` ····${card.last_four}` : ""}` : "No card",
+        total,
+        pct: overviewCardGross > 0 ? (total / overviewCardGross) * 100 : 0,
+        color: resolveCardColor(card?.color ?? null, i),
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+
+  const activeRecurring = recurringCharges.filter((c) => !isCanceledForMonth(c, selectedMonth));
+  const monthlyRecurringTotal = activeRecurring.reduce((s, c) => s + getPriceForMonth(c, selectedMonth), 0);
+
+  // Category pills and top-3 strip for Expenses tab
+  const monthCatTotals = new Map<number | null, number>();
+  for (const e of expenses) {
+    if (Number(e.amount) > 0) {
+      monthCatTotals.set(e.category_id, (monthCatTotals.get(e.category_id) ?? 0) + Number(e.amount));
+    }
+  }
+  const topCats = Array.from(monthCatTotals.entries())
+    .map(([id, total]) => ({
+      id,
+      name: id != null ? (expenseCategories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized",
+      total,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+  const monthCatIds = new Set(expenses.map((e) => e.category_id));
+  const pillCats = [
+    ...(monthCatIds.has(null) ? [{ id: null as number | null, name: "Uncategorized" }] : []),
+    ...expenseCategories.filter((c) => monthCatIds.has(c.id)),
+  ];
+
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-[calc(100vh-2rem)] relative pb-12">
+    <div className="p-6 md:p-8 max-w-6xl mx-auto min-h-[calc(100vh-2rem)] relative pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Finances</h1>
-          <p className="text-slate-500 mt-1">Track your upcoming bills and recent spending.</p>
-        </div>
-        {/* Month selector — top of page */}
-        <div className="flex items-center gap-1 border border-slate-200 rounded-lg px-1 py-1 self-start md:self-auto">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Finances</h1>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          {/* Month selector */}
+          <div className="flex items-center gap-1 border border-slate-200 rounded-lg px-1 py-1">
+            <button
+              onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
+              disabled={selectedMonth <= "2026-01"}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-sm font-medium text-slate-700 min-w-[130px] text-center">
+              {formatMonthLabel(selectedMonth)}
+            </span>
+            <button
+              onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          {/* Search trigger */}
           <button
-            onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
-            disabled={selectedMonth <= "2026-01"}
-            className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={() => document.dispatchEvent(new CustomEvent("open-global-search"))}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            aria-label="Search transactions"
           >
-            <ChevronLeft size={15} />
-          </button>
-          <span className="text-sm font-medium text-slate-700 min-w-[130px] text-center">
-            {formatMonthLabel(selectedMonth)}
-          </span>
-          <button
-            onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
-            className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors"
-          >
-            <ChevronRight size={15} />
+            <Search size={16} />
           </button>
         </div>
       </div>
 
-      {/* Global Year Search */}
-      <div className="relative mb-6" ref={searchRef}>
-        <div className={`flex items-center gap-2 border rounded-xl px-3 py-2.5 bg-white shadow-sm transition-all ${searchOpen ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200"}`}>
-          {yearDataLoading
-            ? <Loader2 size={16} className="text-slate-400 shrink-0 animate-spin" />
-            : <Search size={16} className="text-slate-400 shrink-0" />}
-          <input
-            type="text"
-            placeholder="Search…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={openYearSearch}
-            className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-slate-400"
-          />
-          {searchQuery && (
-            <button onClick={clearSearch} className="text-slate-400 hover:text-slate-600 transition-colors shrink-0">
-              <X size={16} />
-            </button>
-          )}
-        </div>
+      {/* Tab Bar */}
+      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+        {(["overview", "expenses", "recurring", "transfers", "loans"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-all duration-150 ${
+              activeTab === tab
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-        {searchOpen && searchQuery.trim() && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-40 max-h-[30rem] overflow-y-auto">
-            {!yearDataLoaded ? (
-              <div className="p-8 flex justify-center">
-                <Loader2 size={20} className="animate-spin text-slate-400" />
+      {/* Summary Cards */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Wallet size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryGrandTotal)}</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">one-time + recurring + transfers</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Receipt size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transactions</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryNetSpend)}</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              {summaryPositiveCount} expense{summaryPositiveCount !== 1 ? "s" : ""}
+              {summaryRefundCount > 0 && ` · ${summaryRefundCount} refund${summaryRefundCount !== 1 ? "s" : ""}`}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <RefreshCw size={13} className="text-violet-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Recurring</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryRecurringTotal)}</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">{summaryApplicableRecurring.length} charge{summaryApplicableRecurring.length !== 1 ? "s" : ""} applied</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Send size={13} className="text-violet-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transfers</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">{moneyTransfers.length}</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              <span className="text-rose-500">{formatAmount(summarySent)} out</span>
+              {summaryReceived > 0 && <> · <span className="text-emerald-600">{formatAmount(summaryReceived)} in</span></>}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Spend Trend Chart */}
+      {activeTab === "overview" && (
+        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 pt-4 pb-3 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">6-Month Spend Trend</p>
+            {showHalfToggle && (
+              <div className="flex gap-0.5 bg-slate-100 rounded-md p-0.5">
+                <button
+                  onClick={() => setTrendHalf("H1")}
+                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H1" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Jan–Jun
+                </button>
+                <button
+                  onClick={() => setTrendHalf("H2")}
+                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H2" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Jul–Dec
+                </button>
               </div>
-            ) : searchGroups.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-slate-500 text-sm font-medium">No transactions found for {searchYear}</p>
-              </div>
-            ) : (
-              searchGroups.map((group) => (
-                <div key={group.month}>
-                  <div className="px-4 py-2 bg-slate-50 border-b border-t border-slate-100 sticky top-0 z-10">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
-                  </div>
-                  {group.items.map((item) => (
-                    <div key={item.key} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-b-0 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                          item.kind === "expense"
-                            ? item.isReturn ? "bg-emerald-50" : "bg-indigo-50"
-                            : item.kind === "recurring"
-                            ? "bg-violet-50"
-                            : item.isSent ? "bg-red-50" : "bg-emerald-50"
-                        }`}>
-                          {item.kind === "expense"
-                            ? item.isReturn ? <RotateCcw size={13} className="text-emerald-500" /> : <Receipt size={13} className="text-indigo-500" />
-                            : item.kind === "recurring"
-                            ? <RefreshCw size={13} className="text-violet-500" />
-                            : item.isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{fmtDate(item.date)}</span>
-                            {item.category && (
-                              <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">{item.category}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <span className={`text-sm font-bold shrink-0 ml-4 ${item.isReturn ? "text-emerald-600" : item.kind === "transfer" && !item.isSent ? "text-emerald-600" : "text-slate-700"}`}>
-                        {item.isReturn ? "+" : item.kind === "transfer" ? (item.isSent ? "−" : "+") : ""}{fmtAmount(Math.abs(item.amount))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))
             )}
           </div>
-        )}
-      </div>
+          <div className="flex items-end gap-2" style={{ height: "72px" }}>
+            {trendData.map(({ month, label, total }) => (
+              <div key={month} className="flex-1 flex flex-col items-center justify-end gap-1">
+                {total > 0 && (
+                  <span className="text-[9px] text-slate-400 font-medium leading-none">
+                    ${Math.round(total).toLocaleString()}
+                  </span>
+                )}
+                <div
+                  className={`w-full rounded-sm transition-all ${month === selectedMonth ? "bg-indigo-500" : "bg-indigo-100"}`}
+                  style={{ height: `${Math.max((total / trendMax) * 44, total > 0 ? 3 : 0)}px` }}
+                />
+                <span className={`text-[10px] font-semibold leading-none ${month === selectedMonth ? "text-indigo-600" : "text-slate-400"}`}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Finance Summary */}
-      <FinanceSummary
-        expenses={expenses}
-        categories={expenseCategories}
-        creditCards={creditCards}
-        month={selectedMonth}
-        recurringCharges={recurringCharges}
-        moneyTransfers={moneyTransfers}
-        loans={loans}
-      />
+      {/* Top 3 Categories Strip */}
+      {activeTab === "expenses" && topCats.length > 0 && (
+        <div className="flex gap-3 mb-5">
+          {topCats.map(({ id, name, total }) => (
+            <button
+              key={id ?? "uncat"}
+              onClick={() => setCatFilterId((prev) => (prev === id ? "all" : id))}
+              className={`flex-1 text-left bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 transition-all border-2 ${
+                catFilterId === id ? "border-indigo-400" : "border-transparent"
+              }`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 truncate">{name}</p>
+              <p className="text-xl font-bold text-slate-900 mt-0.5">{formatAmount(total)}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+
+      {activeTab === "overview" && <>
+
+      {/* Loan Summary */}
+      {loans.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl px-6 py-5 shadow-sm mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <GraduationCap size={16} className="text-indigo-500" />
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Loans</h3>
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-x-10 gap-y-5">
+            <div className="text-center">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Loan Balance</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
+              </p>
+            </div>
+            <div className="w-px h-14 bg-slate-200 hidden sm:block" />
+            <div className="text-center">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Principal</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
+                <span className="text-sm font-normal text-slate-400 ml-2">{loans.length} loan{loans.length !== 1 ? "s" : ""}</span>
+              </p>
+            </div>
+            <div className="w-px h-14 bg-slate-200 hidden sm:block" />
+            <div className="text-center">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Accrued Interest</p>
+              <p className="text-2xl font-bold text-amber-600">
+                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spend by Category + Credit Card */}
+      {(overviewCatBreakdown.length > 0 || overviewCardBreakdown.length > 0) && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-6">
+          {overviewCatBreakdown.length > 0 && (
+            <div className={overviewCardBreakdown.length > 0 ? "mb-5" : ""}>
+              <div className="flex items-center gap-2 mb-4">
+                <Tag size={14} className="text-slate-400" />
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Category</h3>
+              </div>
+              <div className="flex flex-col gap-3">
+                {(showAllCats ? overviewCatBreakdown : overviewCatBreakdown.slice(0, TOP_N)).map((cat) => (
+                  <div key={cat.name} className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{cat.name}</span>
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                      <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
+                      <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {overviewCatBreakdown.length > TOP_N && (
+                <button
+                  onClick={() => setShowAllCats((v) => !v)}
+                  className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+                >
+                  <ChevronDown size={13} className={`transition-transform ${showAllCats ? "rotate-180" : ""}`} />
+                  {showAllCats ? "Show less" : `${overviewCatBreakdown.length - TOP_N} more`}
+                </button>
+              )}
+            </div>
+          )}
+
+          {overviewCatBreakdown.length > 0 && overviewCardBreakdown.length > 0 && (
+            <div className="border-t border-slate-100 my-5" />
+          )}
+
+          {overviewCardBreakdown.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCardIcon size={14} className="text-slate-400" />
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Credit Card</h3>
+              </div>
+              <div className="flex flex-col gap-3">
+                {(showAllCards ? overviewCardBreakdown : overviewCardBreakdown.slice(0, TOP_N)).map((card) => (
+                  <div key={card.name} className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                      <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
+                      <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {overviewCardBreakdown.length > TOP_N && (
+                <button
+                  onClick={() => setShowAllCards((v) => !v)}
+                  className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+                >
+                  <ChevronDown size={13} className={`transition-transform ${showAllCards ? "rotate-180" : ""}`} />
+                  {showAllCards ? "Show less" : `${overviewCardBreakdown.length - TOP_N} more`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bitches Who Owe Me Section */}
       {categoryBalances.length > 0 && (
@@ -2238,7 +2304,7 @@ export default function PaymentsAndExpensesPage() {
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-slate-900">{person.name}</p>
                                 <p className="text-xs text-slate-400">
-                                  {fmtAmount(totalOwed)}{totalPaid > 0 && <> − {fmtAmount(totalPaid)} = <span className={settled ? "text-emerald-600" : "text-rose-500"}>{fmtAmount(outstanding)}</span></>}
+                                  {formatAmount(totalOwed)}{totalPaid > 0 && <> − {formatAmount(totalPaid)} = <span className={settled ? "text-emerald-600" : "text-rose-500"}>{formatAmount(outstanding)}</span></>}
                                 </p>
                               </div>
                               <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
@@ -2247,7 +2313,7 @@ export default function PaymentsAndExpensesPage() {
                               {settled ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">Settled</span>
                               ) : (
-                                <span className="text-sm font-semibold text-rose-600">{fmtAmount(outstanding)}</span>
+                                <span className="text-sm font-semibold text-rose-600">{formatAmount(outstanding)}</span>
                               )}
                               {!settled && (
                                 <button
@@ -2347,12 +2413,12 @@ export default function PaymentsAndExpensesPage() {
                                           {group.items.length > 1 && <span className="text-xs text-slate-400 shrink-0">{group.items.length}×</span>}
                                           <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${gExpanded ? "" : "-rotate-90"}`} />
                                         </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{fmtAmount(group.totalShare)}</span>
+                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(group.totalShare)}</span>
                                       </button>
                                       {gExpanded && group.items.map((e) => (
                                         <div key={e.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                          <span className="text-xs text-slate-400">{fmtDate(e.date)} · total {fmtAmount(Number(e.amount))}</span>
-                                          <span className="text-xs text-slate-400">+{fmtAmount(e.share)}</span>
+                                          <span className="text-xs text-slate-400">{formatDate(e.date)} · total {formatAmount(Number(e.amount))}</span>
+                                          <span className="text-xs text-slate-400">+{formatAmount(e.share)}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -2374,12 +2440,12 @@ export default function PaymentsAndExpensesPage() {
                                           {months.length > 1 && <span className="text-xs text-slate-400 shrink-0">{months.length}×</span>}
                                           <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${rcExpanded ? "" : "-rotate-90"}`} />
                                         </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{fmtAmount(total)}</span>
+                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(total)}</span>
                                       </button>
                                       {rcExpanded && months.map(({ month, amount }) => (
                                         <div key={month} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
                                           <span className="text-xs text-slate-400">{formatMonthLabel(month)}</span>
-                                          <span className="text-xs text-slate-400">+{fmtAmount(amount)}</span>
+                                          <span className="text-xs text-slate-400">+{formatAmount(amount)}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -2401,12 +2467,12 @@ export default function PaymentsAndExpensesPage() {
                                           {group.items.length > 1 && <span className="text-xs text-slate-400 shrink-0">{group.items.length}×</span>}
                                           <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${gExpanded ? "" : "-rotate-90"}`} />
                                         </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{fmtAmount(group.totalShare)}</span>
+                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(group.totalShare)}</span>
                                       </button>
                                       {gExpanded && group.items.map((t) => (
                                         <div key={t.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                          <span className="text-xs text-slate-400">{fmtDate(t.date)} · total {fmtAmount(Number(t.amount))}</span>
-                                          <span className="text-xs text-slate-400">+{fmtAmount(t.share)}</span>
+                                          <span className="text-xs text-slate-400">{formatDate(t.date)} · total {formatAmount(Number(t.amount))}</span>
+                                          <span className="text-xs text-slate-400">+{formatAmount(t.share)}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -2425,12 +2491,12 @@ export default function PaymentsAndExpensesPage() {
                                         {payments.length > 1 && <span className="text-xs text-slate-400 shrink-0">{payments.length}×</span>}
                                         <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${paymentsExpanded ? "" : "-rotate-90"}`} />
                                       </div>
-                                      <span className="text-xs font-medium text-emerald-600 shrink-0 ml-3">−{fmtAmount(totalPaid)}</span>
+                                      <span className="text-xs font-medium text-emerald-600 shrink-0 ml-3">−{formatAmount(totalPaid)}</span>
                                     </button>
                                     {paymentsExpanded && payments.map((t) => (
                                       <div key={t.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                        <span className="text-xs text-slate-400">{fmtDate(t.date)} · {t.notes ?? "Payment received"}</span>
-                                        <span className="text-xs text-slate-400">−{fmtAmount(Number(t.amount))}</span>
+                                        <span className="text-xs text-slate-400">{formatDate(t.date)} · {t.notes ?? "Payment received"}</span>
+                                        <span className="text-xs text-slate-400">−{formatAmount(Number(t.amount))}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -2449,184 +2515,19 @@ export default function PaymentsAndExpensesPage() {
         </section>
       )}
 
-      {/* Credit Card Reminders Section */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <button
-            onClick={() => setCcRemindersOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
-          >
-            <Bell size={16} className="text-indigo-500" />
-            Credit Card Reminders
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${ccRemindersOpen ? "" : "-rotate-90"}`} />
-          </button>
-          <button
-            onClick={() => { setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); setCcReminderSaveError(null); setShowCcReminderModal(true); }}
-            className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
-            aria-label="Add credit card reminder"
-          >
-            <Plus size={20} />
-          </button>
-        </div>
+      </>}
 
-        {ccRemindersOpen && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            {ccReminders.length === 0 ? (
-              <div className="p-10 text-center flex flex-col items-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                  <Bell size={24} className="text-slate-300" />
-                </div>
-                <p className="text-slate-500 text-sm font-medium">No reminders added yet.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Card</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Day</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {ccReminders.map((reminder) => {
-                      const today = new Date();
-                      const todayDay = today.getDate();
-                      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                      const daysUntilDue = reminder.due_day >= todayDay
-                        ? reminder.due_day - todayDay
-                        : (daysInMonth - todayDay) + reminder.due_day;
-                      const dueSoon = daysUntilDue <= 5;
-                      return (
-                        <tr key={reminder.id} className={`group transition-colors ${dueSoon ? "bg-amber-50 hover:bg-amber-100/70" : "hover:bg-slate-50"}`}>
-                          <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                            <span className="flex items-center gap-2">
-                              {dueSoon && <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />}
-                              {reminder.card_name}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{reminder.owner ?? <span className="text-slate-300">—</span>}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`font-medium ${dueSoon ? "text-amber-700" : "text-slate-700"}`}>
-                              {ordinal(reminder.due_day)} of month
-                            </span>
-                            {dueSoon && (
-                              <span className="ml-2 text-xs text-amber-600 font-semibold">
-                                {daysUntilDue === 0 ? "Due today!" : `Due in ${daysUntilDue}d`}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <RowMenu
-                              onEdit={() => {
-                                setEditCcReminder(reminder);
-                                setCcReminderForm({ card_name: reminder.card_name, owner: reminder.owner ?? "", due_day: String(reminder.due_day) });
-                                setCcReminderSaveError(null);
-                                setShowCcReminderModal(true);
-                              }}
-                              onDelete={() => setDeleteTarget({ type: "cc_reminder", id: reminder.id })}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      {/* Recurring Tab */}
+      {activeTab === "recurring" && <>
+      {/* Monthly Recurring KPI */}
+      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 mb-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Monthly Recurring</p>
+        <p className="text-2xl font-bold text-slate-900 mt-1">{formatAmount(monthlyRecurringTotal)}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{activeRecurring.length} active subscription{activeRecurring.length !== 1 ? "s" : ""}</p>
+      </div>
 
-      {/* College Loans Section */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <button
-            onClick={() => setLoansOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
-          >
-            <GraduationCap size={16} className="text-indigo-500" />
-            College Loans
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${loansOpen ? "" : "-rotate-90"}`} />
-          </button>
-          <button
-            onClick={() => { setEditLoan(null); setLoanForm(EMPTY_LOAN); setLoanSaveError(null); setShowLoanModal(true); }}
-            className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
-            aria-label="Add loan"
-          >
-            <Plus size={20} />
-          </button>
-        </div>
-
-        {loansOpen && (
-          <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              {loans.length === 0 ? (
-                <div className="p-10 text-center flex flex-col items-center">
-                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                    <GraduationCap size={24} className="text-slate-300" />
-                  </div>
-                  <p className="text-slate-500 text-sm font-medium">No loans added yet.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Loan</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Disbursed</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Orig. Principal</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unpaid Principal</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unpaid Interest</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Interest Paid</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-indigo-50/60">Current Balance</th>
-                        <th className="px-4 py-3" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {loans.map((loan) => (
-                        <tr key={loan.id} className="group hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                            {loan.name}
-                            {loan.notes && (
-                              <span className="block text-xs text-slate-400 font-normal mt-0.5 max-w-[180px] truncate">{loan.notes}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(loan.disbursement_date)}</td>
-                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{fmtAmount(Number(loan.original_principal))}</td>
-                          <td className="px-4 py-3 text-right text-slate-800 font-medium whitespace-nowrap">{fmtAmount(Number(loan.unpaid_principal))}</td>
-                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{Number(loan.interest_rate).toFixed(4).replace(/\.?0+$/, "")}%</td>
-                          <td className="px-4 py-3 text-right text-amber-600 font-medium whitespace-nowrap">{fmtAmount(Number(loan.unpaid_interest))}</td>
-                          <td className="px-4 py-3 text-right text-emerald-600 whitespace-nowrap">{fmtAmount(Number(loan.total_interest_paid))}</td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap bg-indigo-50/30">
-                            {fmtAmount(Number(loan.unpaid_principal) + Number(loan.unpaid_interest))}
-                          </td>
-                          <td className="px-4 py-3">
-                            <RowMenu
-                              onEdit={() => {
-                                setEditLoan(loan);
-                                setLoanForm({ name: loan.name, disbursement_date: loan.disbursement_date, original_principal: String(loan.original_principal), unpaid_principal: String(loan.unpaid_principal), interest_rate: String(loan.interest_rate), unpaid_interest: String(loan.unpaid_interest), total_interest_paid: String(loan.total_interest_paid), notes: loan.notes ?? "" });
-                                setLoanSaveError(null);
-                                setShowLoanModal(true);
-                              }}
-                              onDelete={() => setDeleteTarget({ type: "loan", id: loan.id })}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Utilities Section */}
-      <section className="mb-8">
+      {/* Utilities Section - hidden until placement is decided */}
+      {false && <section className="mb-8">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
           <button onClick={() => setUtilitiesOpen((o) => !o)}
             className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors">
@@ -2669,7 +2570,7 @@ export default function PaymentsAndExpensesPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-slate-900">{name}</p>
-                                <p className="text-xs text-slate-400">{fmtAmount(owed)}</p>
+                                <p className="text-xs text-slate-400">{formatAmount(owed)}</p>
                               </div>
                               <ChevronDown size={13} className={`text-slate-400 transition-transform mr-2 ${isExpanded ? "" : "-rotate-90"}`} />
                             </button>
@@ -2689,10 +2590,10 @@ export default function PaymentsAndExpensesPage() {
                                   <div className="min-w-0">
                                     <span className="text-xs text-slate-700">{bill.utility}</span>
                                     <span className="text-xs text-slate-400 ml-2">
-                                      {bill.service_period_start ? fmtDate(bill.service_period_start) : "—"} – {bill.service_period_end ? fmtDate(bill.service_period_end) : "—"}
+                                      {bill.service_period_start ? formatDate(bill.service_period_start) : "—"} – {bill.service_period_end ? formatDate(bill.service_period_end) : "—"}
                                     </span>
                                   </div>
-                                  <span className="text-xs font-medium text-rose-500 ml-3">+{fmtAmount(share)}</span>
+                                  <span className="text-xs font-medium text-rose-500 ml-3">+{formatAmount(share)}</span>
                                 </div>
                               ))}
                             </div>
@@ -2751,18 +2652,18 @@ export default function PaymentsAndExpensesPage() {
                               </span>
                             ) : (
                               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                                Service: {b.service_period_start ? fmtDate(b.service_period_start) : "—"} – {b.service_period_end ? fmtDate(b.service_period_end) : "—"} · Charged {b.charge_date ? fmtDate(b.charge_date) : "—"}
+                                Service: {b.service_period_start ? formatDate(b.service_period_start) : "—"} – {b.service_period_end ? formatDate(b.service_period_end) : "—"} · Charged {b.charge_date ? formatDate(b.charge_date) : "—"}
                               </span>
                             )}
                             {names.length > 0 && share != null && (
                               <p className="text-xs text-amber-600 font-medium mt-0.5">
-                                Split with {names.join(", ")} · {fmtAmount(share)} each
+                                Split with {names.join(", ")} · {formatAmount(share)} each
                               </p>
                             )}
                             {b.notes && <p className="text-xs text-slate-400 mt-0.5">{b.notes}</p>}
                           </div>
                           <div className="flex items-center gap-3 shrink-0 ml-4">
-                            <span className="font-bold text-slate-800">{fmtAmount(monthAmount)}</span>
+                            <span className="font-bold text-slate-800">{formatAmount(monthAmount)}</span>
                             <RowMenu
                               onEdit={() => openEditBill(b)}
                               onDelete={() => deleteBill(b.id)}
@@ -2778,19 +2679,15 @@ export default function PaymentsAndExpensesPage() {
 
           </div>
         )}
-      </section>
+      </section>}
 
       {/* Recurring Charges Section */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <button
-            onClick={() => setRecurringOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
-          >
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
             <RefreshCw size={16} className="text-violet-500" />
             Recurring Charges
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${recurringOpen ? "" : "-rotate-90"}`} />
-          </button>
+          </div>
           <button
             onClick={openAddRecurring}
             className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
@@ -2800,7 +2697,7 @@ export default function PaymentsAndExpensesPage() {
           </button>
         </div>
 
-        {recurringOpen && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {recurringCharges.length === 0 ? (
             <div className="p-10 text-center flex flex-col items-center">
               <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
@@ -2865,7 +2762,7 @@ export default function PaymentsAndExpensesPage() {
                             return (
                               <span className="text-xs text-indigo-400 flex items-center gap-1 shrink-0">
                                 <Users size={10} />
-                                Split with {names.join(", ")} · {fmtAmount(perPerson)} each
+                                Split with {names.join(", ")} · {formatAmount(perPerson)} each
                               </span>
                             );
                           })()}
@@ -2873,7 +2770,7 @@ export default function PaymentsAndExpensesPage() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-4">
                         <span className={`font-bold ${canceledThisMonth ? "text-slate-300" : "text-slate-600"}`}>
-                          {fmtAmount(getPriceForMonth(rc, selectedMonth))}
+                          {formatAmount(getPriceForMonth(rc, selectedMonth))}
                         </span>
                         <RowMenu
                           onEdit={() => openEditRecurring(rc)}
@@ -2897,7 +2794,7 @@ export default function PaymentsAndExpensesPage() {
                       return (
                         <div key={entry.id} className="flex items-center justify-between pl-6 pr-4 py-2.5 bg-slate-50/70">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
-                          <span className="text-sm font-semibold text-slate-500">{fmtAmount(Number(entry.amount))}</span>
+                          <span className="text-sm font-semibold text-slate-500">{formatAmount(Number(entry.amount))}</span>
                         </div>
                       );
                     })}
@@ -2906,20 +2803,18 @@ export default function PaymentsAndExpensesPage() {
               })}
             </ul>
           )}
-        </div>}
+        </div>
       </section>
+      </>}
 
-      {/* Money Transfers Section */}
+      {/* Transfers Tab */}
+      {activeTab === "transfers" && <>
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <button
-            onClick={() => setTransfersOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
-          >
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
             <Send size={16} className="text-violet-500" />
             Money Transfers
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${transfersOpen ? "" : "-rotate-90"}`} />
-          </button>
+          </div>
           <button
             onClick={openAddTransfer}
             className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
@@ -2928,90 +2823,184 @@ export default function PaymentsAndExpensesPage() {
             <Plus size={20} />
           </button>
         </div>
-
-        {transfersOpen && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {moneyTransfers.length === 0 ? (
-            <div className="p-10 text-center">
-              <p className="text-slate-500 text-sm font-medium">No transfers recorded yet.</p>
+        {moneyTransfers.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+              <Send size={24} className="text-slate-300" />
             </div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {moneyTransfers.map((t) => {
-                const isSent = t.direction === "sent";
-                return (
-                  <li key={t.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
-                        {isSent
-                          ? <ArrowUpRight size={16} className="text-red-500" />
-                          : <ArrowDownLeft size={16} className="text-emerald-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-slate-800 truncate">
-                            {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
-                          </p>
-                          {t.category_id && (() => { const cat = expenseCategories.find((c) => c.id === t.category_id); return cat ? (
-                            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {cat.name}
-                            </span>
-                          ) : null; })()}
-                          {t.platform && (
-                            <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {t.platform}
-                            </span>
-                          )}
-                          {t.bank_id && (() => { const b = banks.find((b) => b.id === t.bank_id); return b ? (
-                            <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {b.name}
-                            </span>
-                          ) : null; })()}
-                        </div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                          {isSent ? "Sent to" : "Received from"} {t.person} · {fmtDate(t.date)}
-                        </span>
-                        {t.split_with && (() => {
-                          const names = t.split_with.split(",");
-                          const perPerson = Number(t.amount) / (names.length + 1);
-                          return (
-                            <p className="text-xs text-violet-500 font-medium mt-0.5">
-                              Split with {names.join(", ")} · {fmtAmount(perPerson)} each
-                            </p>
-                          );
-                        })()}
-                        {t.notes && (
-                          <p className="text-xs text-slate-400 mt-0.5 truncate">{t.notes}</p>
-                        )}
-                      </div>
+            <p className="text-slate-500 text-sm font-medium">No transfers for this month.</p>
+          </div>
+        ) : (
+          <ul className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
+            {moneyTransfers.map((t) => {
+              const isSent = t.direction === "sent";
+              return (
+                <li key={t.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                      {isSent ? <ArrowUpRight size={16} className="text-red-500" /> : <ArrowDownLeft size={16} className="text-emerald-500" />}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      <span className={`font-bold ${isSent ? "text-red-500" : "text-emerald-600"}`}>
-                        {isSent ? "−" : "+"}{fmtAmount(Number(t.amount))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                        </p>
+                        {t.category_id && (() => { const cat = expenseCategories.find((c) => c.id === t.category_id); return cat ? <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{cat.name}</span> : null; })()}
+                        {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{t.platform}</span>}
+                        {t.bank_id && (() => { const b = banks.find((b) => b.id === t.bank_id); return b ? <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{b.name}</span> : null; })()}
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
+                        {isSent ? "Sent to" : "Received from"} {t.person} · {formatDate(t.date)}
                       </span>
-                      <RowMenu
-                        onEdit={() => openEditTransfer(t)}
-                        onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })}
-                      />
+                      {t.notes && <p className="text-xs text-slate-400 mt-0.5 truncate">{t.notes}</p>}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    <span className={`font-bold ${isSent ? "text-red-500" : "text-emerald-600"}`}>
+                      {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
+                    </span>
+                    <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
+      </>}
 
-      {/* Expenses Section */}
+      {/* College Loans Tab */}
+      {activeTab === "loans" && <>
+      {/* Loans KPI Strip */}
+      {loans.length > 0 && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Balance</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{loans.length} loan{loans.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Unpaid Principal</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.original_principal), 0))} original
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Accrued Interest</p>
+            <p className="text-2xl font-bold text-amber-600 mt-1">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.total_interest_paid), 0))} paid to date
+            </p>
+          </div>
+        </div>
+      )}
+
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+            <GraduationCap size={16} className="text-indigo-500" />
+            College Loans
+          </div>
           <button
-            onClick={() => setExpensesOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
+            onClick={() => { setEditLoan(null); setLoanForm(EMPTY_LOAN); setLoanSaveError(null); setShowLoanModal(true); }}
+            className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
+            aria-label="Add loan"
           >
+            <Plus size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {loans.length === 0 ? (
+                <div className="p-10 text-center flex flex-col items-center">
+                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                    <GraduationCap size={24} className="text-slate-300" />
+                  </div>
+                  <p className="text-slate-500 text-sm font-medium">No loans added yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Loan</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Disbursed</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Orig. Principal</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unpaid Principal</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unpaid Interest</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Interest Paid</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-indigo-50/60">Current Balance</th>
+                        <th className="px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {loans.map((loan) => (
+                        <tr key={loan.id} className="group hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                            {loan.name}
+                            {loan.notes && (
+                              <span className="block text-xs text-slate-400 font-normal mt-0.5 max-w-[180px] truncate">{loan.notes}</span>
+                            )}
+                            {Number(loan.original_principal) > 0 && (() => {
+                              const paidPct = Math.round((1 - Number(loan.unpaid_principal) / Number(loan.original_principal)) * 100);
+                              return (
+                                <div className="flex items-center gap-1.5 mt-1.5">
+                                  <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${paidPct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-slate-400">{paidPct}% paid</span>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(loan.disbursement_date)}</td>
+                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{formatAmount(Number(loan.original_principal))}</td>
+                          <td className="px-4 py-3 text-right text-slate-800 font-medium whitespace-nowrap">{formatAmount(Number(loan.unpaid_principal))}</td>
+                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{Number(loan.interest_rate).toFixed(4).replace(/\.?0+$/, "")}%</td>
+                          <td className="px-4 py-3 text-right text-amber-600 font-medium whitespace-nowrap">{formatAmount(Number(loan.unpaid_interest))}</td>
+                          <td className="px-4 py-3 text-right text-emerald-600 whitespace-nowrap">{formatAmount(Number(loan.total_interest_paid))}</td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap bg-indigo-50/30">
+                            {formatAmount(Number(loan.unpaid_principal) + Number(loan.unpaid_interest))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <RowMenu
+                              onEdit={() => {
+                                setEditLoan(loan);
+                                setLoanForm({ name: loan.name, disbursement_date: loan.disbursement_date, original_principal: String(loan.original_principal), unpaid_principal: String(loan.unpaid_principal), interest_rate: String(loan.interest_rate), unpaid_interest: String(loan.unpaid_interest), total_interest_paid: String(loan.total_interest_paid), notes: loan.notes ?? "" });
+                                setLoanSaveError(null);
+                                setShowLoanModal(true);
+                              }}
+                              onDelete={() => setDeleteTarget({ type: "loan", id: loan.id })}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+      </section>
+      </>}
+
+      {/* Expenses Section */}
+      {activeTab === "expenses" && <>
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
             <Receipt size={16} className="text-indigo-500" />
             Recent Expenses
-            <ChevronDown size={14} className={`text-slate-400 transition-transform ${expensesOpen ? "" : "-rotate-90"}`} />
-          </button>
+          </div>
           <div className="flex items-center gap-2">
             {/* Sort selector */}
             <select
@@ -3093,15 +3082,36 @@ export default function PaymentsAndExpensesPage() {
           </div>
         </div>
 
-        {expensesOpen && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Category filter pills */}
+        {pillCats.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <button
+              onClick={() => setCatFilterId("all")}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === "all" ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              All
+            </button>
+            {pillCats.map((cat) => (
+              <button
+                key={cat.id ?? "uncat"}
+                onClick={() => setCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === cat.id ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {expenseGroups.length === 0 ? (
             <div className="p-10 text-center flex flex-col items-center">
               <p className="text-slate-500 text-sm font-medium">
-                {cardFilterIds.size > 0 ? "No expenses match the selected cards." : "No expenses logged for this month."}
+                {cardFilterIds.size > 0 || catFilterId !== "all" ? "No expenses match the selected filters." : "No expenses logged for this month."}
               </p>
-              {cardFilterIds.size > 0 && (
-                <button onClick={() => setCardFilterIds(new Set())} className="mt-2 text-xs text-indigo-500 hover:underline">
-                  Clear filter
+              {(cardFilterIds.size > 0 || catFilterId !== "all") && (
+                <button onClick={() => { setCardFilterIds(new Set()); setCatFilterId("all"); }} className="mt-2 text-xs text-indigo-500 hover:underline">
+                  Clear filters
                 </button>
               )}
             </div>
@@ -3145,16 +3155,16 @@ export default function PaymentsAndExpensesPage() {
                         </div>
                         {isGroup ? (
                           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                            {group.items.length} transactions · latest {fmtDate(group.items[0].date)}
+                            {group.items.length} transactions · latest {formatDate(group.items[0].date)}
                           </span>
                         ) : (
                           <>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                              {fmtDate(solo.date)}
+                              {formatDate(solo.date)}
                             </span>
                             {solo.service_period_start && solo.service_period_end && (
                               <p className="text-xs text-amber-600 font-medium mt-0.5">
-                                Service: {fmtDate(solo.service_period_start)} – {fmtDate(solo.service_period_end)}
+                                Service: {formatDate(solo.service_period_start)} – {formatDate(solo.service_period_end)}
                               </p>
                             )}
                             {solo.notes && (
@@ -3165,7 +3175,7 @@ export default function PaymentsAndExpensesPage() {
                                 <Users size={10} />
                                 Split with {splitNames.join(", ")}
                                 {perPerson != null && <span className="text-slate-300 mx-0.5">·</span>}
-                                {perPerson != null && <span>{fmtAmount(perPerson)} each</span>}
+                                {perPerson != null && <span>{formatAmount(perPerson)} each</span>}
                               </p>
                             )}
                           </>
@@ -3173,7 +3183,7 @@ export default function PaymentsAndExpensesPage() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-4">
                         <span className={`font-bold ${group.total < 0 ? "text-emerald-600" : "text-slate-600"}`}>
-                          {fmtAmount(group.total)}
+                          {formatAmount(group.total)}
                         </span>
                         {!isGroup ? (
                           <RowMenu
@@ -3213,11 +3223,11 @@ export default function PaymentsAndExpensesPage() {
                               )}
                             </div>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                              {fmtDate(expense.date)}
+                              {formatDate(expense.date)}
                             </span>
                             {expense.service_period_start && expense.service_period_end && (
                               <p className="text-xs text-amber-600 font-medium mt-0.5">
-                                Service: {fmtDate(expense.service_period_start)} – {fmtDate(expense.service_period_end)}
+                                Service: {formatDate(expense.service_period_start)} – {formatDate(expense.service_period_end)}
                               </p>
                             )}
                             {expense.notes && (
@@ -3228,13 +3238,13 @@ export default function PaymentsAndExpensesPage() {
                                 <Users size={10} />
                                 Split with {expSplitNames.join(", ")}
                                 {expPerPerson != null && <span className="text-slate-300 mx-0.5">·</span>}
-                                {expPerPerson != null && <span>{fmtAmount(expPerPerson)} each</span>}
+                                {expPerPerson != null && <span>{formatAmount(expPerPerson)} each</span>}
                               </p>
                             )}
                           </div>
                           <div className="flex items-center gap-3 shrink-0 ml-4">
                             <span className={`font-bold text-sm ${Number(expense.amount) < 0 ? "text-emerald-600" : "text-slate-600"}`}>
-                              {fmtAmount(Number(expense.amount))}
+                              {formatAmount(Number(expense.amount))}
                             </span>
                             <RowMenu
                               onEdit={() => openEditExpense(expense)}
@@ -3250,8 +3260,9 @@ export default function PaymentsAndExpensesPage() {
               })}
             </ul>
           )}
-        </div>}
+        </div>
       </section>
+      </>}
 
       {/* Credit Card Modal */}
       {showCreditCardModal && (
@@ -3442,7 +3453,7 @@ export default function PaymentsAndExpensesPage() {
                         value={newCardName}
                         onChange={(e) => setNewCardName(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); addCardInline(); }
+                          if (e.key === "Enter") { e.preventDefault(); addCardInline("expense"); }
                           if (e.key === "Escape") resetInlineCard();
                         }}
                         placeholder="e.g. Chase Sapphire"
@@ -3457,7 +3468,7 @@ export default function PaymentsAndExpensesPage() {
                           ))}
                         </div>
                         <div className="flex gap-2">
-                          <button type="button" onClick={addCardInline}
+                          <button type="button" onClick={() => addCardInline("expense")}
                             className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                             Add
                           </button>
@@ -3571,7 +3582,7 @@ export default function PaymentsAndExpensesPage() {
                   </div>
                   {splitPeople.length > 0 && perPerson > 0 && (
                     <p className="text-xs text-indigo-600 font-medium bg-indigo-50 rounded-md px-3 py-2 mt-2">
-                      Split with {splitPeople.join(", ")} · {fmtAmount(perPerson)} each
+                      Split with {splitPeople.join(", ")} · {formatAmount(perPerson)} each
                     </p>
                   )}
                 </div>
@@ -3740,7 +3751,7 @@ export default function PaymentsAndExpensesPage() {
                               {c.name}
                             </button>
                             <button type="button"
-                              onClick={() => deleteRecurringCategory(c.id)}
+                              onClick={() => deleteCategory(c.id, "recurring")}
                               className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
                               <X size={13} />
                             </button>
@@ -3772,7 +3783,7 @@ export default function PaymentsAndExpensesPage() {
                       value={newCardName}
                       onChange={(e) => setNewCardName(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); addRecurringCardInline(); }
+                        if (e.key === "Enter") { e.preventDefault(); addCardInline("recurring"); }
                         if (e.key === "Escape") resetInlineCard();
                       }}
                       placeholder="e.g. Chase Sapphire"
@@ -3787,7 +3798,7 @@ export default function PaymentsAndExpensesPage() {
                         ))}
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" onClick={addRecurringCardInline}
+                        <button type="button" onClick={() => addCardInline("recurring")}
                           className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                           Add
                         </button>
@@ -3904,7 +3915,7 @@ export default function PaymentsAndExpensesPage() {
                   const rcPer = rcTotal > 0 ? rcTotal / rcCount : 0;
                   return rcPer > 0 ? (
                     <p className="text-xs text-indigo-600 font-medium bg-indigo-50 rounded-md px-3 py-2 mt-2">
-                      Split with {splitPeople.join(", ")} · {fmtAmount(rcPer)} each
+                      Split with {splitPeople.join(", ")} · {formatAmount(rcPer)} each
                     </p>
                   ) : null;
                 })()}
@@ -4413,7 +4424,7 @@ export default function PaymentsAndExpensesPage() {
                   const perPerson = total > 0 ? total / count : 0;
                   return perPerson > 0 ? (
                     <p className="text-xs text-violet-600 font-medium bg-violet-50 rounded-md px-3 py-2 mt-2">
-                      Split with {transferSplitPeople.join(", ")} · {fmtAmount(perPerson)} each
+                      Split with {transferSplitPeople.join(", ")} · {formatAmount(perPerson)} each
                     </p>
                   ) : null;
                 })()}
@@ -4559,7 +4570,7 @@ export default function PaymentsAndExpensesPage() {
                           <span className="text-xs text-slate-500">
                             {new Date(h.effective_from + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                           </span>
-                          <span className="text-xs font-medium text-slate-700">{fmtAmount(Number(h.amount))}/mo</span>
+                          <span className="text-xs font-medium text-slate-700">{formatAmount(Number(h.amount))}/mo</span>
                         </div>
                       ))}
                   </div>
@@ -4632,7 +4643,7 @@ export default function PaymentsAndExpensesPage() {
                   const per = total > 0 ? total / (billSplitPeople.length + 1) : 0;
                   return per > 0 ? (
                     <p className="text-xs text-amber-600 font-medium bg-amber-50 rounded-md px-3 py-2 mt-2">
-                      Split with {billSplitPeople.join(", ")} · {fmtAmount(per)} each
+                      Split with {billSplitPeople.join(", ")} · {formatAmount(per)} each
                     </p>
                   ) : null;
                 })()}
@@ -4652,66 +4663,6 @@ export default function PaymentsAndExpensesPage() {
                   className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
                   {editBill ? "Save changes" : "Add bill"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Credit Card Reminder Modal */}
-      {showCcReminderModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editCcReminder ? "Edit Reminder" : "Add Credit Card Reminder"}
-              </h2>
-              <button onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={saveCcReminder} className="p-6 flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Card Name <span className="text-red-500">*</span></label>
-                <input
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="e.g. Chase Sapphire"
-                  value={ccReminderForm.card_name}
-                  onChange={(e) => setCcReminderForm((f) => ({ ...f, card_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Owner</label>
-                <input
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="e.g. Ivan"
-                  value={ccReminderForm.owner}
-                  onChange={(e) => setCcReminderForm((f) => ({ ...f, owner: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Due Day of Month <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="e.g. 15"
-                  value={ccReminderForm.due_day}
-                  onChange={(e) => setCcReminderForm((f) => ({ ...f, due_day: e.target.value }))}
-                  required
-                />
-                <p className="text-xs text-slate-400 mt-1">Day of the month the payment is due (1–31).</p>
-              </div>
-              {ccReminderSaveError && <p className="text-sm text-red-500">{ccReminderSaveError}</p>}
-              <div className="flex gap-2 justify-end pt-2">
-                <button type="button" onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">
-                  {editCcReminder ? "Save Changes" : "Add Reminder"}
                 </button>
               </div>
             </form>

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import verify_credentials
-from app.routers import tasks, habits, payments, categories, expenses, expense_splits, jobs, docs, recipes, resumes, scan, credit_cards, recurring_charges, money_transfers, banks, people, utility_bills, loans, credit_card_reminders
+from app.routers import tasks, habits, payments, categories, expenses, expense_splits, jobs, resumes, scan, credit_cards, recurring_charges, money_transfers, banks, people, utility_bills, loans, credit_card_reminders
 
 app = FastAPI()
 
@@ -23,8 +23,6 @@ app.include_router(categories.router, dependencies=[Depends(verify_credentials)]
 app.include_router(expenses.router, dependencies=[Depends(verify_credentials)])
 app.include_router(expense_splits.router, dependencies=[Depends(verify_credentials)])
 app.include_router(jobs.router, dependencies=[Depends(verify_credentials)])
-app.include_router(docs.router, dependencies=[Depends(verify_credentials)])
-app.include_router(recipes.router, dependencies=[Depends(verify_credentials)])
 app.include_router(resumes.router, dependencies=[Depends(verify_credentials)])
 app.include_router(scan.router, dependencies=[Depends(verify_credentials)])
 app.include_router(credit_cards.router, dependencies=[Depends(verify_credentials)])

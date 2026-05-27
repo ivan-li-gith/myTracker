@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   CheckSquare, CreditCard, Briefcase,
   Menu, X, LayoutDashboard, User, Activity,
-  PanelLeftClose, PanelLeftOpen, ChevronRight,
+  PanelLeftClose, PanelLeftOpen, Search,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -30,11 +30,11 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
 ];
 
-const MORE_NAV: NavItem[] = [];
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onSearchOpen: () => void;
 }
 
 function todayStr() {
@@ -50,10 +50,9 @@ function getWeekStart() {
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, onSearchOpen }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreExpanded, setMoreExpanded] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -216,60 +215,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     </div>
   );
 
-  function renderMoreSection(isMobile = false) {
-    const isMoreActive = MORE_NAV.some((item) => isActive(item.href));
-
-    if (collapsed && !isMobile) {
-      // Collapsed: show More items as plain icons, no toggle needed
-      return (
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-0.5">
-          {MORE_NAV.map((item) => {
-            const active = isActive(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex items-center justify-center py-2.5 rounded-md transition-all duration-150 ${
-                  active
-                    ? "bg-slate-100 text-indigo-600"
-                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                }`}
-              >
-                <Icon size={18} />
-              </Link>
-            );
-          })}
-        </div>
-      );
-    }
-
-    return (
-      <div className="mt-3 pt-2 border-t border-slate-100">
-        <button
-          onClick={() => setMoreExpanded((v) => !v)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 w-full rounded-md text-xs font-semibold transition-colors ${
-            isMoreActive
-              ? "text-slate-700"
-              : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <ChevronRight
-            size={13}
-            className={`transition-transform duration-150 flex-shrink-0 ${moreExpanded || isMoreActive ? "rotate-90" : ""}`}
-          />
-          More
-        </button>
-        {(moreExpanded || isMoreActive) && (
-          <div className="mt-0.5 flex flex-col gap-0.5">
-            {MORE_NAV.map((item) => renderNavItem(item, isMobile))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <>
       {/* Desktop sidebar */}
@@ -301,7 +246,16 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         <nav className="flex flex-col gap-0.5 mt-4 flex-1 overflow-y-auto">
           {PRIMARY_NAV.map((item) => renderNavItem(item))}
-          {renderMoreSection()}
+          <button
+            onClick={onSearchOpen}
+            title="Search"
+            className={`relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-slate-50 hover:text-slate-900 ${
+              collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2"
+            }`}
+          >
+            <Search size={18} className="flex-shrink-0 text-slate-400" />
+            {!collapsed && <span className="truncate flex-1">Search</span>}
+          </button>
         </nav>
         {userProfile}
       </aside>
@@ -314,13 +268,22 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           <span className="text-lg font-bold text-slate-900 tracking-tight">myTracker</span>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="text-slate-500 hover:text-slate-900 transition-colors"
-          aria-label="Open menu"
-        >
-          <Menu size={24} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSearchOpen}
+            className="text-slate-500 hover:text-slate-900 transition-colors p-1"
+            aria-label="Search"
+          >
+            <Search size={20} />
+          </button>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="text-slate-500 hover:text-slate-900 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu size={24} />
+          </button>
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -347,7 +310,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
             <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto">
               {PRIMARY_NAV.map((item) => renderNavItem(item, true))}
-              {renderMoreSection(true)}
             </nav>
             <div className="mt-auto border-t border-slate-200 pt-4 pb-2">
               <button className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">

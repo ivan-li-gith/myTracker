@@ -1,25 +1,25 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckCircle2, Circle,
   Flame, Calendar, Trash2, ChevronLeft, ChevronRight, ChevronDown,
-  MoreHorizontal, Pencil,
+  MoreHorizontal, Pencil, Bell, AlertCircle, Plus, X,
 } from "lucide-react";
 import AddTaskModal from "@/components/AddTaskModal";
 import AddHabitModal from "@/components/AddHabitModal";
 import EditTaskModal from "@/components/EditTaskModal";
 import EditHabitModal from "@/components/EditHabitModal";
 import { apiFetch } from "@/lib/api";
-import { Task, HabitWithStreak } from "@/lib/types";
-
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { Task, HabitWithStreak, CreditCardReminder } from "@/lib/types";
 
 function dateToStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function todayStr() {
+  return dateToStr(new Date());
 }
 
 function getWeekStart() {
@@ -63,6 +63,14 @@ function weekRangeLabel(days: ReturnType<typeof getWeekDays>) {
   }
   return `${fmt(first)} ${first.getDate()} – ${fmt(last)} ${last.getDate()}`;
 }
+
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+const EMPTY_CC_REMINDER = { card_name: "", owner: "", due_day: "" };
 
 // ---- Confetti ----
 
@@ -123,8 +131,8 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="mb-6">
-      <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+    <section className="mb-5 bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-1.5 min-w-0 group"
@@ -139,7 +147,7 @@ function CollapsibleSection({
         </button>
         {action}
       </div>
-      {open && children}
+      {open && <div>{children}</div>}
     </section>
   );
 }
@@ -185,7 +193,7 @@ function HabitCalendar({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
           {weekOffset === 0 ? "This Week" : weekRangeLabel(weekDays)}
         </h2>
@@ -496,9 +504,17 @@ export default function TasksAndHabitsPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const prevHabitsNeededCount = useRef(-1);
 
+  const [ccReminders, setCcReminders] = useState<CreditCardReminder[]>([]);
+  const [showCcReminderModal, setShowCcReminderModal] = useState(false);
+  const [editCcReminder, setEditCcReminder] = useState<CreditCardReminder | null>(null);
+  const [ccReminderForm, setCcReminderForm] = useState(EMPTY_CC_REMINDER);
+  const [ccReminderSaveError, setCcReminderSaveError] = useState<string | null>(null);
+  const [ccReminderDeleteId, setCcReminderDeleteId] = useState<number | null>(null);
+
   useEffect(() => {
     apiFetch("/tasks").then(setTasks).catch(console.error);
     apiFetch("/habits").then(setHabits).catch(console.error);
+    apiFetch("/credit-card-reminders").then(setCcReminders).catch(console.error);
   }, []);
 
   const today = todayStr();
@@ -595,6 +611,38 @@ export default function TasksAndHabitsPage() {
     setHabits((prev) => prev.filter((h) => h.id !== id));
   }
 
+  async function saveCcReminder(e: React.FormEvent) {
+    e.preventDefault();
+    setCcReminderSaveError(null);
+    const due_day = parseInt(ccReminderForm.due_day);
+    if (isNaN(due_day) || due_day < 1 || due_day > 31) {
+      setCcReminderSaveError("Due day must be between 1 and 31");
+      return;
+    }
+    try {
+      const body = { card_name: ccReminderForm.card_name.trim(), owner: ccReminderForm.owner.trim() || null, due_day };
+      if (editCcReminder) {
+        await apiFetch(`/credit-card-reminders/${editCcReminder.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      } else {
+        await apiFetch("/credit-card-reminders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }
+      const fresh: CreditCardReminder[] = await apiFetch("/credit-card-reminders");
+      setCcReminders(fresh ?? []);
+      setShowCcReminderModal(false);
+      setEditCcReminder(null);
+      setCcReminderForm(EMPTY_CC_REMINDER);
+    } catch (err) {
+      setCcReminderSaveError(err instanceof Error ? err.message : "Failed to save reminder");
+    }
+  }
+
+  async function confirmDeleteReminder() {
+    if (ccReminderDeleteId == null) return;
+    await apiFetch(`/credit-card-reminders/${ccReminderDeleteId}`, { method: "DELETE" });
+    setCcReminders((prev) => prev.filter((r) => r.id !== ccReminderDeleteId));
+    setCcReminderDeleteId(null);
+  }
+
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto min-h-[calc(100vh-2rem)] relative pb-24">
       <Confetti active={showConfetti} />
@@ -606,7 +654,7 @@ export default function TasksAndHabitsPage() {
 
       {/* Habit History Calendar */}
       {habits.length > 0 && (
-        <section className="mb-12">
+        <section className="mb-5 bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] p-5">
           <HabitCalendar
             habits={habits}
             weekOffset={weekOffset}
@@ -646,7 +694,7 @@ export default function TasksAndHabitsPage() {
               />
             }
           >
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-hidden">
               {group.length === 0 ? (
                 <div className="px-4 py-5 text-center">
                   <p className="text-sm text-slate-400">No {label.toLowerCase()} habits yet.</p>
@@ -681,7 +729,7 @@ export default function TasksAndHabitsPage() {
         }
         action={<AddTaskModal onCreated={(t) => setTasks((prev) => [t, ...prev])} />}
       >
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-hidden">
           {pendingTasks.length === 0 ? (
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-slate-400">All caught up!</p>
@@ -731,7 +779,7 @@ export default function TasksAndHabitsPage() {
           }
           defaultOpen={false}
         >
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden opacity-75">
+          <div className="overflow-hidden opacity-75">
             {completedTasks.length === 0 ? (
               <div className="px-4 py-5 text-center">
                 <p className="text-sm text-slate-400">No tasks completed today.</p>
@@ -753,6 +801,90 @@ export default function TasksAndHabitsPage() {
         </CollapsibleSection>
       )}
 
+      {/* Credit Card Reminders */}
+      <CollapsibleSection
+        title="Credit Card Reminders"
+        icon="💳"
+        badge={
+          ccReminders.length > 0 ? (
+            <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full text-xs font-bold">
+              {ccReminders.length}
+            </span>
+          ) : null
+        }
+        action={
+          <button
+            onClick={() => { setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); setCcReminderSaveError(null); setShowCcReminderModal(true); }}
+            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+            aria-label="Add credit card reminder"
+          >
+            <Plus size={16} />
+          </button>
+        }
+      >
+        {ccReminders.length === 0 ? (
+          <div className="px-4 py-5 text-center">
+            <p className="text-sm text-slate-400">No credit card reminders yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Card</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Day</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ccReminders.map((reminder) => {
+                  const today = new Date();
+                  const todayDay = today.getDate();
+                  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                  const daysUntilDue = reminder.due_day >= todayDay
+                    ? reminder.due_day - todayDay
+                    : (daysInMonth - todayDay) + reminder.due_day;
+                  const dueSoon = daysUntilDue <= 5;
+                  return (
+                    <tr key={reminder.id} className={`group transition-colors ${dueSoon ? "bg-amber-50 hover:bg-amber-100/70" : "hover:bg-slate-50"}`}>
+                      <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                        <span className="flex items-center gap-2">
+                          {dueSoon && <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />}
+                          {reminder.card_name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{reminder.owner ?? <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`font-medium ${dueSoon ? "text-amber-700" : "text-slate-700"}`}>
+                          {ordinal(reminder.due_day)} of month
+                        </span>
+                        {dueSoon && (
+                          <span className="ml-2 text-xs text-amber-600 font-semibold">
+                            {daysUntilDue === 0 ? "Due today!" : `Due in ${daysUntilDue}d`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <RowMenu
+                          onEdit={() => {
+                            setEditCcReminder(reminder);
+                            setCcReminderForm({ card_name: reminder.card_name, owner: reminder.owner ?? "", due_day: String(reminder.due_day) });
+                            setCcReminderSaveError(null);
+                            setShowCcReminderModal(true);
+                          }}
+                          onDelete={() => setCcReminderDeleteId(reminder.id)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CollapsibleSection>
+
       {editingTask && (
         <EditTaskModal
           task={editingTask}
@@ -773,6 +905,84 @@ export default function TasksAndHabitsPage() {
           }}
           onClose={() => setEditingHabit(null)}
         />
+      )}
+
+      {/* Credit Card Reminder Modal */}
+      {showCcReminderModal && createPortal(
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 pb-0">
+              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Bell size={16} className="text-indigo-500" />
+                {editCcReminder ? "Edit Reminder" : "Add Credit Card Reminder"}
+              </h2>
+              <button onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={saveCcReminder} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Card Name <span className="text-red-500">*</span></label>
+                <input
+                  autoFocus
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="e.g. Chase Sapphire"
+                  value={ccReminderForm.card_name}
+                  onChange={(e) => setCcReminderForm((f) => ({ ...f, card_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Owner</label>
+                <input
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="e.g. Ivan"
+                  value={ccReminderForm.owner}
+                  onChange={(e) => setCcReminderForm((f) => ({ ...f, owner: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Due Day of Month <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="e.g. 15"
+                  value={ccReminderForm.due_day}
+                  onChange={(e) => setCcReminderForm((f) => ({ ...f, due_day: e.target.value }))}
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">Day of the month the payment is due (1–31).</p>
+              </div>
+              {ccReminderSaveError && <p className="text-sm text-red-500">{ccReminderSaveError}</p>}
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">
+                  {editCcReminder ? "Save Changes" : "Add Reminder"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete confirmation */}
+      {ccReminderDeleteId !== null && createPortal(
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-base font-semibold text-slate-900 mb-1">Remove reminder?</h2>
+            <p className="text-sm text-slate-500 mb-5">This will permanently remove this credit card reminder.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setCcReminderDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+              <button onClick={confirmDeleteReminder} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Remove</button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

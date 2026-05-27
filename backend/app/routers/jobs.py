@@ -1,29 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db_session
 from app.models.jobs import JobApplication
 from app.schemas.jobs import JobApplicationCreate, JobApplicationRead, JobApplicationUpdate
-from app.services.scraper import fetch_and_clean, extract_job_info
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
-
-
-class ScrapeRequest(BaseModel):
-    url: str
-
-
-@router.post("/scrape")
-def scrape_job(body: ScrapeRequest):
-    """Scrape a job posting URL and return extracted fields. Does NOT save to DB."""
-    try:
-        raw_text = fetch_and_clean(body.url)
-        info = extract_job_info(raw_text)
-        return {**info, "url": body.url}
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Scraping failed: {str(e)}")
 
 
 @router.get("", response_model=list[JobApplicationRead])

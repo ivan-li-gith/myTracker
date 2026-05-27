@@ -9,16 +9,16 @@ import {
 import { apiFetch, apiFetchRaw } from "@/lib/api";
 import { JobApplication, Resume } from "@/lib/types";
 
-// ---- Status config ----
+// --- Constants ---
 
 type StatusKey = "applied" | "phone_screen" | "interview" | "offer" | "rejected";
 
 const STATUS_CONFIG: Record<StatusKey, { label: string; style: string }> = {
-  applied:      { label: "Applied",       style: "bg-blue-100 text-blue-700" },
-  phone_screen: { label: "Phone Screen",  style: "bg-amber-100 text-amber-700" },
-  interview:    { label: "Interview",     style: "bg-violet-100 text-violet-700" },
-  offer:        { label: "Offer",         style: "bg-emerald-100 text-emerald-700" },
-  rejected:     { label: "Rejected",      style: "bg-red-100 text-red-600" },
+  applied:      { label: "Applied",      style: "bg-blue-100 text-blue-700" },
+  phone_screen: { label: "Phone Screen", style: "bg-amber-100 text-amber-700" },
+  interview:    { label: "Interview",    style: "bg-violet-100 text-violet-700" },
+  offer:        { label: "Offer",        style: "bg-emerald-100 text-emerald-700" },
+  rejected:     { label: "Rejected",     style: "bg-red-100 text-red-600" },
 };
 
 const JOB_TYPE_STYLE: Record<string, string> = {
@@ -28,11 +28,70 @@ const JOB_TYPE_STYLE: Record<string, string> = {
 };
 
 const SALARY_TYPES = [
-  { value: "hourly",  label: "/ hr",  long: "Per Hour" },
-  { value: "weekly",  label: "/ wk",  long: "Per Week" },
-  { value: "monthly", label: "/ mo",  long: "Per Month" },
-  { value: "yearly",  label: "/ yr",  long: "Per Year" },
+  { value: "hourly",  label: "/ hr", long: "Per Hour" },
+  { value: "weekly",  label: "/ wk", long: "Per Week" },
+  { value: "monthly", label: "/ mo", long: "Per Month" },
+  { value: "yearly",  label: "/ yr", long: "Per Year" },
 ];
+
+type SortCol = "company" | "role" | "status" | "date_applied" | "job_type" | "location" | "salary_range" | "resume_id" | "cover_letter_id" | "notes";
+type SortDir = "asc" | "desc";
+
+const STATUS_ORDER: Record<string, number> = {
+  applied: 0, phone_screen: 1, interview: 2, offer: 3, rejected: 4,
+};
+
+const COLUMNS: { label: string; align: string; width: string; sortKey: SortCol | null }[] = [
+  { label: "",             align: "",           width: "w-[40px]",  sortKey: null },
+  { label: "Company",      align: "text-left",  width: "w-[200px]", sortKey: "company" },
+  { label: "Role",         align: "text-left",  width: "w-[260px]", sortKey: "role" },
+  { label: "Status",       align: "text-left",  width: "w-[150px]", sortKey: "status" },
+  { label: "Date Applied", align: "text-left",  width: "w-[140px]", sortKey: "date_applied" },
+  { label: "Type",         align: "text-left",  width: "w-[100px]", sortKey: "job_type" },
+  { label: "",             align: "",           width: "w-[80px]",  sortKey: null },
+];
+
+const EMPTY_FORM = {
+  company: "", role: "", url: "", status: "applied",
+  date_applied: "", location: "", job_type: "",
+  salary_low: "", salary_high: "", salary_type: "",
+  notes: "",
+  resume_id: null as number | null,
+  cover_letter_id: null as number | null,
+};
+
+// --- Utilities ---
+
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, onClose]);
+}
+
+async function downloadBlob(url: string, filename: string) {
+  const res = await apiFetchRaw(url);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
+// Returns "up" when there isn't enough viewport space below the element.
+function getDropDirection(el: HTMLElement, needed = 220): "up" | "down" {
+  const rect = el.getBoundingClientRect();
+  return window.innerHeight - rect.bottom < needed ? "up" : "down";
+}
+
+function getStatusConfig(s: string | null) {
+  return STATUS_CONFIG[s as StatusKey] ?? { label: s ?? "—", style: "bg-slate-100 text-slate-500" };
+}
 
 function salaryTypeLabel(type: string | null) {
   return SALARY_TYPES.find((t) => t.value === type)?.label ?? null;
@@ -43,57 +102,78 @@ function extractVersion(name: string): number {
   return m ? parseInt(m[1]) : 0;
 }
 
-function statusCfg(s: string | null) {
-  return STATUS_CONFIG[s as StatusKey] ?? { label: s ?? "—", style: "bg-slate-100 text-slate-500" };
-}
-
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function fmtDate(s: string | null): string {
+function formatDate(s: string | null): string {
   if (!s) return "—";
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// ---- Download helper ----
-async function downloadFile(id: number, filename: string) {
-  const res = await apiFetchRaw(`/resumes/${id}/download`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function parseSalaryRange(range: string | null): { low: string; high: string } {
+  if (!range) return { low: "", high: "" };
+  const parts = range.split("-");
+  return { low: parts[0] ?? "", high: parts[1] ?? "" };
 }
 
-// ---- Adaptive drop direction helper ----
-function getDropDir(el: HTMLElement, needed = 220): "up" | "down" {
-  const rect = el.getBoundingClientRect();
-  return window.innerHeight - rect.bottom < needed ? "up" : "down";
+function buildSalaryRange(low: string, high: string): string | null {
+  const l = low.trim();
+  if (!l) return null;
+  const h = high.trim();
+  return h ? `${l}-${h}` : l;
 }
 
-// ---- Status dropdown (adaptive direction) ----
+function formatSalaryDisplay(range: string | null, type: string | null): string | null {
+  if (!range) return null;
+  const typeLabel = salaryTypeLabel(type);
+  const useK = type === "monthly" || type === "yearly";
+  const parts = range.split("-");
+  const fmt = (v: string) => (useK ? `$${v}K` : `$${v}`);
+  const display = parts.length > 1 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : fmt(parts[0]);
+  return typeLabel ? `${display} ${typeLabel}` : display;
+}
+
+function applySorting(jobs: JobApplication[], col: SortCol | null, dir: SortDir, resumes: Resume[]): JobApplication[] {
+  if (!col) return jobs;
+  const mult = dir === "asc" ? 1 : -1;
+  return [...jobs].sort((a, b) => {
+    let av: string | number, bv: string | number;
+    if (col === "status") {
+      av = STATUS_ORDER[a.status ?? ""] ?? 99;
+      bv = STATUS_ORDER[b.status ?? ""] ?? 99;
+    } else if (col === "resume_id") {
+      av = resumes.find((r) => r.id === a.resume_id)?.name ?? "";
+      bv = resumes.find((r) => r.id === b.resume_id)?.name ?? "";
+    } else if (col === "cover_letter_id") {
+      av = resumes.find((r) => r.id === a.cover_letter_id)?.name ?? "";
+      bv = resumes.find((r) => r.id === b.cover_letter_id)?.name ?? "";
+    } else {
+      av = (a[col] as string | null) ?? "";
+      bv = (b[col] as string | null) ?? "";
+    }
+    if (av === "" && bv !== "") return 1;
+    if (bv === "" && av !== "") return -1;
+    if (av < bv) return -1 * mult;
+    if (av > bv) return mult;
+    return 0;
+  });
+}
+
+// --- Sub-components ---
 
 function StatusDropup({ value, onChange }: { value: string | null; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false);
   const [dir, setDir] = useState<"up" | "down">("up");
   const ref = useRef<HTMLDivElement>(null);
-  const cfg = statusCfg(value);
+  const cfg = getStatusConfig(value);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  useClickOutside(ref, () => setOpen(false));
 
   function handleOpen(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!open && ref.current) setDir(getDropDir(ref.current, 220));
+    if (!open && ref.current) setDir(getDropDirection(ref.current, 220));
     setOpen((o) => !o);
   }
 
@@ -123,8 +203,6 @@ function StatusDropup({ value, onChange }: { value: string | null; onChange: (s:
   );
 }
 
-// ---- File dropup (resume / cover letter) ----
-
 function FileDropup({
   value,
   options,
@@ -144,16 +222,9 @@ function FileDropup({
   const [dir, setDir] = useState<"up" | "down">("up");
   const [downloading, setDownloading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   const selected = options.find((r) => r.id === value) ?? null;
+
+  useClickOutside(ref, () => setOpen(false));
 
   if (options.length === 0) {
     return (
@@ -167,12 +238,12 @@ function FileDropup({
     e.stopPropagation();
     if (!selected) return;
     setDownloading(true);
-    try { await downloadFile(selected.id, selected.filename); } finally { setDownloading(false); }
+    try { await downloadBlob(`/resumes/${selected.id}/download`, selected.filename); } finally { setDownloading(false); }
   }
 
   function handleOpen(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!open && ref.current) setDir(getDropDir(ref.current, 230));
+    if (!open && ref.current) setDir(getDropDirection(ref.current, 230));
     setOpen((o) => !o);
   }
 
@@ -241,8 +312,6 @@ function FileDropup({
   );
 }
 
-// ---- Comments cell ----
-
 function CommentCell({ value, onEdit }: { value: string | null; onEdit: () => void }) {
   if (!value) {
     return (
@@ -267,8 +336,6 @@ function CommentCell({ value, onEdit }: { value: string | null; onEdit: () => vo
     </button>
   );
 }
-
-// ---- Location cell (inline editable) ----
 
 function LocationCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => void }) {
   const [editing, setEditing] = useState(false);
@@ -304,33 +371,6 @@ function LocationCell({ value, onSave }: { value: string | null; onSave: (v: str
   );
 }
 
-// ---- Salary helpers ----
-
-function parseSalaryRange(range: string | null): { low: string; high: string } {
-  if (!range) return { low: "", high: "" };
-  const parts = range.split("-");
-  return { low: parts[0] ?? "", high: parts[1] ?? "" };
-}
-
-function buildSalaryRange(low: string, high: string): string | null {
-  const l = low.trim();
-  if (!l) return null;
-  const h = high.trim();
-  return h ? `${l}-${h}` : l;
-}
-
-function formatSalaryDisplay(range: string | null, type: string | null): string | null {
-  if (!range) return null;
-  const typeLabel = salaryTypeLabel(type);
-  const useK = type === "monthly" || type === "yearly";
-  const parts = range.split("-");
-  const fmt = (v: string) => (useK ? `$${v}K` : `$${v}`);
-  const display = parts.length > 1 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : fmt(parts[0]);
-  return typeLabel ? `${display} ${typeLabel}` : display;
-}
-
-// ---- Salary cell (popover with type selector + low/high inputs) ----
-
 function SalaryCell({
   range,
   type,
@@ -347,13 +387,7 @@ function SalaryCell({
   const [editHigh, setEditHigh] = useState(() => parseSalaryRange(range).high);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  useClickOutside(ref, () => setOpen(false));
 
   function openEditor(e: React.MouseEvent) {
     e.stopPropagation();
@@ -361,7 +395,7 @@ function SalaryCell({
     setEditType(type ?? "");
     setEditLow(parsed.low);
     setEditHigh(parsed.high);
-    if (!open && ref.current) setDir(getDropDir(ref.current, 240));
+    if (!open && ref.current) setDir(getDropDirection(ref.current, 240));
     setOpen((o) => !o);
   }
 
@@ -380,11 +414,10 @@ function SalaryCell({
         onClick={openEditor}
         className="text-[15px] font-medium text-slate-800 hover:text-slate-900 text-left leading-snug transition-colors"
       >
-        {range ? (
-          <span>{formatSalaryDisplay(range, type)}</span>
-        ) : (
-          <span className="text-slate-400 font-normal">Add salary</span>
-        )}
+        {range
+          ? <span>{formatSalaryDisplay(range, type)}</span>
+          : <span className="text-slate-400 font-normal">Add salary</span>
+        }
       </button>
 
       {open && (
@@ -441,97 +474,30 @@ function SalaryCell({
   );
 }
 
-// ---- Sorting ----
-
-type SortCol = "company" | "role" | "status" | "date_applied" | "job_type" | "location" | "salary_range" | "resume_id" | "cover_letter_id" | "notes";
-type SortDir = "asc" | "desc";
-
-const STATUS_ORDER: Record<string, number> = {
-  applied: 0, phone_screen: 1, interview: 2, offer: 3, rejected: 4,
-};
-
-const COLUMNS: { label: string; align: string; width: string; sortKey: SortCol | null }[] = [
-  { label: "",             align: "",            width: "w-[40px]",  sortKey: null },
-  { label: "Company",      align: "text-left",   width: "w-[200px]", sortKey: "company" },
-  { label: "Role",         align: "text-left",   width: "w-[260px]", sortKey: "role" },
-  { label: "Status",       align: "text-left",   width: "w-[150px]", sortKey: "status" },
-  { label: "Date Applied", align: "text-left",   width: "w-[140px]", sortKey: "date_applied" },
-  { label: "Type",         align: "text-left",   width: "w-[100px]", sortKey: "job_type" },
-  { label: "",             align: "",            width: "w-[80px]",  sortKey: null },
-];
-
-function applySorting(jobs: JobApplication[], col: SortCol | null, dir: SortDir, resumes: Resume[]): JobApplication[] {
-  if (!col) return jobs;
-  const mult = dir === "asc" ? 1 : -1;
-  return [...jobs].sort((a, b) => {
-    let av: string | number, bv: string | number;
-    if (col === "status") {
-      av = STATUS_ORDER[a.status ?? ""] ?? 99;
-      bv = STATUS_ORDER[b.status ?? ""] ?? 99;
-    } else if (col === "resume_id") {
-      av = resumes.find((r) => r.id === a.resume_id)?.name ?? "";
-      bv = resumes.find((r) => r.id === b.resume_id)?.name ?? "";
-    } else if (col === "cover_letter_id") {
-      av = resumes.find((r) => r.id === a.cover_letter_id)?.name ?? "";
-      bv = resumes.find((r) => r.id === b.cover_letter_id)?.name ?? "";
-    } else {
-      av = (a[col] as string | null) ?? "";
-      bv = (b[col] as string | null) ?? "";
-    }
-    if (av === "" && bv !== "") return 1;
-    if (bv === "" && av !== "") return -1;
-    if (av < bv) return -1 * mult;
-    if (av > bv) return mult;
-    return 0;
-  });
-}
-
-// ---- Edit form state ----
-
-const EMPTY_FORM = {
-  company: "", role: "", url: "", status: "applied",
-  date_applied: "", location: "", job_type: "",
-  salary_low: "", salary_high: "", salary_type: "", salary_range: "",
-  notes: "",
-  resume_id: null as number | null,
-  cover_letter_id: null as number | null,
-};
-
-// ---- Page ----
+// --- Page ---
 
 export default function JobsPage() {
+  // Job data & filters
   const [jobs, setJobs] = useState<JobApplication[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  // Table UI
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [editJob, setEditJob] = useState<JobApplication | null>(null);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<SortCol | null>("date_applied");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  function toggleRow(id: number) {
-    setExpandedRows(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
+  // Edit / delete modals
+  const [editJob, setEditJob] = useState<JobApplication | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  function handleSort(col: SortCol) {
-    if (sortCol === col) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortCol(col);
-      setSortDir("asc");
-    }
-  }
-
+  // Comments modal
   const [commentJob, setCommentJob] = useState<JobApplication | null>(null);
   const [commentText, setCommentText] = useState("");
   const [savingComment, setSavingComment] = useState(false);
 
-  // Resumes & Cover Letters panel
+  // Resumes panel
   const [showResumesPanel, setShowResumesPanel] = useState(false);
   const [downloadingResumeId, setDownloadingResumeId] = useState<number | null>(null);
   const [deleteResumeId, setDeleteResumeId] = useState<number | null>(null);
@@ -542,8 +508,6 @@ export default function JobsPage() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeUploadError, setResumeUploadError] = useState<string | null>(null);
   const resumeFileRef = useRef<HTMLInputElement>(null);
-
-  const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetchJobs();
@@ -574,6 +538,37 @@ export default function JobsPage() {
     return acc;
   }, {});
 
+  const activeCount = jobs.filter((j) => j.status === "phone_screen" || j.status === "interview").length;
+
+  const concludedCount = (statusCounts.offer ?? 0) + (statusCounts.rejected ?? 0);
+  const successRate = concludedCount > 0 ? Math.round(((statusCounts.offer ?? 0) / concludedCount) * 100) : null;
+  const responseRate = jobs.length > 0
+    ? Math.round(((jobs.length - (statusCounts.applied ?? 0)) / jobs.length) * 100)
+    : null;
+
+  const todayLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric",
+  });
+
+  // --- Handlers ---
+
+  function toggleRow(id: number) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
   async function updateField(id: number, patch: Partial<JobApplication>) {
     const updated = await apiFetch(`/jobs/${id}`, {
       method: "PATCH",
@@ -583,27 +578,14 @@ export default function JobsPage() {
     setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
   }
 
+  function setField(key: keyof typeof EMPTY_FORM, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
   function openNewJob() {
     const latestResume = [...resumeOptions].sort((a, b) => extractVersion(b.name) - extractVersion(a.name))[0] ?? null;
     setForm({ ...EMPTY_FORM, date_applied: toLocalDate(new Date()), resume_id: latestResume?.id ?? null });
     setEditJob({ id: -1 } as JobApplication);
-  }
-
-  function openComment(job: JobApplication) {
-    setCommentJob(job);
-    setCommentText(job.notes ?? "");
-  }
-
-  async function saveComment() {
-    if (!commentJob) return;
-    setSavingComment(true);
-    await updateField(commentJob.id, { notes: commentText || null } as Partial<JobApplication>);
-    setSavingComment(false);
-    setCommentJob(null);
-  }
-
-  function setField(key: keyof typeof EMPTY_FORM, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
   }
 
   function openEdit(job: JobApplication) {
@@ -619,7 +601,6 @@ export default function JobsPage() {
       job_type: job.job_type ?? "",
       salary_low: low,
       salary_high: high,
-      salary_range: job.salary_range ?? "",
       salary_type: job.salary_type ?? "",
       notes: job.notes ?? "",
       resume_id: job.resume_id ?? null,
@@ -632,7 +613,20 @@ export default function JobsPage() {
     setForm(EMPTY_FORM);
   }
 
-  async function doSaveJob() {
+  function openComment(job: JobApplication) {
+    setCommentJob(job);
+    setCommentText(job.notes ?? "");
+  }
+
+  async function saveComment() {
+    if (!commentJob) return;
+    setSavingComment(true);
+    await updateField(commentJob.id, { notes: commentText || null } as Partial<JobApplication>);
+    setSavingComment(false);
+    setCommentJob(null);
+  }
+
+  async function persistJob() {
     const body = {
       company: form.company,
       role: form.role,
@@ -666,28 +660,29 @@ export default function JobsPage() {
 
   async function saveJob(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    await doSaveJob();
+    await persistJob();
     closeForm();
   }
 
   async function saveJobAndAddAnother() {
-    await doSaveJob();
+    await persistJob();
+    // Preserve date_applied and status so rapid batch entries don't require re-selecting them.
     const latestResume = [...resumeOptions].sort((a, b) => extractVersion(b.name) - extractVersion(a.name))[0] ?? null;
     setForm({ ...EMPTY_FORM, date_applied: form.date_applied, status: form.status, resume_id: latestResume?.id ?? null });
     setEditJob({ id: -1 } as JobApplication);
   }
 
+  async function confirmDelete() {
+    if (deleteId === null) return;
+    await apiFetch(`/jobs/${deleteId}`, { method: "DELETE" });
+    setJobs((prev) => prev.filter((j) => j.id !== deleteId));
+    setDeleteId(null);
+  }
+
   async function handleResumeDownload(resume: Resume) {
     setDownloadingResumeId(resume.id);
     try {
-      const res = await apiFetchRaw(`/resumes/${resume.id}/download`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = resume.filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadBlob(`/resumes/${resume.id}/download`, resume.filename);
     } catch { /* silent */ } finally {
       setDownloadingResumeId(null);
     }
@@ -699,11 +694,11 @@ export default function JobsPage() {
     setResumeUploading(true);
     setResumeUploadError(null);
     try {
-      const form = new FormData();
-      form.append("name", resumeUploadName.trim());
-      form.append("file_type", resumeUploadType);
-      form.append("file", resumeUploadFile);
-      const created = await apiFetch("/resumes", { method: "POST", body: form });
+      const formData = new FormData();
+      formData.append("name", resumeUploadName.trim());
+      formData.append("file_type", resumeUploadType);
+      formData.append("file", resumeUploadFile);
+      const created = await apiFetch("/resumes", { method: "POST", body: formData });
       setResumes((prev) => [created, ...prev]);
       setShowResumeUpload(false);
       setResumeUploadName("");
@@ -724,18 +719,7 @@ export default function JobsPage() {
     setDeleteResumeId(null);
   }
 
-  async function confirmDelete() {
-    if (deleteId === null) return;
-    await apiFetch(`/jobs/${deleteId}`, { method: "DELETE" });
-    setJobs((prev) => prev.filter((j) => j.id !== deleteId));
-    setDeleteId(null);
-  }
-
-  const todayLabel = new Date().toLocaleDateString("en-US", {
-    weekday: "long", month: "long", day: "numeric",
-  });
-
-  const activeCount = jobs.filter((j) => j.status === "phone_screen" || j.status === "interview").length;
+  // --- Render ---
 
   return (
     <div className="p-6">
@@ -763,7 +747,36 @@ export default function JobsPage() {
         </div>
       </div>
 
-      {/* Filter pills */}
+      {/* Stats Strip */}
+      {jobs.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Applied</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{jobs.length}</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Active</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{activeCount}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">phone screen + interview</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Success Rate</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{successRate !== null ? `${successRate}%` : "—"}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {concludedCount > 0 ? `${statusCounts.offer ?? 0} offer${(statusCounts.offer ?? 0) !== 1 ? "s" : ""} / ${concludedCount} concluded` : "No concluded apps"}
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Response Rate</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{responseRate !== null ? `${responseRate}%` : "—"}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {jobs.length > 0 ? `${jobs.length - (statusCounts.applied ?? 0)} responded` : "No responses yet"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Status filter pills */}
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setStatusFilter("all")}
@@ -841,14 +854,12 @@ export default function JobsPage() {
                       onClick={() => toggleRow(job.id)}
                       className={`cursor-pointer group transition-colors border-b border-slate-50 ${expanded ? "bg-slate-50" : "hover:bg-slate-50/60"}`}
                     >
-                      {/* Chevron */}
                       <td className="px-4 py-4 w-[40px]">
                         <ChevronRight
                           size={15}
                           className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90 text-indigo-500" : ""}`}
                         />
                       </td>
-                      {/* Company */}
                       <td className="px-4 py-4">
                         {job.url ? (
                           <a
@@ -866,19 +877,15 @@ export default function JobsPage() {
                           <span className="text-sm font-semibold text-slate-900">{job.company}</span>
                         )}
                       </td>
-                      {/* Role */}
                       <td className="px-4 py-4">
                         <span className="text-sm text-slate-700">{job.role}</span>
                       </td>
-                      {/* Status */}
                       <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                         <StatusDropup value={job.status} onChange={(s) => updateField(job.id, { status: s })} />
                       </td>
-                      {/* Date Applied */}
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="text-sm text-slate-500">{fmtDate(job.date_applied)}</span>
+                        <span className="text-sm text-slate-500">{formatDate(job.date_applied)}</span>
                       </td>
-                      {/* Type */}
                       <td className="px-4 py-4">
                         {job.job_type ? (
                           <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"}`}>
@@ -886,7 +893,6 @@ export default function JobsPage() {
                           </span>
                         ) : <span className="text-slate-300">—</span>}
                       </td>
-                      {/* Actions */}
                       <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -905,7 +911,6 @@ export default function JobsPage() {
                       </td>
                     </tr>
 
-                    {/* Expanded detail row */}
                     {expanded && (
                       <tr key={`${job.id}-expanded`} className="border-b border-slate-100">
                         <td colSpan={7} className="px-8 py-6 bg-[#f5f5f7]">
@@ -986,7 +991,7 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* Comment modal */}
+      {/* Comments modal */}
       {commentJob !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
@@ -1015,7 +1020,7 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit / New Application modal */}
       {editJob !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
@@ -1170,7 +1175,7 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* Delete confirmation modal */}
       {deleteId !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
@@ -1200,7 +1205,10 @@ export default function JobsPage() {
                 >
                   <Upload size={13} /> Upload
                 </button>
-                <button onClick={() => { setShowResumesPanel(false); setShowResumeUpload(false); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                <button
+                  onClick={() => { setShowResumesPanel(false); setShowResumeUpload(false); }}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                >
                   <X size={18} />
                 </button>
               </div>
@@ -1329,6 +1337,7 @@ export default function JobsPage() {
         </div>
       )}
 
+      {/* Resume delete confirmation */}
       {deleteResumeId !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">

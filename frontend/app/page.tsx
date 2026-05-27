@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
-  CheckCircle2, Flame, CreditCard, Briefcase, DollarSign, Calendar, Check,
+  CheckCircle2, Flame, Briefcase, DollarSign, CheckSquare,
+  Check, AlertTriangle, ArrowRight, ChevronDown,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication } from "@/lib/types";
+import {
+  Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication,
+} from "@/lib/types";
 
-// ---- Helpers ----
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function todayStr() {
   const d = new Date();
@@ -33,17 +37,6 @@ function addDays(dateStr: string, n: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function countLogsThisWeek(loggedDates: string[]) {
-  const weekStart = getWeekStart();
-  return (loggedDates || []).filter(d => d >= weekStart).length;
-}
-
-function isHabitNeededToday(habit: HabitWithStreak) {
-  if (habit.logged_dates?.includes(todayStr())) return false;
-  const targetFreq = habit.target_freq ?? 7;
-  return countLogsThisWeek(habit.logged_dates || []) < targetFreq;
-}
-
 function fmtAmount(n: number | null | undefined) {
   if (n == null) return "—";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -61,121 +54,174 @@ function getGreeting() {
   return "Good evening";
 }
 
-// ---- Status config ----
+function countLogsThisWeek(loggedDates: string[]) {
+  const weekStart = getWeekStart();
+  return (loggedDates || []).filter(d => d >= weekStart).length;
+}
+
+function isHabitNeededToday(habit: HabitWithStreak) {
+  if (habit.logged_dates?.includes(todayStr())) return false;
+  return countLogsThisWeek(habit.logged_dates || []) < (habit.target_freq ?? 7);
+}
+
+// ── Types & constants ─────────────────────────────────────────────────────────
 
 type StatusKey = "applied" | "phone_screen" | "interview" | "offer" | "rejected";
 
-const STATUS_CONFIG: Record<StatusKey, { label: string; color: string }> = {
-  applied:      { label: "Applied",      color: "text-blue-700 bg-blue-50" },
-  phone_screen: { label: "Phone Screen", color: "text-amber-700 bg-amber-50" },
-  interview:    { label: "Interview",    color: "text-violet-700 bg-violet-50" },
-  offer:        { label: "Offer",        color: "text-emerald-700 bg-emerald-50" },
-  rejected:     { label: "Rejected",     color: "text-red-600 bg-red-50" },
+const STATUS_CONFIG: Record<StatusKey, { label: string; barColor: string }> = {
+  applied:      { label: "Applied",      barColor: "bg-blue-400" },
+  phone_screen: { label: "Phone Screen", barColor: "bg-amber-400" },
+  interview:    { label: "Interview",    barColor: "bg-violet-500" },
+  offer:        { label: "Offer",        barColor: "bg-emerald-500" },
+  rejected:     { label: "Rejected",     barColor: "bg-red-400" },
 };
 
-// ---- Progress Ring ----
+type ReminderItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  urgency: "overdue" | "today" | "soon";
+  type: "task" | "habit" | "payment";
+  rawId: number;
+};
 
-function ProgressRing({ value, max, color, trackColor = "#f1f5f9", label, sublabel }: {
-  value: number;
-  max: number;
-  color: string;
-  trackColor?: string;
+const CAT_COLORS = [
+  "bg-emerald-400", "bg-teal-400", "bg-cyan-400", "bg-blue-400", "bg-indigo-400",
+];
+
+const MAX_VISIBLE = 3;
+
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+
+function KpiCard({ icon, label, value, sub, accent, href }: {
+  icon: React.ReactNode;
   label: string;
-  sublabel: string;
+  value: React.ReactNode;
+  sub?: string;
+  accent: string;
+  href?: string;
 }) {
-  const r = 30;
-  const circumference = 2 * Math.PI * r;
-  const pct = max === 0 ? 0 : Math.min(value / max, 1);
-  const offset = circumference * (1 - pct);
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative w-[76px] h-[76px]">
-        <svg width="76" height="76" viewBox="0 0 76 76" style={{ transform: "rotate(-90deg)" }}>
-          <circle cx="38" cy="38" r={r} fill="none" stroke={trackColor} strokeWidth="7" />
-          <circle
-            cx="38" cy="38" r={r} fill="none"
-            stroke={color} strokeWidth="7"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1)" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[17px] font-bold text-slate-900">{value}</span>
+  const content = (
+    <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 flex flex-col gap-3 h-full">
+      <div className="flex items-center justify-between">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
+          {icon}
         </div>
+        {href && <ArrowRight size={13} className="text-slate-200" />}
       </div>
-      <div className="text-center">
-        <p className="text-[13px] font-semibold text-slate-800">{label}</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">{sublabel}</p>
+      <div>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight leading-none">{value}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 mt-2">{label}</p>
+        {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
       </div>
+    </div>
+  );
+
+  return href ? (
+    <Link href={href} className="block hover:scale-[1.01] active:scale-[0.99] transition-transform duration-150">
+      {content}
+    </Link>
+  ) : <div>{content}</div>;
+}
+
+// ── Pipeline Bar ──────────────────────────────────────────────────────────────
+
+function PipelineBar({ label, count, max, barColor }: {
+  label: string;
+  count: number;
+  max: number;
+  barColor: string;
+}) {
+  const pct = max === 0 ? 0 : (count / max) * 100;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[12px] text-slate-500 w-[92px] flex-shrink-0">{label}</span>
+      <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full ${barColor} transition-all duration-700 ease-out`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[12px] font-bold text-slate-700 w-5 text-right flex-shrink-0">{count}</span>
     </div>
   );
 }
 
-// ---- Focus Card ----
+// ── Stat Tile ─────────────────────────────────────────────────────────────────
 
-function FocusCard({ icon, accent, title, subtitle, onAction, actionLabel, checking }: {
-  icon: React.ReactNode;
-  accent: string;
-  title: string;
-  subtitle?: string;
-  onAction: () => void;
-  actionLabel: React.ReactNode;
+function StatTile({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="bg-slate-50 rounded-xl px-4 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</p>
+      <p className="text-xl font-bold text-slate-900 mt-1">{value}</p>
+      <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
+    </div>
+  );
+}
+
+// ── Urgency Card ──────────────────────────────────────────────────────────────
+
+function UrgencyCard({ item, onCheck, checking }: {
+  item: ReminderItem;
+  onCheck?: () => void;
   checking: boolean;
 }) {
+  const styles = {
+    overdue: { border: "border-l-red-400",   bg: "bg-red-50/60" },
+    today:   { border: "border-l-amber-400", bg: "bg-amber-50/60" },
+    soon:    { border: "border-l-slate-200", bg: "bg-slate-50/40" },
+  }[item.urgency];
+
+  const checkBorder = {
+    overdue: "border-red-300 hover:border-red-500",
+    today:   "border-amber-300 hover:border-amber-500",
+    soon:    "border-slate-300 hover:border-slate-500",
+  }[item.urgency];
+
   return (
-    <div className={`bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 flex items-center gap-4 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${accent}`}>
-        {icon}
-      </div>
+    <div className={`border-l-2 ${styles.border} ${styles.bg} rounded-r-lg px-3 py-2.5 flex items-center gap-2.5 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}>
+      {onCheck ? (
+        <button
+          onClick={onCheck}
+          disabled={checking}
+          className={`flex-shrink-0 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors disabled:cursor-not-allowed ${checkBorder}`}
+        >
+          {checking && <Check size={9} className="text-slate-400" />}
+        </button>
+      ) : (
+        <Flame size={13} className="text-orange-400 flex-shrink-0" />
+      )}
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-semibold text-slate-900 truncate">{title}</p>
-        {subtitle && <p className="text-[12px] text-slate-400 mt-0.5">{subtitle}</p>}
+        <p className="text-[13px] font-medium text-slate-800 truncate leading-snug">{item.title}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5 truncate">{item.subtitle}</p>
       </div>
-      <button
-        onClick={onAction}
-        disabled={checking}
-        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border-2 border-slate-200 hover:border-current transition-colors disabled:cursor-not-allowed"
-      >
-        {checking ? <Check size={13} className="text-slate-400" /> : actionLabel}
-      </button>
     </div>
   );
 }
 
-// ---- Confetti ----
+// ── Confetti ──────────────────────────────────────────────────────────────────
 
-const CONFETTI_COLORS = ["#f97316", "#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const CONFETTI_COLORS = ["#f97316","#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
 
 function Confetti({ active }: { active: boolean }) {
   if (!active) return null;
   const pieces = Array.from({ length: 36 }, (_, i) => ({
-    id: i,
-    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    id: i, color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
     left: 5 + (i / 36) * 90 + (Math.sin(i * 2.4) * 5),
     bottom: 15 + Math.abs(Math.sin(i * 1.3)) * 30,
-    size: 7 + (i % 5),
-    delay: (i % 8) * 0.12,
-    duration: 1.2 + (i % 4) * 0.2,
+    size: 7 + (i % 5), delay: (i % 8) * 0.12, duration: 1.2 + (i % 4) * 0.2,
     round: i % 3 !== 0,
   }));
-
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {pieces.map((p) => (
+      {pieces.map(p => (
         <div
           key={p.id}
           className={`absolute confetti-piece ${p.round ? "rounded-full" : "rounded-sm"}`}
           style={{
-            backgroundColor: p.color,
-            left: `${p.left}%`,
-            bottom: `${p.bottom}%`,
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            "--conf-delay": `${p.delay}s`,
-            "--conf-dur": `${p.duration}s`,
+            backgroundColor: p.color, left: `${p.left}%`, bottom: `${p.bottom}%`,
+            width: `${p.size}px`, height: `${p.size}px`,
+            "--conf-delay": `${p.delay}s`, "--conf-dur": `${p.duration}s`,
           } as React.CSSProperties}
         />
       ))}
@@ -183,70 +229,7 @@ function Confetti({ active }: { active: boolean }) {
   );
 }
 
-// ---- Weekly Summary ----
-
-function WeeklySummary({ habits }: { habits: HabitWithStreak[] }) {
-  const weekStart = getWeekStart();
-  const today = todayStr();
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const passedDays = weekDays.filter((d) => d <= today);
-  const loggedDays = passedDays.filter((day) => habits.some((h) => h.logged_dates?.includes(day)));
-
-  const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
-  const perfectSoFar = passedDays.length > 0 && loggedDays.length === passedDays.length;
-
-  return (
-    <section>
-      <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
-        This Week
-      </h2>
-      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
-        <div className="flex items-center justify-between gap-6 flex-wrap">
-          <div>
-            <p className="text-3xl font-bold text-slate-900 tracking-tight">
-              {loggedDays.length}
-              <span className="text-slate-300 text-2xl">/{passedDays.length}</span>
-            </p>
-            <p className="text-[13px] text-slate-500 mt-1">habit days logged this week</p>
-            {perfectSoFar && passedDays.length >= 3 && (
-              <p className="text-xs font-semibold text-emerald-600 mt-2">🏆 Perfect week so far!</p>
-            )}
-          </div>
-          <div className="flex gap-1.5">
-            {weekDays.map((day, i) => {
-              const isPast = day <= today;
-              const isToday = day === today;
-              const logged = habits.some((h) => h.logged_dates?.includes(day));
-              return (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${
-                      !isPast
-                        ? "bg-slate-50 text-slate-200"
-                        : logged
-                          ? "bg-orange-100 text-orange-600"
-                          : isToday
-                            ? "bg-slate-100 text-slate-400 ring-2 ring-slate-300"
-                            : "bg-slate-50 text-slate-400"
-                    }`}
-                  >
-                    {logged && isPast ? "✓" : ""}
-                  </div>
-                  <span className={`text-[10px] font-medium ${isToday ? "text-slate-600" : "text-slate-300"}`}>
-                    {DAY_LABELS[i]}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---- Page ----
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -255,13 +238,20 @@ export default function HomePage() {
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<JobApplication[]>([]);
-
   const [checkingTasks, setCheckingTasks] = useState<Set<number>>(new Set());
   const [checkingHabits, setCheckingHabits] = useState<Set<number>>(new Set());
   const [checkingPayments, setCheckingPayments] = useState<Set<number>>(new Set());
-
   const [showConfetti, setShowConfetti] = useState(false);
+  const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
   const prevHabitsToDoCount = useRef(-1);
+
+  function toggleCol(col: string) {
+    setExpandedCols(prev => {
+      const next = new Set(prev);
+      next.has(col) ? next.delete(col) : next.add(col);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const month = currentMonth();
@@ -282,8 +272,8 @@ export default function HomePage() {
     });
   }, []);
 
-  // Confetti: trigger when habitsToDoToday transitions from >0 to 0
   const habitsToDoToday = habits.filter(isHabitNeededToday);
+  const habitsLoggedToday = habits.filter(h => h.logged_dates?.includes(todayStr()));
 
   useEffect(() => {
     if (prevHabitsToDoCount.current === -1) {
@@ -297,13 +287,12 @@ export default function HomePage() {
     prevHabitsToDoCount.current = habitsToDoToday.length;
   }, [habitsToDoToday.length, habits.length]);
 
-  // ---- Check-off handlers ----
+  // ── Action handlers ───────────────────────────────────────────────────────
 
   async function completeTask(id: number) {
     setCheckingTasks(prev => new Set(prev).add(id));
     await apiFetch(`/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: true }),
     });
     setTimeout(() => {
@@ -332,383 +321,457 @@ export default function HomePage() {
     }, 400);
   }
 
-  // ---- Derived data ----
+  // ── Derived: Jobs ─────────────────────────────────────────────────────────
 
-  const pendingTasks = tasks
-    .filter(t => !t.completed)
-    .sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return a.due_date.localeCompare(b.due_date);
-    });
+  const jobCounts = (Object.keys(STATUS_CONFIG) as StatusKey[]).reduce<Record<StatusKey, number>>(
+    (acc, k) => { acc[k] = jobs.filter(j => j.status === k).length; return acc; },
+    { applied: 0, phone_screen: 0, interview: 0, offer: 0, rejected: 0 }
+  );
+  const activeJobs = jobCounts.phone_screen + jobCounts.interview;
+  const concludedJobs = jobCounts.offer + jobCounts.rejected;
+  const successRate = concludedJobs > 0 ? Math.round((jobCounts.offer / concludedJobs) * 100) : null;
+  const responseRate = jobs.length > 0
+    ? Math.round(((jobs.length - jobCounts.applied) / jobs.length) * 100)
+    : null;
+  const maxJobCount = Math.max(...Object.values(jobCounts), 1);
 
-  const habitsLoggedToday = habits.filter(h => h.logged_dates?.includes(todayStr()));
-
-  const unpaidPayments = payments
-    .filter(p => !p.is_paid)
-    .sort((a, b) => a.days_until_due - b.days_until_due);
+  // ── Derived: Finance ──────────────────────────────────────────────────────
 
   const catMap = new Map(categories.map(c => [c.id, c.name]));
+  const unpaidPayments = payments.filter(p => !p.is_paid).sort((a, b) => a.days_until_due - b.days_until_due);
+  const sortedCats = expenseSummary ? [...expenseSummary.by_category].sort((a, b) => b.total - a.total) : [];
+  const maxCatAmount = sortedCats[0]?.total ?? 1;
 
-  const jobCounts = (Object.keys(STATUS_CONFIG) as StatusKey[]).reduce<Record<string, number>>(
-    (acc, key) => { acc[key] = jobs.filter(j => j.status === key).length; return acc; },
-    {}
-  );
+  // ── Derived: Reminders ────────────────────────────────────────────────────
 
-  const activeJobs = jobs.filter(j => j.status === "phone_screen" || j.status === "interview").length;
+  const today = todayStr();
+  const weekEnd = addDays(today, 7);
 
-  const focusTask = pendingTasks[0] ?? null;
-  const focusHabit = habitsToDoToday[0] ?? null;
-  const focusPayment = unpaidPayments[0] ?? null;
-  const allCaughtUp = !focusTask && !focusHabit && !focusPayment;
+  const overdueItems: ReminderItem[] = [
+    ...tasks.filter(t => !t.completed && t.due_date && t.due_date < today).map(t => {
+      const daysOver = Math.floor(
+        (new Date(today + "T00:00:00").getTime() - new Date(t.due_date! + "T00:00:00").getTime()) / 86400000
+      );
+      return {
+        id: `task-${t.id}`, title: t.name, subtitle: `Task · ${daysOver}d overdue`,
+        urgency: "overdue" as const, type: "task" as const, rawId: t.id,
+      };
+    }),
+    ...unpaidPayments.filter(p => p.days_until_due < 0).map(p => ({
+      id: `pay-${p.id}`, title: p.name,
+      subtitle: `Payment · ${Math.abs(p.days_until_due)}d overdue · ${fmtAmount(p.amount)}`,
+      urgency: "overdue" as const, type: "payment" as const, rawId: p.id,
+    })),
+  ];
 
-  const habitsTotal = habitsLoggedToday.length + habitsToDoToday.length;
-  const completedTasks = tasks.filter(t => t.completed).length;
+  const todayItems: ReminderItem[] = [
+    ...tasks.filter(t => !t.completed && t.due_date === today).map(t => ({
+      id: `task-${t.id}`, title: t.name, subtitle: "Task · due today",
+      urgency: "today" as const, type: "task" as const, rawId: t.id,
+    })),
+    ...unpaidPayments.filter(p => p.days_until_due === 0).map(p => ({
+      id: `pay-${p.id}`, title: p.name,
+      subtitle: `Payment · due today · ${fmtAmount(p.amount)}`,
+      urgency: "today" as const, type: "payment" as const, rawId: p.id,
+    })),
+    ...habitsToDoToday.map(h => ({
+      id: `habit-${h.id}`, title: h.name,
+      subtitle: `Habit · ${h.streak ?? 0} day streak`,
+      urgency: "today" as const, type: "habit" as const, rawId: h.id,
+    })),
+  ];
+
+  const soonItems: ReminderItem[] = [
+    ...tasks
+      .filter(t => !t.completed && t.due_date && t.due_date > today && t.due_date <= weekEnd)
+      .map(t => ({
+        id: `task-${t.id}`, title: t.name, subtitle: `Task · ${fmtDate(t.due_date!)}`,
+        urgency: "soon" as const, type: "task" as const, rawId: t.id,
+      })),
+    ...unpaidPayments.filter(p => p.days_until_due > 0 && p.days_until_due <= 7).map(p => ({
+      id: `pay-${p.id}`, title: p.name,
+      subtitle: `Payment · ${fmtDate(p.due_date)} · ${fmtAmount(p.amount)}`,
+      urgency: "soon" as const, type: "payment" as const, rawId: p.id,
+    })),
+  ];
+
+  const pendingTaskCount = tasks.filter(t => !t.completed).length;
+  const overdueTaskCount = overdueItems.filter(r => r.type === "task").length;
+  const longestStreak = habits.reduce((m, h) => Math.max(m, h.streak ?? 0), 0);
+  const allCaughtUp = overdueItems.length === 0 && todayItems.length === 0 && soonItems.length === 0;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-10 pb-24">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 pb-24">
       <Confetti active={showConfetti} />
 
-      {/* Greeting */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-          {getGreeting()}, Ivan
-        </h1>
-        <p className="text-base text-slate-400 mt-1">
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-        </p>
-      </div>
-
-      {/* Today's Focus */}
-      <section>
-        <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
-          Today&apos;s Focus
-        </h2>
-        {allCaughtUp ? (
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <CheckCircle2 size={20} className="text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-[15px] font-semibold text-slate-900">You&apos;re all caught up</p>
-              <p className="text-[12px] text-slate-400 mt-0.5">Nothing urgent today — enjoy the day.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {focusTask && (
-              <FocusCard
-                icon={<CheckCircle2 size={18} className="text-emerald-600" />}
-                accent="bg-emerald-50"
-                title={focusTask.name}
-                subtitle={focusTask.due_date ? `Due ${fmtDate(focusTask.due_date)}` : "Task"}
-                onAction={() => completeTask(focusTask.id)}
-                actionLabel={<Check size={13} className="text-slate-300" />}
-                checking={checkingTasks.has(focusTask.id)}
-              />
-            )}
-            {focusHabit && (
-              <FocusCard
-                icon={<Flame size={18} className="text-orange-500" />}
-                accent="bg-orange-50"
-                title={focusHabit.name}
-                subtitle={`${focusHabit.streak ?? 0} day streak`}
-                onAction={() => logHabit(focusHabit.id)}
-                actionLabel={<Check size={13} className="text-slate-300" />}
-                checking={checkingHabits.has(focusHabit.id)}
-              />
-            )}
-            {focusPayment && (
-              <FocusCard
-                icon={<CreditCard size={18} className="text-amber-600" />}
-                accent="bg-amber-50"
-                title={focusPayment.name}
-                subtitle={
-                  focusPayment.days_until_due < 0
-                    ? `${Math.abs(focusPayment.days_until_due)}d overdue · ${fmtAmount(focusPayment.amount)}`
-                    : focusPayment.days_until_due === 0
-                      ? `Due today · ${fmtAmount(focusPayment.amount)}`
-                      : `Due ${fmtDate(focusPayment.due_date)} · ${fmtAmount(focusPayment.amount)}`
-                }
-                onAction={() => markPaid(focusPayment.id)}
-                actionLabel={<Check size={13} className="text-slate-300" />}
-                checking={checkingPayments.has(focusPayment.id)}
-              />
-            )}
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            {getGreeting()}, Ivan
+          </h1>
+          <p className="text-base text-slate-400 mt-1">
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long", month: "long", day: "numeric", year: "numeric",
+            })}
+          </p>
+        </div>
+        {overdueItems.length > 0 && (
+          <div className="hidden md:flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl text-sm font-semibold border border-red-100 flex-shrink-0">
+            <AlertTriangle size={14} />
+            {overdueItems.length} overdue
           </div>
         )}
-      </section>
+      </div>
 
-      {/* Progress Rings */}
-      <section>
-        <h2 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-4">
-          Progress
-        </h2>
-        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] py-8 px-6">
-          <div className="flex items-center justify-around max-w-sm mx-auto">
-            <ProgressRing
-              value={habitsLoggedToday.length}
-              max={habitsTotal}
-              color="#f97316"
-              label="Habits"
-              sublabel={`${habitsLoggedToday.length} of ${habitsTotal} today`}
-            />
-            <div className="w-px h-16 bg-slate-100" />
-            <ProgressRing
-              value={completedTasks}
-              max={tasks.length}
-              color="#6366f1"
-              label="Tasks"
-              sublabel={`${pendingTasks.length} remaining`}
-            />
-            <div className="w-px h-16 bg-slate-100" />
-            <ProgressRing
-              value={activeJobs}
-              max={jobs.length}
-              color="#0ea5e9"
-              label="Jobs"
-              sublabel={`${activeJobs} active`}
-            />
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          icon={<DollarSign size={16} className="text-emerald-600" />}
+          accent="bg-emerald-50"
+          label="Monthly Spend"
+          value={
+            expenseSummary
+              ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(expenseSummary.total)
+              : "—"
+          }
+          sub={expenseSummary ? `${expenseSummary.count} expense${expenseSummary.count !== 1 ? "s" : ""}` : "No data yet"}
+          href="/payments"
+        />
+        <KpiCard
+          icon={<Briefcase size={16} className="text-indigo-600" />}
+          accent="bg-indigo-50"
+          label="Active Pipeline"
+          value={activeJobs}
+          sub={jobs.length > 0 ? `${jobs.length} total applications` : "No applications yet"}
+          href="/jobs"
+        />
+        <KpiCard
+          icon={<CheckSquare size={16} className="text-violet-600" />}
+          accent="bg-violet-50"
+          label="Tasks Pending"
+          value={pendingTaskCount}
+          sub={overdueTaskCount > 0 ? `${overdueTaskCount} overdue` : "All on schedule"}
+          href="/tasks"
+        />
+        <KpiCard
+          icon={<Flame size={16} className="text-orange-500" />}
+          accent="bg-orange-50"
+          label="Habits Today"
+          value={`${habitsLoggedToday.length}/${habits.filter(h => !h.archived).length}`}
+          sub={longestStreak > 0 ? `Best streak: ${longestStreak} days` : "Start your streak"}
+          href="/tasks"
+        />
+      </div>
+
+      {/* Analytics Row: Jobs + Finance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Jobs Panel */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Briefcase size={14} className="text-indigo-600" />
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Jobs Pipeline</h2>
+              <span className="text-xs text-slate-400">{jobs.length} total</span>
+            </div>
+            <Link href="/jobs" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors">
+              View all <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="p-5 flex flex-col gap-5 flex-1">
+            {jobs.length === 0 ? (
+              <p className="text-[13px] text-slate-400 text-center py-8">No job applications yet.</p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2.5">
+                  {(Object.entries(STATUS_CONFIG) as [StatusKey, (typeof STATUS_CONFIG)[StatusKey]][]).map(([key, cfg]) => (
+                    <PipelineBar
+                      key={key}
+                      label={cfg.label}
+                      count={jobCounts[key]}
+                      max={maxJobCount}
+                      barColor={cfg.barColor}
+                    />
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <StatTile
+                    label="Success Rate"
+                    value={successRate !== null ? `${successRate}%` : "—"}
+                    sub={
+                      concludedJobs > 0
+                        ? `${jobCounts.offer} offer${jobCounts.offer !== 1 ? "s" : ""} / ${concludedJobs} concluded`
+                        : "No concluded apps yet"
+                    }
+                  />
+                  <StatTile
+                    label="Response Rate"
+                    value={responseRate !== null ? `${responseRate}%` : "—"}
+                    sub={
+                      jobs.length > 0
+                        ? `${jobs.length - jobCounts.applied} responded`
+                        : "No responses yet"
+                    }
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </section>
 
-      {/* Weekly Summary */}
-      {habits.length > 0 && <WeeklySummary habits={habits} />}
+        {/* Finance Panel */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign size={14} className="text-emerald-600" />
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Finance</h2>
+              <span className="text-xs text-slate-400">
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </span>
+            </div>
+            <Link href="/payments" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors">
+              View all <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="p-5 flex flex-col gap-5 flex-1">
 
-      {/* Analytics row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Panel
-          icon={<DollarSign size={15} className="text-emerald-600" />}
-          title="Expenses"
-          label={new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-          aside={<span className="text-base font-bold text-slate-900">{fmtAmount(expenseSummary?.total)}</span>}
-        >
-          {!expenseSummary || expenseSummary.by_category.length === 0 ? (
-            <Empty message="No expenses this month." />
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                  <th className="text-left pb-2 font-bold">Category</th>
-                  <th className="text-right pb-2 font-bold">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {expenseSummary.by_category
-                  .sort((a, b) => b.total - a.total)
-                  .map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 text-slate-700">
-                        {row.category_id ? catMap.get(row.category_id) ?? "Uncategorized" : "Uncategorized"}
-                      </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-900">{fmtAmount(row.total)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
-        </Panel>
+            {/* Total spend */}
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Spend</p>
+                <p className="text-[32px] font-bold text-slate-900 tracking-tight leading-none mt-1.5">
+                  {fmtAmount(expenseSummary?.total)}
+                </p>
+              </div>
+              {expenseSummary && (
+                <p className="text-xs text-slate-400 pb-1">{expenseSummary.count} expenses</p>
+              )}
+            </div>
 
-        <Panel
-          icon={<Briefcase size={15} className="text-indigo-600" />}
-          title="Job Pipeline"
-          aside={<span className="text-xs text-slate-400 font-medium">{jobs.length} total</span>}
-        >
-          {jobs.length === 0 ? (
-            <Empty message="No job applications yet." />
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                  <th className="text-left pb-2 font-bold">Status</th>
-                  <th className="text-right pb-2 font-bold">Count</th>
-                  <th className="text-right pb-2 font-bold">%</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {(Object.entries(STATUS_CONFIG) as [StatusKey, { label: string; color: string }][])
-                  .filter(([key]) => jobCounts[key] > 0)
-                  .map(([key, cfg]) => (
-                    <tr key={key} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-900">{jobCounts[key]}</td>
-                      <td className="py-2.5 text-right text-slate-400">
-                        {Math.round((jobCounts[key] / jobs.length) * 100)}%
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
-        </Panel>
-      </div>
-
-      {/* Action columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        <Panel
-          icon={<CheckCircle2 size={15} className="text-emerald-600" />}
-          title="Pending Tasks"
-          badge={pendingTasks.length}
-          badgeColor="bg-emerald-100 text-emerald-700"
-        >
-          {pendingTasks.length === 0 ? (
-            <Empty message="All tasks complete!" />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {pendingTasks.map(task => {
-                const checking = checkingTasks.has(task.id);
-                return (
-                  <li
-                    key={task.id}
-                    className={`py-3 flex items-start gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
-                  >
-                    <button
-                      onClick={() => completeTask(task.id)}
-                      disabled={checking}
-                      className="mt-0.5 flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-emerald-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
-                    >
-                      {checking && <Check size={9} className="text-emerald-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-medium text-slate-800">{task.name}</p>
-                      {task.due_date && (
-                        <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                          <Calendar size={10} />{fmtDate(task.due_date)}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel
-          icon={<Flame size={15} className="text-orange-500" />}
-          title="Habits Today"
-          badge={habitsToDoToday.length}
-          badgeColor="bg-orange-100 text-orange-700"
-        >
-          {habitsToDoToday.length === 0 ? (
-            <Empty message="All habits done for today! 🎉" />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {habitsToDoToday.map(habit => {
-                const checking = checkingHabits.has(habit.id);
-                return (
-                  <li
-                    key={habit.id}
-                    className={`py-3 flex items-center justify-between gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={() => logHabit(habit.id)}
-                        disabled={checking}
-                        className="flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-orange-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
-                      >
-                        {checking && <Check size={9} className="text-orange-500" />}
-                      </button>
-                      <span className="text-[15px] font-medium text-slate-800 truncate">{habit.name}</span>
-                    </div>
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md flex-shrink-0">
-                      <Flame size={11} />{habit.streak ?? 0}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel
-          icon={<CreditCard size={15} className="text-amber-600" />}
-          title="Upcoming Payments"
-          badge={unpaidPayments.length}
-          badgeColor="bg-amber-100 text-amber-700"
-        >
-          {unpaidPayments.length === 0 ? (
-            <Empty message="No outstanding payments." />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {unpaidPayments.map(payment => {
-                const checking = checkingPayments.has(payment.id);
-                return (
-                  <li
-                    key={payment.id}
-                    className={`py-3 flex items-center gap-3 transition-opacity duration-300 ${checking ? "opacity-40" : ""}`}
-                  >
-                    <button
-                      onClick={() => markPaid(payment.id)}
-                      disabled={checking}
-                      className="flex-shrink-0 w-[15px] h-[15px] rounded-full border-2 border-slate-300 hover:border-amber-500 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
-                    >
-                      {checking && <Check size={9} className="text-amber-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-medium text-slate-800 truncate">{payment.name}</p>
-                      <span className={`text-[11px] font-semibold uppercase tracking-wider mt-0.5 block ${
-                        payment.days_until_due < 0
-                          ? "text-red-500"
-                          : payment.days_until_due <= 3
-                            ? "text-amber-500"
-                            : "text-slate-400"
-                      }`}>
-                        {payment.days_until_due < 0
-                          ? `${Math.abs(payment.days_until_due)}d overdue`
-                          : payment.days_until_due === 0
-                            ? "Due today"
-                            : `Due ${fmtDate(payment.due_date)}`}
+            {/* Category bars */}
+            {sortedCats.length === 0 ? (
+              <p className="text-[13px] text-slate-400 text-center py-2">No expenses this month.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sortedCats.slice(0, 5).map((row, i) => {
+                  const name = row.category_id ? catMap.get(row.category_id) ?? "Uncategorized" : "Uncategorized";
+                  const pct = Math.round((row.total / (expenseSummary?.total || 1)) * 100);
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-[12px] text-slate-500 w-[90px] flex-shrink-0 truncate">{name}</span>
+                      <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${CAT_COLORS[i % CAT_COLORS.length]} transition-all duration-700 ease-out`}
+                          style={{ width: `${(row.total / maxCatAmount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-700 w-[60px] text-right flex-shrink-0">
+                        {fmtAmount(row.total)}
                       </span>
+                      <span className="text-[11px] text-slate-400 w-[26px] text-right flex-shrink-0">{pct}%</span>
                     </div>
-                    <span className="text-[15px] font-bold text-slate-900 flex-shrink-0">{fmtAmount(payment.amount)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Upcoming payments */}
+            {unpaidPayments.length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-2.5">
+                  Upcoming Payments
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {unpaidPayments.slice(0, 3).map(p => (
+                    <div key={p.id} className="flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          p.days_until_due < 0 ? "bg-red-400" :
+                          p.days_until_due <= 3 ? "bg-amber-400" : "bg-slate-300"
+                        }`} />
+                        <span className="text-[13px] text-slate-700 truncate">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className={`text-[11px] font-semibold tabular-nums ${
+                          p.days_until_due < 0 ? "text-red-500" :
+                          p.days_until_due <= 3 ? "text-amber-600" : "text-slate-400"
+                        }`}>
+                          {p.days_until_due < 0
+                            ? `${Math.abs(p.days_until_due)}d overdue`
+                            : p.days_until_due === 0
+                              ? "Today"
+                              : `in ${p.days_until_due}d`}
+                        </span>
+                        <span className="text-[13px] font-bold text-slate-900 tabular-nums">
+                          {fmtAmount(p.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {unpaidPayments.length > 3 && (
+                    <Link href="/payments" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 transition-colors mt-0.5 block">
+                      +{unpaidPayments.length - 3} more payments →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
 
-// ---- Sub-components ----
+      {/* Reminders */}
+      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)]">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-violet-600" />
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Reminders</h2>
+            </div>
+            {overdueItems.length > 0 && (
+              <span className="text-[11px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                {overdueItems.length} overdue
+              </span>
+            )}
+            {todayItems.length > 0 && (
+              <span className="text-[11px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                {todayItems.length} today
+              </span>
+            )}
+          </div>
+          <Link href="/tasks" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors flex-shrink-0">
+            View all <ArrowRight size={11} />
+          </Link>
+        </div>
 
-function Panel({ icon, title, label, aside, badge, badgeColor, children }: {
-  icon: React.ReactNode;
-  title: string;
-  label?: string;
-  aside?: React.ReactNode;
-  badge?: number;
-  badgeColor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h2 className="text-[11px] font-semibold text-slate-900 uppercase tracking-[0.08em]">{title}</h2>
-          {label && <span className="text-xs text-slate-400 font-medium">{label}</span>}
-          {badge !== undefined && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
+        <div className="p-5">
+          {allCaughtUp ? (
+            <div className="flex items-center gap-3 py-6 justify-center">
+              <CheckCircle2 size={18} className="text-emerald-500" />
+              <p className="text-[14px] text-slate-600 font-medium">All caught up — nothing urgent!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+              {/* Overdue column */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-500 mb-2.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+                  Overdue ({overdueItems.length})
+                </p>
+                {overdueItems.length === 0 ? (
+                  <p className="text-[12px] text-slate-300 pl-3">None</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(expandedCols.has("overdue") ? overdueItems : overdueItems.slice(0, MAX_VISIBLE)).map(item => (
+                      <UrgencyCard
+                        key={item.id}
+                        item={item}
+                        onCheck={
+                          item.type === "task" ? () => completeTask(item.rawId) :
+                          item.type === "payment" ? () => markPaid(item.rawId) : undefined
+                        }
+                        checking={
+                          item.type === "task" ? checkingTasks.has(item.rawId) :
+                          item.type === "payment" ? checkingPayments.has(item.rawId) : false
+                        }
+                      />
+                    ))}
+                    {overdueItems.length > MAX_VISIBLE && (
+                      <button
+                        onClick={() => toggleCol("overdue")}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                      >
+                        <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("overdue") ? "rotate-180" : ""}`} />
+                        {expandedCols.has("overdue") ? "Show less" : `${overdueItems.length - MAX_VISIBLE} more`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Today column */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-600 mb-2.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                  Due Today ({todayItems.length})
+                </p>
+                {todayItems.length === 0 ? (
+                  <p className="text-[12px] text-slate-300 pl-3">None</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(expandedCols.has("today") ? todayItems : todayItems.slice(0, MAX_VISIBLE)).map(item => (
+                      <UrgencyCard
+                        key={item.id}
+                        item={item}
+                        onCheck={
+                          item.type === "task" ? () => completeTask(item.rawId) :
+                          item.type === "payment" ? () => markPaid(item.rawId) :
+                          item.type === "habit" ? () => logHabit(item.rawId) : undefined
+                        }
+                        checking={
+                          item.type === "task" ? checkingTasks.has(item.rawId) :
+                          item.type === "payment" ? checkingPayments.has(item.rawId) :
+                          item.type === "habit" ? checkingHabits.has(item.rawId) : false
+                        }
+                      />
+                    ))}
+                    {todayItems.length > MAX_VISIBLE && (
+                      <button
+                        onClick={() => toggleCol("today")}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                      >
+                        <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("today") ? "rotate-180" : ""}`} />
+                        {expandedCols.has("today") ? "Show less" : `${todayItems.length - MAX_VISIBLE} more`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Upcoming column */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400 mb-2.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block" />
+                  Upcoming ({soonItems.length})
+                </p>
+                {soonItems.length === 0 ? (
+                  <p className="text-[12px] text-slate-300 pl-3">Nothing in the next 7 days</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(expandedCols.has("soon") ? soonItems : soonItems.slice(0, MAX_VISIBLE)).map(item => (
+                      <UrgencyCard
+                        key={item.id}
+                        item={item}
+                        onCheck={
+                          item.type === "task" ? () => completeTask(item.rawId) :
+                          item.type === "payment" ? () => markPaid(item.rawId) : undefined
+                        }
+                        checking={
+                          item.type === "task" ? checkingTasks.has(item.rawId) :
+                          item.type === "payment" ? checkingPayments.has(item.rawId) : false
+                        }
+                      />
+                    ))}
+                    {soonItems.length > MAX_VISIBLE && (
+                      <button
+                        onClick={() => toggleCol("soon")}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                      >
+                        <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("soon") ? "rotate-180" : ""}`} />
+                        {expandedCols.has("soon") ? "Show less" : `${soonItems.length - MAX_VISIBLE} more`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
-        {aside}
-      </div>
-      <div className="p-5 overflow-y-auto max-h-[420px]">
-        {children}
       </div>
     </div>
   );
-}
-
-function Empty({ message }: { message: string }) {
-  return <p className="text-[13px] text-slate-400 text-center py-6">{message}</p>;
 }
