@@ -6,24 +6,13 @@ import {
   CreditCard as CreditCardIcon, Receipt, MoreHorizontal,
   CheckCircle2, Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2,
   ScanLine, Upload, Loader2, Users, ChevronDown,
-  TrendingDown, Wallet, Tag, RefreshCw, DollarSign, ArrowDownLeft, ArrowUpRight, Send, RotateCcw, Zap, GraduationCap, Search,
+  TrendingDown, Wallet, Tag, DollarSign, ArrowDownLeft, ArrowUpRight, Send, RotateCcw, Zap, GraduationCap, Search,
+  ShoppingCart, Package, Coffee, Utensils, Fuel, ParkingSquare, Car, Tv, Heart, Dumbbell, Plane, Music, Building2, BarChart2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { Expense, Category, CreditCard, RecurringCharge, PriceHistoryEntry, CancellationPeriod, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan } from "@/lib/types";
+import { Expense, Category, CreditCard, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan } from "@/lib/types";
 
 // ---- Price history helper ----
-
-function getPriceForMonth(rc: RecurringCharge, month: string): number {
-  if (!rc.price_history?.length) return Number(rc.amount);
-  const monthStart = `${month}-01`;
-  const applicable = rc.price_history.filter((h) => h.effective_from <= monthStart);
-  if (!applicable.length) {
-    // Month predates all history entries — use the earliest recorded price.
-    const earliest = rc.price_history.reduce((min, h) => h.effective_from < min.effective_from ? h : min);
-    return Number(earliest.amount);
-  }
-  return Number(applicable.reduce((latest, h) => h.effective_from > latest.effective_from ? h : latest).amount);
-}
 
 function getUtilBillPriceForMonth(bill: UtilityBill, month: string): number {
   if (!bill.price_history?.length) return Number(bill.amount);
@@ -33,28 +22,6 @@ function getUtilBillPriceForMonth(bill: UtilityBill, month: string): number {
     return Number(bill.price_history.reduce((min, h) => h.effective_from < min.effective_from ? h : min).amount);
   }
   return Number(applicable.reduce((latest, h) => h.effective_from > latest.effective_from ? h : latest).amount);
-}
-
-function isCanceledForMonth(rc: RecurringCharge, month: string): boolean {
-  const monthStart = `${month}-01`;
-  return rc.cancellation_periods.some(
-    (p) => p.canceled_from <= monthStart && (p.reactivated_from === null || p.reactivated_from > monthStart)
-  );
-}
-
-function formatPriceRange(entry: PriceHistoryEntry, nextEntry: PriceHistoryEntry | null): string {
-  if (entry.effective_from === "2000-01-01") {
-    if (!nextEntry) return "Current";
-    const [ny, nm] = nextEntry.effective_from.split("-").map(Number);
-    const end = new Date(ny, nm - 2, 1);
-    return `Until ${end.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`;
-  }
-  const [sy, sm] = entry.effective_from.split("-").map(Number);
-  const start = new Date(sy, sm - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  if (!nextEntry) return "Current";
-  const [ny, nm] = nextEntry.effective_from.split("-").map(Number);
-  const end = new Date(ny, nm - 2, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  return `${start} – ${end}`;
 }
 
 // ---- Helpers ----
@@ -73,6 +40,29 @@ function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+const MERCHANT_ICONS: [RegExp, React.ElementType][] = [
+  [/amazon/i, Package],
+  [/costco|walmart|target|sam.s club|whole foods|trader joe|kroger|safeway|aldi|publix|wegman|sprouts|grocery|market/i, ShoppingCart],
+  [/starbucks|dunkin|peet|coffee|cafe/i, Coffee],
+  [/mcdonald|burger king|wendy|chick.fil|taco bell|kfc|popeye|panda|subway|chipotle|five guys|shake shack|pizza|sushi|ramen|pho|restaurant|dining|diner|bistro|eatery|kitchen/i, Utensils],
+  [/shell|chevron|exxon|mobil|bp |valero|sunoco|gas station|gas & go/i, Fuel],
+  [/parking|valet/i, ParkingSquare],
+  [/uber|lyft|taxi/i, Car],
+  [/netflix|hulu|disney\+|paramount|peacock|hbo|max\b|prime video|apple tv|twitch/i, Tv],
+  [/spotify|apple music|tidal|pandora/i, Music],
+  [/cvs|walgreen|rite aid|pharmacy|clinic|medical|dental|doctor|hospital/i, Heart],
+  [/gym|fitness|planet fitness|la fitness|equinox|ymca|crossfit/i, Dumbbell],
+  [/delta|united|american air|southwest|jetblue|spirit|frontier|airline|airways/i, Plane],
+  [/hotel|marriott|hilton|hyatt|sheraton|airbnb|motel|inn\b|resort/i, Building2],
+];
+
+function getMerchantIcon(name: string): React.ElementType {
+  for (const [pattern, Icon] of MERCHANT_ICONS) {
+    if (pattern.test(name)) return Icon;
+  }
+  return Receipt;
 }
 
 function currentMonth() {
@@ -97,12 +87,10 @@ function toLocalDate(d: Date) {
 
 // ---- Row menu ----
 
-function RowMenu({ onEdit, onDelete, onLogPrice, onToggleCancel, isCanceled, onReturn }: {
+function RowMenu({ onEdit, onDelete, onLogPrice, onReturn }: {
   onEdit: () => void;
   onDelete: () => void;
   onLogPrice?: () => void;
-  onToggleCancel?: () => void;
-  isCanceled?: boolean;
   onReturn?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -168,14 +156,6 @@ function RowMenu({ onEdit, onDelete, onLogPrice, onToggleCancel, isCanceled, onR
               <DollarSign size={14} /> Inc price
             </button>
           )}
-          {onToggleCancel && (
-            <button
-              onClick={() => { setOpen(false); onToggleCancel(); }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 transition-colors ${isCanceled ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-600 hover:bg-amber-50"}`}
-            >
-              {isCanceled ? <><RefreshCw size={14} /> Reactivate</> : <><X size={14} /> Cancel</>}
-            </button>
-          )}
           <button
             onClick={() => { setOpen(false); onDelete(); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-red-500 hover:bg-red-50 transition-colors"
@@ -206,239 +186,6 @@ function resolveCardColor(color: string | null, idx: number): string {
   if (color && CARD_COLOR_MAP[color]) return CARD_COLOR_MAP[color];
   const fallbacks = Object.values(CARD_COLOR_MAP);
   return fallbacks[idx % fallbacks.length];
-}
-
-function FinanceSummary({
-  expenses,
-  categories,
-  creditCards,
-  month,
-  recurringCharges,
-  moneyTransfers,
-  loans,
-}: {
-  expenses: Expense[];
-  categories: Category[];
-  creditCards: CreditCard[];
-  month: string;
-  recurringCharges: RecurringCharge[];
-  moneyTransfers: MoneyTransfer[];
-  loans: Loan[];
-}) {
-  const grossSpend = expenses.reduce((s, e) => Number(e.amount) > 0 ? s + Number(e.amount) : s, 0);
-  const refunds = expenses.reduce((s, e) => Number(e.amount) < 0 ? s + Math.abs(Number(e.amount)) : s, 0);
-  const netSpend = grossSpend - refunds;
-  const positiveCount = expenses.filter((e) => Number(e.amount) > 0).length;
-  const refundCount = expenses.filter((e) => Number(e.amount) < 0).length;
-  const transfersTotal = moneyTransfers.reduce((s, t) => s + (t.direction === "sent" ? 1 : -1) * Number(t.amount), 0);
-  const transferCount = moneyTransfers.length;
-
-  const today = new Date();
-  const todayMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const todayDay = today.getDate();
-
-  const applicableRecurring = recurringCharges.filter((c) => {
-    if (isCanceledForMonth(c, month)) return false;
-    if (month < todayMonthStr) return true;
-    if (month > todayMonthStr) return false;
-    return todayDay >= c.charge_date;
-  });
-  const recurringTotal = applicableRecurring.reduce((s, c) => s + getPriceForMonth(c, month), 0);
-  const grandTotal = netSpend + recurringTotal + transfersTotal;
-
-  const catTotals = new Map<number | null, number>();
-  for (const e of expenses) {
-    const amt = Number(e.amount);
-    if (amt > 0) catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + amt);
-  }
-  for (const rc of applicableRecurring) {
-    const amt = getPriceForMonth(rc, month);
-    catTotals.set(rc.category_id, (catTotals.get(rc.category_id) ?? 0) + amt);
-  }
-  const catGrossTotal = Array.from(catTotals.values()).reduce((s, v) => s + v, 0);
-  const catBreakdown = Array.from(catTotals.entries())
-    .map(([id, total], i) => ({
-      name: id != null ? (categories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized",
-      total,
-      pct: catGrossTotal > 0 ? (total / catGrossTotal) * 100 : 0,
-      color: BAR_COLORS[i % BAR_COLORS.length],
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  const cardTotals = new Map<number | null, number>();
-  for (const e of expenses) {
-    const amt = Number(e.amount);
-    if (amt > 0) cardTotals.set(e.credit_card_id, (cardTotals.get(e.credit_card_id) ?? 0) + amt);
-  }
-  for (const rc of applicableRecurring) {
-    const amt = getPriceForMonth(rc, month);
-    cardTotals.set(rc.credit_card_id, (cardTotals.get(rc.credit_card_id) ?? 0) + amt);
-  }
-  const cardGrossTotal = Array.from(cardTotals.values()).reduce((s, v) => s + v, 0);
-  const cardBreakdown = Array.from(cardTotals.entries())
-    .map(([id, total], i) => {
-      const card = creditCards.find((c) => c.id === id);
-      return {
-        name: card ? `${card.name}${card.last_four ? ` ····${card.last_four}` : ""}` : "No card",
-        total,
-        pct: cardGrossTotal > 0 ? (total / cardGrossTotal) * 100 : 0,
-        color: resolveCardColor(card?.color ?? null, i),
-      };
-    })
-    .sort((a, b) => b.total - a.total);
-
-  const [y, m] = month.split("-").map(Number);
-  const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long" });
-
-  const showBreakdowns = catBreakdown.length > 0 || cardBreakdown.length > 0;
-
-  const TOP_N = 5;
-  const [showAllCats, setShowAllCats] = useState(false);
-  const [showAllCards, setShowAllCards] = useState(false);
-
-  return (
-    <div className="mb-6 flex flex-col gap-4">
-      {/* KPI tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Wallet size={13} className="text-indigo-400" />
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total</p>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(grandTotal)}</p>
-          <p className="text-[10px] text-slate-400 mt-1.5">one-time + recurring + transfers</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Receipt size={13} className="text-indigo-400" />
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">One-time</p>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(netSpend)}</p>
-          <p className="text-[10px] text-slate-400 mt-1.5">
-            {positiveCount} expense{positiveCount !== 1 ? "s" : ""}
-            {refundCount > 0 && ` · ${refundCount} refund${refundCount !== 1 ? "s" : ""} (${formatAmount(refunds)})`}
-          </p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <RefreshCw size={13} className="text-violet-400" />
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Recurring</p>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(recurringTotal)}</p>
-          <p className="text-[10px] text-slate-400 mt-1.5">{applicableRecurring.length} charge{applicableRecurring.length !== 1 ? "s" : ""} applied</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Send size={13} className="text-violet-400" />
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transfers</p>
-          </div>
-          <p className={`text-2xl font-bold leading-none ${transfersTotal < 0 ? "text-emerald-600" : "text-slate-900"}`}>
-            {formatAmount(transfersTotal)}
-          </p>
-          <p className="text-[10px] text-slate-400 mt-1.5">{transferCount} this month</p>
-        </div>
-      </div>
-
-      {/* Loan summary strip */}
-      {loans.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 shadow-sm flex flex-wrap items-center gap-x-8 gap-y-2">
-          <div className="flex items-center gap-2">
-            <GraduationCap size={14} className="text-indigo-400 shrink-0" />
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Loan Balance</p>
-              <p className="text-sm font-bold text-slate-900 mt-0.5">
-                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
-              </p>
-            </div>
-          </div>
-          <div className="w-px h-8 bg-slate-100 hidden sm:block" />
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Principal</p>
-            <p className="text-sm font-bold text-slate-900 mt-0.5">
-              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
-              <span className="text-[10px] font-normal text-slate-400 ml-1">{loans.length} loan{loans.length !== 1 ? "s" : ""}</span>
-            </p>
-          </div>
-          <div className="w-px h-8 bg-slate-100 hidden sm:block" />
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Accrued Interest</p>
-            <p className="text-sm font-bold text-amber-600 mt-0.5">
-              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Spend by Category */}
-      {catBreakdown.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Tag size={14} className="text-slate-400" />
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Category</h3>
-          </div>
-          <div className="flex flex-col gap-3">
-            {(showAllCats ? catBreakdown : catBreakdown.slice(0, TOP_N)).map((cat) => (
-              <div key={cat.name} className="flex items-center gap-4">
-                <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{cat.name}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
-                </div>
-                <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
-                  <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
-                  <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {catBreakdown.length > TOP_N && (
-            <button
-              onClick={() => setShowAllCats((v) => !v)}
-              className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
-            >
-              <ChevronDown size={13} className={`transition-transform ${showAllCats ? "rotate-180" : ""}`} />
-              {showAllCats ? "Show less" : `${catBreakdown.length - TOP_N} more`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Spend by Credit Card */}
-      {cardBreakdown.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <CreditCardIcon size={14} className="text-slate-400" />
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Credit Card</h3>
-          </div>
-          <div className="flex flex-col gap-3">
-            {(showAllCards ? cardBreakdown : cardBreakdown.slice(0, TOP_N)).map((card) => (
-              <div key={card.name} className="flex items-center gap-4">
-                <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
-                </div>
-                <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
-                  <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
-                  <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {cardBreakdown.length > TOP_N && (
-            <button
-              onClick={() => setShowAllCards((v) => !v)}
-              className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
-            >
-              <ChevronDown size={13} className={`transition-transform ${showAllCards ? "rotate-180" : ""}`} />
-              {showAllCards ? "Show less" : `${cardBreakdown.length - TOP_N} more`}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ---- Receipt Scanner ----
@@ -724,10 +471,8 @@ function ScanModal({
 // ---- Constants ----
 
 const EMPTY_EXPENSE = { name: "", amount: "", date: "", category_id: "", credit_card_id: "", notes: "", service_period_start: "", service_period_end: "" };
-const EMPTY_RECURRING = { name: "", amount: "", charge_date: "", category_id: "", credit_card_id: "", notes: "" };
 const EMPTY_CC_FORM = { name: "", color: "blue" };
-const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", category_id: "", amount: "", notes: "", split_with: "" };
-const TRANSFER_PLATFORMS = ["Zelle", "Venmo", "Cash App", "PayPal", "Apple Pay", "Other"];
+const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", category_id: "", amount: "", notes: "" };
 const UTILITY_NAMES = ["Electric", "Water", "Internet", "Gas", "Trash"];
 const EMPTY_BILL = { utility: "", is_recurring: false, service_period_start: "", service_period_end: "", charge_date: "", charge_day: "", billing_start: "", amount: "", split_with: "", notes: "" };
 const EMPTY_LOAN = { name: "", disbursement_date: "", original_principal: "", unpaid_principal: "", interest_rate: "", unpaid_interest: "", total_interest_paid: "0", notes: "" };
@@ -738,50 +483,34 @@ export default function PaymentsAndExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
-  const [recurringCharges, setRecurringCharges] = useState<RecurringCharge[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "recurring" | "transfer" | "loan"; id: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "transfer" | "loan"; id: number } | null>(null);
 
   const [showScanModal, setShowScanModal] = useState(false);
   const [monthTotal, setMonthTotal] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "recurring" | "transfers" | "loans">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "transfers" | "loans">("overview");
 
   // Expanded transaction groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Expanded recurring charge price history
-  const [expandedRecurringIds, setExpandedRecurringIds] = useState<Set<number>>(new Set());
-  function toggleRecurring(id: number) {
-    setExpandedRecurringIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
   // Split state
   const [knownPeople, setKnownPeople] = useState<Person[]>([]);
-  const [splitPeople, setSplitPeople] = useState<string[]>([]);
   const [addingPerson, setAddingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState("");
-  const [splitDropOpen, setSplitDropOpen] = useState(false);
-  const splitDropRef = useRef<HTMLDivElement>(null);
-  const [transferSplitPeople, setTransferSplitPeople] = useState<string[]>([]);
-  const [transferSplitDropOpen, setTransferSplitDropOpen] = useState(false);
-  const transferSplitDropRef = useRef<HTMLDivElement>(null);
   const [catDropOpen, setCatDropOpen] = useState(false);
   const catDropRef = useRef<HTMLDivElement>(null);
   const [cardDropOpen, setCardDropOpen] = useState(false);
   const cardDropRef = useRef<HTMLDivElement>(null);
-  const [recurringCardDropOpen, setRecurringCardDropOpen] = useState(false);
-  const recurringCardDropRef = useRef<HTMLDivElement>(null);
-
   // Expense sort & filter
   const [expenseSort, setExpenseSort] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc");
+  const [transferSort, setTransferSort] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc");
   const [cardFilterIds, setCardFilterIds] = useState<Set<number | null>>(new Set());
   const [ccFilterDropOpen, setCcFilterDropOpen] = useState(false);
   const ccFilterDropRef = useRef<HTMLDivElement>(null);
   const [catFilterId, setCatFilterId] = useState<number | null | "all">("all");
+  const [transferCatFilterId, setTransferCatFilterId] = useState<number | null | "all">("all");
+  const [merchantBreakdownOpen, setMerchantBreakdownOpen] = useState(false);
+  const merchantBreakdownRef = useRef<HTMLDivElement>(null);
 
   // Inline category creation (expense modal)
   const [addingCat, setAddingCat] = useState(false);
@@ -803,22 +532,6 @@ export default function PaymentsAndExpensesPage() {
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE);
   const [expenseSaveError, setExpenseSaveError] = useState<string | null>(null);
-
-  // Recurring modal
-  const [showRecurringModal, setShowRecurringModal] = useState(false);
-  const [editRecurring, setEditRecurring] = useState<RecurringCharge | null>(null);
-  const [recurringForm, setRecurringForm] = useState(EMPTY_RECURRING);
-  const [addingRecurringCat, setAddingRecurringCat] = useState(false);
-  const [newRecurringCatName, setNewRecurringCatName] = useState("");
-  const [recurringCatDropOpen, setRecurringCatDropOpen] = useState(false);
-  const recurringCatDropRef = useRef<HTMLDivElement>(null);
-  const [recurringSaveError, setRecurringSaveError] = useState<string | null>(null);
-
-  // Log price change modal
-  const [showLogPriceModal, setShowLogPriceModal] = useState(false);
-  const [logPriceTarget, setLogPriceTarget] = useState<RecurringCharge | null>(null);
-  const [logPriceForm, setLogPriceForm] = useState({ amount: "", effectiveMonth: "" });
-  const [logPriceSaveError, setLogPriceSaveError] = useState<string | null>(null);
 
   // Money transfers
   const [moneyTransfers, setMoneyTransfers] = useState<MoneyTransfer[]>([]);
@@ -865,13 +578,14 @@ export default function PaymentsAndExpensesPage() {
   const [loanSaveError, setLoanSaveError] = useState<string | null>(null);
 
   // Section collapse state
-  const [recurringOpen, setRecurringOpen] = useState(true);
   const [expensesOpen, setExpensesOpen] = useState(true);
   const [transfersOpen, setTransfersOpen] = useState(true);
   const [owedOpen, setOwedOpen] = useState(true);
   const [trendHalf, setTrendHalf] = useState<"H1" | "H2">("H1");
   const [showAllCats, setShowAllCats] = useState(false);
   const [showAllCards, setShowAllCards] = useState(false);
+  const [expandedOverviewCats, setExpandedOverviewCats] = useState<Set<string>>(new Set());
+  const [expandedOverviewCatMerchants, setExpandedOverviewCatMerchants] = useState<Set<string>>(new Set());
   const [expandedOwedIds, setExpandedOwedIds] = useState<Set<string>>(new Set());
   const [expandedLedgerGroups, setExpandedLedgerGroups] = useState<Set<string>>(new Set());
   const [recordPaymentId, setRecordPaymentId] = useState<string | null>(null);
@@ -889,7 +603,6 @@ export default function PaymentsAndExpensesPage() {
     apiFetch("/credit-cards").then(setCreditCards).catch(console.error);
     apiFetch("/banks").then(setBanks).catch(console.error);
     apiFetch("/people").then(setKnownPeople).catch(console.error);
-    apiFetch("/recurring-charges").then(setRecurringCharges).catch(console.error);
     apiFetch("/expenses").then(setAllExpenses).catch(console.error);
     apiFetch("/money-transfers").then(setAllTransfers).catch(console.error);
     apiFetch("/utility-bills").then(setUtilityBills).catch(console.error);
@@ -899,16 +612,13 @@ export default function PaymentsAndExpensesPage() {
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (splitDropRef.current && !splitDropRef.current.contains(e.target as Node)) setSplitDropOpen(false);
       if (catDropRef.current && !catDropRef.current.contains(e.target as Node)) setCatDropOpen(false);
-      if (recurringCatDropRef.current && !recurringCatDropRef.current.contains(e.target as Node)) setRecurringCatDropOpen(false);
       if (cardDropRef.current && !cardDropRef.current.contains(e.target as Node)) setCardDropOpen(false);
-      if (recurringCardDropRef.current && !recurringCardDropRef.current.contains(e.target as Node)) setRecurringCardDropOpen(false);
       if (bankDropRef.current && !bankDropRef.current.contains(e.target as Node)) setBankDropOpen(false);
       if (personDropRef.current && !personDropRef.current.contains(e.target as Node)) setPersonDropOpen(false);
-      if (transferSplitDropRef.current && !transferSplitDropRef.current.contains(e.target as Node)) setTransferSplitDropOpen(false);
       if (billSplitDropRef.current && !billSplitDropRef.current.contains(e.target as Node)) setBillSplitDropOpen(false);
       if (ccFilterDropRef.current && !ccFilterDropRef.current.contains(e.target as Node)) setCcFilterDropOpen(false);
+      if (merchantBreakdownRef.current && !merchantBreakdownRef.current.contains(e.target as Node)) setMerchantBreakdownOpen(false);
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
@@ -932,49 +642,78 @@ export default function PaymentsAndExpensesPage() {
     return card.last_four ? `${card.name} ····${card.last_four}` : card.name;
   };
 
-  // Group expenses by name (with optional CC filter applied first)
-  type ExpenseGroup = { key: string; name: string; items: Expense[]; total: number };
   const filteredExpenses = expenses
     .filter((e) => cardFilterIds.size === 0 || cardFilterIds.has(e.credit_card_id))
     .filter((e) => catFilterId === "all" || e.category_id === catFilterId);
-  const expenseGroups: ExpenseGroup[] = [];
-  for (const expense of filteredExpenses) {
-    const key = expense.name.toLowerCase().trim();
-    const existing = expenseGroups.find((g) => g.key === key);
-    if (existing) {
-      existing.items.push(expense);
-      existing.total += Number(expense.amount);
-    } else {
-      expenseGroups.push({ key, name: expense.name, items: [expense], total: Number(expense.amount) });
-    }
-  }
-  expenseGroups.forEach((g) => {
-    if (expenseSort === "date-asc") {
-      g.items.sort((a, b) => a.date.localeCompare(b.date));
-    } else if (expenseSort === "amount-desc") {
-      g.items.sort((a, b) => Math.abs(Number(b.amount)) - Math.abs(Number(a.amount)));
-    } else if (expenseSort === "amount-asc") {
-      g.items.sort((a, b) => Math.abs(Number(a.amount)) - Math.abs(Number(b.amount)));
-    } else {
-      g.items.sort((a, b) => b.date.localeCompare(a.date));
-    }
+
+  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
+    if (expenseSort === "date-asc") return a.date.localeCompare(b.date);
+    if (expenseSort === "amount-desc") return Math.abs(Number(b.amount)) - Math.abs(Number(a.amount));
+    if (expenseSort === "amount-asc") return Math.abs(Number(a.amount)) - Math.abs(Number(b.amount));
+    return b.date.localeCompare(a.date);
   });
-  if (expenseSort === "date-asc") {
-    expenseGroups.sort((a, b) => (a.items[0]?.date ?? "").localeCompare(b.items[0]?.date ?? ""));
-  } else if (expenseSort === "amount-desc") {
-    expenseGroups.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
-  } else if (expenseSort === "amount-asc") {
-    expenseGroups.sort((a, b) => Math.abs(a.total) - Math.abs(b.total));
-  } else {
-    expenseGroups.sort((a, b) => (b.items[0]?.date ?? "").localeCompare(a.items[0]?.date ?? ""));
+
+  const transferMonthCatIds = new Set(moneyTransfers.map((t) => t.category_id));
+  const transferPillCats = [
+    ...(transferMonthCatIds.has(null) ? [{ id: null as number | null, name: "Uncategorized" }] : []),
+    ...expenseCategories.filter((c) => transferMonthCatIds.has(c.id)),
+  ];
+  const filteredTransfers = transferCatFilterId === "all"
+    ? moneyTransfers
+    : moneyTransfers.filter((t) => t.category_id === transferCatFilterId);
+  const sortedTransfers = [...filteredTransfers].sort((a, b) => {
+    if (transferSort === "date-asc") return a.date.localeCompare(b.date);
+    if (transferSort === "amount-desc") return Number(b.amount) - Number(a.amount);
+    if (transferSort === "amount-asc") return Number(a.amount) - Number(b.amount);
+    return b.date.localeCompare(a.date);
+  });
+  const isTransferDateSort = transferSort === "date-desc" || transferSort === "date-asc";
+  type TransferDateGroup = { date: string; label: string; dayNet: number; items: MoneyTransfer[] };
+  const transferDateGroups: TransferDateGroup[] = [];
+  if (isTransferDateSort) {
+    for (const t of sortedTransfers) {
+      let group = transferDateGroups.find((g) => g.date === t.date);
+      if (!group) {
+        const [ty, tm, td] = t.date.split("-").map(Number);
+        const label = new Date(ty, tm - 1, td).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        group = { date: t.date, label, dayNet: 0, items: [] };
+        transferDateGroups.push(group);
+      }
+      group.dayNet += t.direction === "received" ? Number(t.amount) : -Number(t.amount);
+      group.items.push(t);
+    }
   }
 
-  function toggleGroup(key: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
+  const merchantFreqMap = new Map<string, { count: number; displayName: string }>();
+  for (const e of filteredExpenses) {
+    const key = e.name.toLowerCase().trim();
+    const existing = merchantFreqMap.get(key);
+    if (!existing) {
+      merchantFreqMap.set(key, { count: 1, displayName: e.name });
+    } else {
+      existing.count++;
+    }
+  }
+  const repeatMerchants = [...merchantFreqMap.values()]
+    .filter((m) => m.count > 1)
+    .sort((a, b) => b.count - a.count);
+  const oneOffCount = [...merchantFreqMap.values()].filter((m) => m.count === 1).length;
+
+  const isDateSort = expenseSort === "date-desc" || expenseSort === "date-asc";
+  type ExpenseDateGroup = { date: string; label: string; dayTotal: number; items: Expense[] };
+  const expenseDateGroups: ExpenseDateGroup[] = [];
+  if (isDateSort) {
+    for (const e of sortedExpenses) {
+      let group = expenseDateGroups.find((g) => g.date === e.date);
+      if (!group) {
+        const [ey, em, ed] = e.date.split("-").map(Number);
+        const label = new Date(ey, em - 1, ed).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        group = { date: e.date, label, dayTotal: 0, items: [] };
+        expenseDateGroups.push(group);
+      }
+      group.dayTotal += Number(e.amount);
+      group.items.push(e);
+    }
   }
 
   // ---- Credit Cards ----
@@ -1009,7 +748,7 @@ export default function PaymentsAndExpensesPage() {
     setNewCardColor("blue");
   }
 
-  async function addCardInline(target: "expense" | "recurring") {
+  async function addCardInline() {
     const name = newCardName.trim();
     if (!name) return;
     const created = await apiFetch("/credit-cards", {
@@ -1018,11 +757,7 @@ export default function PaymentsAndExpensesPage() {
       body: JSON.stringify({ name, color: newCardColor }),
     });
     setCreditCards((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    if (target === "expense") {
-      setExpenseForm((f) => ({ ...f, credit_card_id: String(created.id) }));
-    } else {
-      setRecurringForm((f) => ({ ...f, credit_card_id: String(created.id) }));
-    }
+    setExpenseForm((f) => ({ ...f, credit_card_id: String(created.id) }));
     resetInlineCard();
   }
 
@@ -1030,7 +765,6 @@ export default function PaymentsAndExpensesPage() {
     await apiFetch(`/credit-cards/${id}`, { method: "DELETE" });
     setCreditCards((prev) => prev.filter((c) => c.id !== id));
     if (expenseForm.credit_card_id === String(id)) setExpenseForm((f) => ({ ...f, credit_card_id: "" }));
-    if (recurringForm.credit_card_id === String(id)) setRecurringForm((f) => ({ ...f, credit_card_id: "" }));
   }
 
   // ---- Year search ----
@@ -1046,7 +780,7 @@ export default function PaymentsAndExpensesPage() {
       body: JSON.stringify({ name }),
     });
     setBanks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setTransferForm((f) => ({ ...f, bank_id: String(created.id) }));
+    setTransferForm((f) => ({ ...f, bank_id: String(created.id), platform: name }));
     setNewBankName("");
     setAddingBank(false);
   }
@@ -1054,13 +788,12 @@ export default function PaymentsAndExpensesPage() {
   async function deleteBank(id: number) {
     await apiFetch(`/banks/${id}`, { method: "DELETE" });
     setBanks((prev) => prev.filter((b) => b.id !== id));
-    if (transferForm.bank_id === String(id)) setTransferForm((f) => ({ ...f, bank_id: "" }));
+    if (transferForm.bank_id === String(id)) setTransferForm((f) => ({ ...f, bank_id: "", platform: "" }));
   }
 
   function openAddTransfer() {
     setEditTransfer(null);
     setTransferForm(EMPTY_TRANSFER);
-    setTransferSplitPeople([]);
     setTransferSaveError(null);
     setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
     setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
@@ -1079,9 +812,7 @@ export default function PaymentsAndExpensesPage() {
       category_id: t.category_id != null ? String(t.category_id) : "",
       amount: String(t.amount),
       notes: t.notes ?? "",
-      split_with: t.split_with ?? "",
     });
-    setTransferSplitPeople(t.split_with ? t.split_with.split(",") : []);
     setTransferSaveError(null);
     setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
     setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
@@ -1089,9 +820,6 @@ export default function PaymentsAndExpensesPage() {
   }
 
   async function persistTransfer(): Promise<void> {
-    if (!transferForm.person.trim()) {
-      throw new Error(transferForm.direction === "sent" ? "Please select who you sent to." : "Please select who you received from.");
-    }
     const body = {
       name: transferForm.name.trim() || null,
       date: transferForm.date,
@@ -1102,7 +830,6 @@ export default function PaymentsAndExpensesPage() {
       category_id: transferForm.category_id ? parseInt(transferForm.category_id) : null,
       amount: parseFloat(transferForm.amount),
       notes: transferForm.notes.trim() || null,
-      split_with: transferSplitPeople.length > 0 ? transferSplitPeople.join(",") : null,
     };
     if (editTransfer) {
       const updated: MoneyTransfer = await apiFetch(`/money-transfers/${editTransfer.id}`, {
@@ -1133,7 +860,6 @@ export default function PaymentsAndExpensesPage() {
       setShowTransferModal(false);
       setEditTransfer(null);
       setTransferForm(EMPTY_TRANSFER);
-      setTransferSplitPeople([]);
       setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     } catch (err) {
@@ -1146,7 +872,6 @@ export default function PaymentsAndExpensesPage() {
     try {
       await persistTransfer();
       setTransferForm((f) => ({ ...EMPTY_TRANSFER, date: f.date, direction: f.direction }));
-      setTransferSplitPeople([]);
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     } catch (err) {
       setTransferSaveError(err instanceof Error ? err.message : "Failed to save transfer");
@@ -1327,15 +1052,18 @@ export default function PaymentsAndExpensesPage() {
     setAddingCat(false);
   }
 
-  function resetSplit() {
-    setSplitPeople([]);
-    setAddingPerson(false);
-    setNewPersonName("");
-    setSplitDropOpen(false);
-  }
-
-  function toggleSplitPerson(name: string) {
-    setSplitPeople((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
+  async function addTransferCategory() {
+    const name = newCatName.trim();
+    if (!name) return;
+    const created: Category = await apiFetch("/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setExpenseCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setTransferForm((f) => ({ ...f, category_id: String(created.id) }));
+    setNewCatName("");
+    setAddingCat(false);
   }
 
   async function addNewPerson() {
@@ -1349,19 +1077,15 @@ export default function PaymentsAndExpensesPage() {
         // already exists or other error — still allow selecting the name locally
       }
     }
-    if (!splitPeople.includes(name)) setSplitPeople((prev) => [...prev, name]);
     setNewPersonName("");
     setAddingPerson(false);
   }
 
-  async function deleteCategory(id: number, target: "expense" | "recurring" = "expense") {
+  async function deleteCategory(id: number) {
     await apiFetch(`/categories/${id}`, { method: "DELETE" });
     setExpenseCategories((prev) => prev.filter((c) => c.id !== id));
-    if (target === "expense") {
-      if (expenseForm.category_id === String(id)) setExpenseForm((f) => ({ ...f, category_id: "" }));
-    } else {
-      if (recurringForm.category_id === String(id)) setRecurringForm((f) => ({ ...f, category_id: "" }));
-    }
+    if (expenseForm.category_id === String(id)) setExpenseForm((f) => ({ ...f, category_id: "" }));
+    if (transferForm.category_id === String(id)) setTransferForm((f) => ({ ...f, category_id: "" }));
   }
 
   async function removePerson(name: string) {
@@ -1370,14 +1094,12 @@ export default function PaymentsAndExpensesPage() {
       await apiFetch(`/people/${person.id}`, { method: "DELETE" });
       setKnownPeople((prev) => prev.filter((p) => p.id !== person.id));
     }
-    setSplitPeople((prev) => prev.filter((n) => n !== name));
   }
 
   function openAddExpense() {
     setEditExpense(null);
     setExpenseForm({ ...EMPTY_EXPENSE, date: toLocalDate(new Date()) });
     setExpenseSaveError(null);
-    resetSplit();
     setAddingCat(false); setNewCatName(""); setCatDropOpen(false);
     setCardDropOpen(false);
     resetInlineCard();
@@ -1399,9 +1121,7 @@ export default function PaymentsAndExpensesPage() {
       service_period_end: ex.service_period_end ?? "",
     });
     setExpenseSaveError(null);
-    const preSelected = ex.split_with ? ex.split_with.split(",") : [];
-    setSplitPeople(preSelected);
-    setAddingPerson(false); setNewPersonName(""); setSplitDropOpen(false);
+    setAddingPerson(false); setNewPersonName("");
     setAddingCat(false); setNewCatName(""); setCatDropOpen(false);
     setCardDropOpen(false);
     resetInlineCard();
@@ -1418,7 +1138,6 @@ export default function PaymentsAndExpensesPage() {
       category_id: expenseForm.category_id ? parseInt(expenseForm.category_id) : null,
       credit_card_id: expenseForm.credit_card_id ? parseInt(expenseForm.credit_card_id) : null,
       notes: expenseForm.notes || null,
-      split_with: splitPeople.length > 0 ? splitPeople.join(",") : null,
       service_period_start: expenseForm.service_period_start || null,
       service_period_end: expenseForm.service_period_end || null,
     };
@@ -1450,7 +1169,6 @@ export default function PaymentsAndExpensesPage() {
       setShowExpenseModal(false);
       setEditExpense(null);
       setExpenseForm(EMPTY_EXPENSE);
-      resetSplit();
     } catch (err) {
       setExpenseSaveError(err instanceof Error ? err.message : "Failed to save expense");
     }
@@ -1461,7 +1179,6 @@ export default function PaymentsAndExpensesPage() {
     try {
       await persistExpense();
       setExpenseForm({ ...EMPTY_EXPENSE, date: expenseForm.date });
-      resetSplit();
     } catch (err) {
       setExpenseSaveError(err instanceof Error ? err.message : "Failed to save expense");
     }
@@ -1482,155 +1199,6 @@ export default function PaymentsAndExpensesPage() {
     });
     setExpenses((prev) => prev.map((ex) => ex.id === expense.id ? updated : ex));
     setAllExpenses((prev) => prev.map((ex) => ex.id === expense.id ? updated : ex));
-  }
-
-  // ---- Recurring charges ----
-
-  async function addRecurringCategory() {
-    const name = newRecurringCatName.trim();
-    if (!name) return;
-    const created: Category = await apiFetch("/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    setExpenseCategories((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setRecurringForm((f) => ({ ...f, category_id: String(created.id) }));
-    setNewRecurringCatName("");
-    setAddingRecurringCat(false);
-  }
-
-  function openAddRecurring() {
-    setEditRecurring(null);
-    setRecurringForm(EMPTY_RECURRING);
-    setRecurringSaveError(null);
-    setAddingRecurringCat(false);
-    setNewRecurringCatName("");
-    setRecurringCatDropOpen(false);
-    setRecurringCardDropOpen(false);
-    resetSplit();
-    setShowRecurringModal(true);
-  }
-
-  function openEditRecurring(rc: RecurringCharge) {
-    setEditRecurring(rc);
-    setRecurringForm({
-      name: rc.name,
-      amount: String(rc.amount),
-      charge_date: String(rc.charge_date),
-      category_id: rc.category_id != null ? String(rc.category_id) : "",
-      credit_card_id: rc.credit_card_id != null ? String(rc.credit_card_id) : "",
-      notes: rc.notes ?? "",
-    });
-    setSplitPeople(rc.split_with ? rc.split_with.split(",") : []);
-    setAddingPerson(false); setNewPersonName(""); setSplitDropOpen(false);
-    setRecurringSaveError(null);
-    setAddingRecurringCat(false);
-    setNewRecurringCatName("");
-    setRecurringCatDropOpen(false);
-    setRecurringCardDropOpen(false);
-    setShowRecurringModal(true);
-  }
-
-  async function saveRecurring(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setRecurringSaveError(null);
-    const amount = parseFloat(recurringForm.amount);
-    const charge_date = parseInt(recurringForm.charge_date);
-    if (isNaN(amount) || amount <= 0) {
-      setRecurringSaveError("Amount must be a positive number");
-      return;
-    }
-    if (isNaN(charge_date) || charge_date < 1 || charge_date > 31) {
-      setRecurringSaveError("Charge date must be between 1 and 31");
-      return;
-    }
-    const body = {
-      name: recurringForm.name,
-      amount,
-      charge_date,
-      category_id: recurringForm.category_id ? parseInt(recurringForm.category_id) : null,
-      credit_card_id: recurringForm.credit_card_id ? parseInt(recurringForm.credit_card_id) : null,
-      notes: recurringForm.notes || null,
-      split_with: splitPeople.length > 0 ? splitPeople.join(",") : null,
-    };
-    try {
-      if (editRecurring) {
-        const updated = await apiFetch(`/recurring-charges/${editRecurring.id}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-        });
-        setRecurringCharges((prev) => prev.map((rc) => rc.id === editRecurring.id ? updated : rc));
-      } else {
-        const created = await apiFetch("/recurring-charges", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-        });
-        setRecurringCharges((prev) => [...prev, created].sort((a, b) => a.charge_date - b.charge_date));
-      }
-      setShowRecurringModal(false);
-      setEditRecurring(null);
-      setRecurringForm(EMPTY_RECURRING);
-      resetSplit();
-    } catch (err) {
-      setRecurringSaveError(err instanceof Error ? err.message : "Failed to save recurring charge");
-    }
-  }
-
-  async function deleteRecurring(id: number) {
-    await apiFetch(`/recurring-charges/${id}`, { method: "DELETE" });
-    setRecurringCharges((prev) => prev.filter((rc) => rc.id !== id));
-  }
-
-  async function cancelRecurring(rc: RecurringCharge) {
-    const now = new Date();
-    const isCurrentMonth = selectedMonth === currentMonth();
-    const hasPosted = isCurrentMonth && now.getDate() >= rc.charge_date;
-    const canceledFromMonth = hasPosted ? shiftMonth(selectedMonth, 1) : selectedMonth;
-    await apiFetch(`/recurring-charges/${rc.id}/cancel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ canceled_from: `${canceledFromMonth}-01` }),
-    });
-    const updated: RecurringCharge[] = await apiFetch("/recurring-charges");
-    setRecurringCharges(updated);
-  }
-
-  async function reactivateRecurring(rc: RecurringCharge) {
-    await apiFetch(`/recurring-charges/${rc.id}/reactivate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reactivated_from: `${selectedMonth}-01` }),
-    });
-    const updated: RecurringCharge[] = await apiFetch("/recurring-charges");
-    setRecurringCharges(updated);
-  }
-
-  async function saveLogPrice(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!logPriceTarget) return;
-    setLogPriceSaveError(null);
-    const amount = parseFloat(logPriceForm.amount);
-    if (isNaN(amount) || amount <= 0) {
-      setLogPriceSaveError("Amount must be a positive number");
-      return;
-    }
-    if (!logPriceForm.effectiveMonth) {
-      setLogPriceSaveError("Effective month is required");
-      return;
-    }
-    try {
-      await apiFetch(`/recurring-charges/${logPriceTarget.id}/price-history`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, effective_from: `${logPriceForm.effectiveMonth}-01` }),
-      });
-      const updated: RecurringCharge[] = await apiFetch("/recurring-charges");
-      setRecurringCharges(updated);
-      setShowLogPriceModal(false);
-      setLogPriceTarget(null);
-      setLogPriceForm({ amount: "", effectiveMonth: "" });
-    } catch (err) {
-      setLogPriceSaveError(err instanceof Error ? err.message : "Failed to save price change");
-    }
   }
 
   // ---- Loans ----
@@ -1680,7 +1248,6 @@ export default function PaymentsAndExpensesPage() {
     if (!deleteTarget) return;
     if (deleteTarget.type === "credit_card") await deleteCreditCard(deleteTarget.id);
     else if (deleteTarget.type === "expense") await deleteExpense(deleteTarget.id);
-    else if (deleteTarget.type === "recurring") await deleteRecurring(deleteTarget.id);
     else if (deleteTarget.type === "loan") {
       await apiFetch(`/loans/${deleteTarget.id}`, { method: "DELETE" });
       const fresh: Loan[] = await apiFetch("/loans");
@@ -1718,113 +1285,12 @@ export default function PaymentsAndExpensesPage() {
     }
   }
 
-  // Recurring charge status for selected month
-  const todayForRecurring = new Date();
-  const todayMonthStr = `${todayForRecurring.getFullYear()}-${String(todayForRecurring.getMonth() + 1).padStart(2, "0")}`;
-  const todayDay = todayForRecurring.getDate();
-
-  function recurringApplied(charge: RecurringCharge): boolean {
-    if (selectedMonth < todayMonthStr) return true;
-    if (selectedMonth > todayMonthStr) return false;
-    return todayDay >= charge.charge_date;
-  }
-
   // All-time per-person split ledger
   const allCatsMap = new Map(expenseCategories.map((c) => [c.id, c.name]));
-  const ledgerToday = new Date();
-  const ledgerTodayMonth = `${ledgerToday.getFullYear()}-${String(ledgerToday.getMonth() + 1).padStart(2, "0")}`;
-  const ledgerTodayDay = ledgerToday.getDate();
 
-  function rcLedgerStartMonth(rc: RecurringCharge): string {
-    // "2000-01-01" is a placeholder meaning "active from the start of tracking"
-    if (rc.price_history.some((h) => h.effective_from.startsWith("2000-01"))) return "2026-01";
-    const sorted = rc.price_history.map((h) => h.effective_from.substring(0, 7)).sort();
-    return sorted[0] ?? "2026-01";
-  }
-
-  // Category-grouped ledger: group all split debts by category, then by person
-  type CatPersonData = {
-    categoryId: number | null;
-    categoryName: string;
-    person: Person;
-    splitExpenses: (Expense & { share: number })[];
-    recurringItems: { rc: RecurringCharge; total: number; months: { month: string; amount: number }[] }[];
-    splitTransfers: (MoneyTransfer & { share: number })[];
-  };
-
+  type CatPersonData = { categoryId: number | null; categoryName: string; person: Person };
   const catPersonMap = new Map<string, CatPersonData>();
   const catInsertOrder: (number | null)[] = [];
-
-  for (const e of allExpenses) {
-    if (!e.split_with) continue;
-    const names = e.split_with.split(",").map((n) => n.trim());
-    const share = Number(e.amount) / (names.length + 1);
-    for (const name of names) {
-      const person = knownPeople.find((p) => p.name === name);
-      if (!person) continue;
-      const catId = e.category_id;
-      const catKey = `${catId}:${person.id}`;
-      if (!catPersonMap.has(catKey)) {
-        if (!catInsertOrder.includes(catId)) catInsertOrder.push(catId);
-        const catName = catId != null ? (allCatsMap.get(catId) ?? "Unknown") : "Uncategorized";
-        catPersonMap.set(catKey, { categoryId: catId, categoryName: catName, person, splitExpenses: [], recurringItems: [], splitTransfers: [] });
-      }
-      catPersonMap.get(catKey)!.splitExpenses.push({ ...e, share });
-    }
-  }
-
-  for (const rc of recurringCharges) {
-    if (!rc.split_with) continue;
-    const names = rc.split_with.split(",").map((n) => n.trim());
-    const share = 1 / (names.length + 1);
-    const start = rcLedgerStartMonth(rc);
-    let [rcy, rcm] = start.split("-").map(Number);
-    const [endY, endM] = ledgerTodayMonth.split("-").map(Number);
-    const rcMonths: { month: string; amount: number }[] = [];
-    let rcTotal = 0;
-    while (rcy < endY || (rcy === endY && rcm <= endM)) {
-      const monthStr = `${rcy}-${String(rcm).padStart(2, "0")}`;
-      const isCurrentMonth = monthStr === ledgerTodayMonth;
-      const chargeOccurred = !isCurrentMonth || ledgerTodayDay >= rc.charge_date;
-      if (chargeOccurred && !isCanceledForMonth(rc, monthStr)) {
-        const amt = getPriceForMonth(rc, monthStr) * share;
-        rcTotal += amt;
-        rcMonths.push({ month: monthStr, amount: amt });
-      }
-      rcm++;
-      if (rcm > 12) { rcm = 1; rcy++; }
-    }
-    for (const name of names) {
-      const person = knownPeople.find((p) => p.name === name);
-      if (!person) continue;
-      const catId = rc.category_id;
-      const catKey = `${catId}:${person.id}`;
-      if (!catPersonMap.has(catKey)) {
-        if (!catInsertOrder.includes(catId)) catInsertOrder.push(catId);
-        const catName = catId != null ? (allCatsMap.get(catId) ?? "Unknown") : "Uncategorized";
-        catPersonMap.set(catKey, { categoryId: catId, categoryName: catName, person, splitExpenses: [], recurringItems: [], splitTransfers: [] });
-      }
-      catPersonMap.get(catKey)!.recurringItems.push({ rc, total: rcTotal, months: rcMonths });
-    }
-  }
-
-  for (const t of allTransfers) {
-    if (!t.split_with || t.direction !== "sent") continue;
-    const names = t.split_with.split(",").map((n) => n.trim());
-    const share = Number(t.amount) / (names.length + 1);
-    for (const name of names) {
-      const person = knownPeople.find((p) => p.name === name);
-      if (!person) continue;
-      const catId = t.category_id;
-      const catKey = `${catId}:${person.id}`;
-      if (!catPersonMap.has(catKey)) {
-        if (!catInsertOrder.includes(catId)) catInsertOrder.push(catId);
-        const catName = catId != null ? (allCatsMap.get(catId) ?? "Unknown") : "Uncategorized";
-        catPersonMap.set(catKey, { categoryId: catId, categoryName: catName, person, splitExpenses: [], recurringItems: [], splitTransfers: [] });
-      }
-      catPersonMap.get(catKey)!.splitTransfers.push({ ...t, share });
-    }
-  }
 
   const catGroupMap2 = new Map<number | null, CatPersonData[]>();
   for (const catId of catInsertOrder) {
@@ -1842,9 +1308,7 @@ export default function PaymentsAndExpensesPage() {
         categoryName: entries[0]?.categoryName ?? "Uncategorized",
         people: entries
           .map((entry) => {
-            const totalOwed = entry.splitExpenses.reduce((s, e) => s + e.share, 0)
-              + entry.recurringItems.reduce((s, r) => s + r.total, 0)
-              + entry.splitTransfers.reduce((s, t) => s + t.share, 0);
+            const totalOwed = 0;
             // Only deduct transfers tagged with the same category
             const payments = allTransfers.filter(
               (t) =>
@@ -1910,76 +1374,68 @@ export default function PaymentsAndExpensesPage() {
   const summaryNetSpend = summaryGrossSpend - summaryRefunds;
   const summaryPositiveCount = expenses.filter((e) => Number(e.amount) > 0).length;
   const summaryRefundCount = expenses.filter((e) => Number(e.amount) < 0).length;
-  const summaryApplicableRecurring = recurringCharges.filter((c) => {
-    if (isCanceledForMonth(c, selectedMonth)) return false;
-    if (selectedMonth < todayMonthStr) return true;
-    if (selectedMonth > todayMonthStr) return false;
-    return todayDay >= c.charge_date;
-  });
-  const summaryRecurringTotal = summaryApplicableRecurring.reduce((s, c) => s + getPriceForMonth(c, selectedMonth), 0);
-  const summarySent = moneyTransfers.filter((t) => t.direction === "sent").reduce((s, t) => s + Number(t.amount), 0);
-  const summaryReceived = moneyTransfers.filter((t) => t.direction === "received").reduce((s, t) => s + Number(t.amount), 0);
-  const summaryGrandTotal = summaryNetSpend + summaryRecurringTotal + (summarySent - summaryReceived);
+  const sentTransfers = moneyTransfers.filter((t) => t.direction === "sent");
+  const receivedTransfers = moneyTransfers.filter((t) => t.direction === "received");
+  const summarySent = sentTransfers.reduce((s, t) => s + Number(t.amount), 0);
+  const summaryReceived = receivedTransfers.reduce((s, t) => s + Number(t.amount), 0);
+  const summarySentCount = sentTransfers.length;
+  const summaryReceivedCount = receivedTransfers.length;
+  const summaryGrandTotal = summaryNetSpend + (summarySent - summaryReceived);
+  const transferNet = summaryReceived - summarySent;
 
   const TOP_N = 5;
   const overviewCatTotals = new Map<number | null, number>();
   for (const e of expenses) {
     const amt = Number(e.amount);
-    if (amt > 0) overviewCatTotals.set(e.category_id, (overviewCatTotals.get(e.category_id) ?? 0) + amt);
+    if (amt !== 0) overviewCatTotals.set(e.category_id, (overviewCatTotals.get(e.category_id) ?? 0) + amt);
   }
-  for (const rc of summaryApplicableRecurring) {
-    const amt = getPriceForMonth(rc, selectedMonth);
-    overviewCatTotals.set(rc.category_id, (overviewCatTotals.get(rc.category_id) ?? 0) + amt);
+  for (const t of moneyTransfers) {
+    if (t.category_id != null) {
+      const amt = t.direction === "sent" ? Number(t.amount) : -Number(t.amount);
+      overviewCatTotals.set(t.category_id, (overviewCatTotals.get(t.category_id) ?? 0) + amt);
+    }
   }
-  const overviewCatGross = Array.from(overviewCatTotals.values()).reduce((s, v) => s + v, 0);
-  const overviewCatBreakdown = Array.from(overviewCatTotals.entries())
-    .map(([id, total], i) => ({
-      name: id != null ? (expenseCategories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized",
+  const overviewCatGross = Array.from(overviewCatTotals.values()).filter((v) => v > 0).reduce((s, v) => s + v, 0);
+  const overviewCatNameTotals = new Map<string, number>();
+  for (const [id, total] of overviewCatTotals.entries()) {
+    const name = id != null ? (expenseCategories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized";
+    overviewCatNameTotals.set(name, (overviewCatNameTotals.get(name) ?? 0) + total);
+  }
+  const overviewCatBreakdown = Array.from(overviewCatNameTotals.entries())
+    .filter(([, total]) => total > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, total], i) => ({
+      name,
       total,
       pct: overviewCatGross > 0 ? (total / overviewCatGross) * 100 : 0,
       color: BAR_COLORS[i % BAR_COLORS.length],
-    }))
-    .sort((a, b) => b.total - a.total);
+    }));
   const overviewCardTotals = new Map<number | null, number>();
   for (const e of expenses) {
     const amt = Number(e.amount);
     if (amt > 0) overviewCardTotals.set(e.credit_card_id, (overviewCardTotals.get(e.credit_card_id) ?? 0) + amt);
   }
-  for (const rc of summaryApplicableRecurring) {
-    const amt = getPriceForMonth(rc, selectedMonth);
-    overviewCardTotals.set(rc.credit_card_id, (overviewCardTotals.get(rc.credit_card_id) ?? 0) + amt);
-  }
   const overviewCardGross = Array.from(overviewCardTotals.values()).reduce((s, v) => s + v, 0);
-  const overviewCardBreakdown = Array.from(overviewCardTotals.entries())
-    .map(([id, total], i) => {
-      const card = creditCards.find((c) => c.id === id);
-      return {
-        name: card ? `${card.name}${card.last_four ? ` ····${card.last_four}` : ""}` : "No card",
-        total,
-        pct: overviewCardGross > 0 ? (total / overviewCardGross) * 100 : 0,
-        color: resolveCardColor(card?.color ?? null, i),
-      };
-    })
-    .sort((a, b) => b.total - a.total);
-
-  const activeRecurring = recurringCharges.filter((c) => !isCanceledForMonth(c, selectedMonth));
-  const monthlyRecurringTotal = activeRecurring.reduce((s, c) => s + getPriceForMonth(c, selectedMonth), 0);
-
-  // Category pills and top-3 strip for Expenses tab
-  const monthCatTotals = new Map<number | null, number>();
-  for (const e of expenses) {
-    if (Number(e.amount) > 0) {
-      monthCatTotals.set(e.category_id, (monthCatTotals.get(e.category_id) ?? 0) + Number(e.amount));
+  const overviewCardNameData = new Map<string, { total: number; rawColor: string | null }>();
+  for (const [id, total] of overviewCardTotals.entries()) {
+    const card = creditCards.find((c) => c.id === id);
+    const name = card ? `${card.name}${card.last_four ? ` ····${card.last_four}` : ""}` : "No card";
+    const existing = overviewCardNameData.get(name);
+    if (existing) {
+      existing.total += total;
+    } else {
+      overviewCardNameData.set(name, { total, rawColor: card?.color ?? null });
     }
   }
-  const topCats = Array.from(monthCatTotals.entries())
-    .map(([id, total]) => ({
-      id,
-      name: id != null ? (expenseCategories.find((c) => c.id === id)?.name ?? "Unknown") : "Uncategorized",
+  const overviewCardBreakdown = Array.from(overviewCardNameData.entries())
+    .map(([name, { total, rawColor }], i) => ({
+      name,
       total,
+      pct: overviewCardGross > 0 ? (total / overviewCardGross) * 100 : 0,
+      color: resolveCardColor(rawColor, i),
     }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 3);
+    .sort((a, b) => b.total - a.total);
+
   const monthCatIds = new Set(expenses.map((e) => e.category_id));
   const pillCats = [
     ...(monthCatIds.has(null) ? [{ id: null as number | null, name: "Uncategorized" }] : []),
@@ -2024,7 +1480,7 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
-        {(["overview", "expenses", "recurring", "transfers", "loans"] as const).map((tab) => (
+        {(["overview", "expenses", "transfers", "loans"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -2048,7 +1504,12 @@ export default function PaymentsAndExpensesPage() {
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total</p>
             </div>
             <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryGrandTotal)}</p>
-            <p className="text-[11px] text-slate-400 mt-1.5">one-time + recurring + transfers</p>
+            <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
+              <span>transactions · {formatAmount(summaryNetSpend)}</span>
+              {moneyTransfers.length > 0 && (
+                <span>transfers · {summarySent >= summaryReceived ? "" : "−"}{formatAmount(Math.abs(summarySent - summaryReceived))}</span>
+              )}
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
@@ -2057,19 +1518,10 @@ export default function PaymentsAndExpensesPage() {
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transactions</p>
             </div>
             <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryNetSpend)}</p>
-            <p className="text-[11px] text-slate-400 mt-1.5">
-              {summaryPositiveCount} expense{summaryPositiveCount !== 1 ? "s" : ""}
-              {summaryRefundCount > 0 && ` · ${summaryRefundCount} refund${summaryRefundCount !== 1 ? "s" : ""}`}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <RefreshCw size={13} className="text-violet-400" />
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Recurring</p>
+            <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
+              <span>{summaryPositiveCount} expense{summaryPositiveCount !== 1 ? "s" : ""} · {formatAmount(summaryGrossSpend)}</span>
+              {summaryRefundCount > 0 && <span>{summaryRefundCount} refund{summaryRefundCount !== 1 ? "s" : ""} · −{formatAmount(summaryRefunds)}</span>}
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryRecurringTotal)}</p>
-            <p className="text-[11px] text-slate-400 mt-1.5">{summaryApplicableRecurring.length} charge{summaryApplicableRecurring.length !== 1 ? "s" : ""} applied</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
@@ -2077,11 +1529,26 @@ export default function PaymentsAndExpensesPage() {
               <Send size={13} className="text-violet-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transfers</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{moneyTransfers.length}</p>
-            <p className="text-[11px] text-slate-400 mt-1.5">
-              <span className="text-rose-500">{formatAmount(summarySent)} out</span>
-              {summaryReceived > 0 && <> · <span className="text-emerald-600">{formatAmount(summaryReceived)} in</span></>}
+            <p className={`text-2xl font-bold leading-none ${transferNet > 0 ? "text-emerald-600" : transferNet < 0 ? "text-rose-600" : "text-slate-900"}`}>
+              {transferNet > 0 ? "+" : transferNet < 0 ? "−" : ""}{formatAmount(Math.abs(transferNet))}
             </p>
+            <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
+              {summarySentCount > 0 && <span><span className="text-rose-500">{summarySentCount} out</span> · −{formatAmount(summarySent)}</span>}
+              {summaryReceivedCount > 0 && <span><span className="text-emerald-600">{summaryReceivedCount} in</span> · +{formatAmount(summaryReceived)}</span>}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <GraduationCap size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Loans</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">
+              {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
+            </p>
+            <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
+              <span className="text-amber-500">{formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))} interest</span>
+            </div>
           </div>
         </div>
       )}
@@ -2129,59 +1596,9 @@ export default function PaymentsAndExpensesPage() {
         </div>
       )}
 
-      {/* Top 3 Categories Strip */}
-      {activeTab === "expenses" && topCats.length > 0 && (
-        <div className="flex gap-3 mb-5">
-          {topCats.map(({ id, name, total }) => (
-            <button
-              key={id ?? "uncat"}
-              onClick={() => setCatFilterId((prev) => (prev === id ? "all" : id))}
-              className={`flex-1 text-left bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 transition-all border-2 ${
-                catFilterId === id ? "border-indigo-400" : "border-transparent"
-              }`}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 truncate">{name}</p>
-              <p className="text-xl font-bold text-slate-900 mt-0.5">{formatAmount(total)}</p>
-            </button>
-          ))}
-        </div>
-      )}
 
 
       {activeTab === "overview" && <>
-
-      {/* Loan Summary */}
-      {loans.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl px-6 py-5 shadow-sm mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <GraduationCap size={16} className="text-indigo-500" />
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Loans</h3>
-          </div>
-          <div className="flex flex-wrap justify-center items-center gap-x-10 gap-y-5">
-            <div className="text-center">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Loan Balance</p>
-              <p className="text-2xl font-bold text-slate-900">
-                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
-              </p>
-            </div>
-            <div className="w-px h-14 bg-slate-200 hidden sm:block" />
-            <div className="text-center">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Principal</p>
-              <p className="text-2xl font-bold text-slate-900">
-                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
-                <span className="text-sm font-normal text-slate-400 ml-2">{loans.length} loan{loans.length !== 1 ? "s" : ""}</span>
-              </p>
-            </div>
-            <div className="w-px h-14 bg-slate-200 hidden sm:block" />
-            <div className="text-center">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Accrued Interest</p>
-              <p className="text-2xl font-bold text-amber-600">
-                {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Spend by Category + Credit Card */}
       {(overviewCatBreakdown.length > 0 || overviewCardBreakdown.length > 0) && (
@@ -2192,19 +1609,95 @@ export default function PaymentsAndExpensesPage() {
                 <Tag size={14} className="text-slate-400" />
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Category</h3>
               </div>
-              <div className="flex flex-col gap-3">
-                {(showAllCats ? overviewCatBreakdown : overviewCatBreakdown.slice(0, TOP_N)).map((cat) => (
-                  <div key={cat.name} className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{cat.name}</span>
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
+              <div className="flex flex-col gap-2">
+                {(showAllCats ? overviewCatBreakdown : overviewCatBreakdown.slice(0, TOP_N)).map((cat) => {
+                  const catItems = [
+                    ...expenses
+                      .filter((e) => {
+                        if (Number(e.amount) === 0) return false;
+                        const name = e.category_id != null
+                          ? (expenseCategories.find((c) => c.id === e.category_id)?.name ?? "Unknown")
+                          : "Uncategorized";
+                        return name === cat.name;
+                      })
+                      .map((e) => ({ id: e.id, name: e.name, date: e.date, amount: Number(e.amount) })),
+                    ...moneyTransfers
+                      .filter((t) => t.category_id != null && (expenseCategories.find((c) => c.id === t.category_id)?.name ?? "Unknown") === cat.name)
+                      .map((t) => ({ id: -t.id, name: t.name || (t.person ? `Transfer · ${t.person}` : "Transfer"), date: t.date, amount: t.direction === "sent" ? Number(t.amount) : -Number(t.amount) })),
+                  ];
+                  const isExpanded = expandedOverviewCats.has(cat.name);
+                  const merchantMap = new Map<string, { displayName: string; items: typeof catItems; total: number }>();
+                  for (const e of catItems) {
+                    const key = e.name.toLowerCase().trim();
+                    if (!merchantMap.has(key)) merchantMap.set(key, { displayName: e.name, items: [], total: 0 });
+                    const g = merchantMap.get(key)!;
+                    g.items.push(e);
+                    g.total += e.amount;
+                  }
+                  const merchantGroups = [...merchantMap.values()].sort((a, b) => b.total - a.total);
+                  return (
+                    <div key={cat.name}>
+                      <div
+                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-slate-50 transition-colors"
+                        onClick={() => setExpandedOverviewCats((prev) => { const n = new Set(prev); n.has(cat.name) ? n.delete(cat.name) : n.add(cat.name); return n; })}
+                      >
+                        <span className="text-sm font-medium text-slate-700 w-32 shrink-0 truncate">{cat.name}</span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                          <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
+                          <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
+                        </div>
+                        <ChevronDown size={12} className={`shrink-0 text-slate-300 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+                      </div>
+                      {isExpanded && merchantGroups.length > 0 && (
+                        <div className="mt-1.5 mb-1 flex flex-col gap-0.5">
+                          {merchantGroups.map((group) => {
+                            const mKey = `${cat.name}:${group.displayName.toLowerCase()}`;
+                            const isGroupExpanded = expandedOverviewCatMerchants.has(mKey);
+                            if (group.items.length === 1) {
+                              const e = group.items[0];
+                              return (
+                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 rounded-lg px-3 py-2">
+                                  <span className="text-slate-700 font-medium truncate pr-2">{e.name}</span>
+                                  <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
+                                  <span className={`font-semibold text-right ${e.amount < 0 ? "text-emerald-600" : "text-rose-500"}`}>{e.amount < 0 ? "+" : "−"}{formatAmount(Math.abs(e.amount))}</span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={mKey}>
+                                <button
+                                  onClick={() => setExpandedOverviewCatMerchants((prev) => { const n = new Set(prev); n.has(mKey) ? n.delete(mKey) : n.add(mKey); return n; })}
+                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-2 transition-colors"
+                                >
+                                  <span className="font-medium text-slate-700 text-left truncate pr-2">
+                                    {group.displayName}
+                                    <span className="text-slate-400 ml-1.5">×{group.items.length}</span>
+                                  </span>
+                                  <span />
+                                  <span className={`font-semibold text-right ${group.total < 0 ? "text-emerald-600" : "text-rose-500"}`}>{group.total < 0 ? "+" : "−"}{formatAmount(Math.abs(group.total))}</span>
+                                </button>
+                                {isGroupExpanded && (
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    {group.items.map((e) => (
+                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-white border border-slate-100 rounded-md px-3 py-1.5">
+                                        <span />
+                                        <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
+                                        <span className={`font-medium text-right ${e.amount < 0 ? "text-emerald-600" : "text-rose-500"}`}>{e.amount < 0 ? "+" : "−"}{formatAmount(Math.abs(e.amount))}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
-                      <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
-                      <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {overviewCatBreakdown.length > TOP_N && (
                 <button
@@ -2281,7 +1774,7 @@ export default function PaymentsAndExpensesPage() {
                   </div>
 
                   <div className="divide-y divide-slate-100">
-                    {people.map(({ person, totalOwed, totalPaid, outstanding, splitExpenses, recurringItems, splitTransfers, payments }) => {
+                    {people.map(({ person, totalOwed, totalPaid, outstanding, payments }) => {
                       const personKey = `${categoryId}:${person.id}`;
                       const isExpanded = expandedOwedIds.has(personKey);
                       const isRecording = recordPaymentId === personKey;
@@ -2380,104 +1873,10 @@ export default function PaymentsAndExpensesPage() {
 
                           {/* Expanded transaction list */}
                           {isExpanded && (() => {
-                            const expGroups = splitExpenses.reduce((acc, e) => {
-                              const g = acc.find((x) => x.name === e.name);
-                              if (g) { g.items.push(e); g.totalShare += e.share; }
-                              else acc.push({ name: e.name, items: [e], totalShare: e.share });
-                              return acc;
-                            }, [] as { name: string; items: typeof splitExpenses; totalShare: number }[]);
-                            const txGroups = splitTransfers.reduce((acc, t) => {
-                              const label = t.name || `Sent to ${t.person}`;
-                              const g = acc.find((x) => x.label === label);
-                              if (g) { g.items.push(t); g.totalShare += t.share; }
-                              else acc.push({ label, items: [t], totalShare: t.share });
-                              return acc;
-                            }, [] as { label: string; items: typeof splitTransfers; totalShare: number }[]);
                             const paymentsKey = `${personKey}:payments`;
                             const paymentsExpanded = expandedLedgerGroups.has(paymentsKey);
                             return (
                               <div className="bg-slate-50/60 border-t border-slate-100 divide-y divide-slate-100">
-                                {/* Grouped one-off expenses */}
-                                {expGroups.map((group) => {
-                                  const gKey = `${personKey}:exp:${group.name}`;
-                                  const gExpanded = expandedLedgerGroups.has(gKey);
-                                  return (
-                                    <div key={gKey}>
-                                      <button
-                                        onClick={() => setExpandedLedgerGroups((prev) => { const n = new Set(prev); n.has(gKey) ? n.delete(gKey) : n.add(gKey); return n; })}
-                                        className="w-full flex items-center justify-between px-5 py-2.5 hover:bg-slate-100/60 text-left"
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <Receipt size={13} className="text-slate-400 shrink-0" />
-                                          <span className="text-xs text-slate-700 truncate">{group.name}</span>
-                                          {group.items.length > 1 && <span className="text-xs text-slate-400 shrink-0">{group.items.length}×</span>}
-                                          <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${gExpanded ? "" : "-rotate-90"}`} />
-                                        </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(group.totalShare)}</span>
-                                      </button>
-                                      {gExpanded && group.items.map((e) => (
-                                        <div key={e.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                          <span className="text-xs text-slate-400">{formatDate(e.date)} · total {formatAmount(Number(e.amount))}</span>
-                                          <span className="text-xs text-slate-400">+{formatAmount(e.share)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                                {/* Recurring charges with expand/collapse per charge */}
-                                {recurringItems.map(({ rc, total, months }) => {
-                                  const rcKey = `${personKey}:rc:${rc.id}`;
-                                  const rcExpanded = expandedLedgerGroups.has(rcKey);
-                                  return (
-                                    <div key={rcKey}>
-                                      <button
-                                        onClick={() => setExpandedLedgerGroups((prev) => { const n = new Set(prev); n.has(rcKey) ? n.delete(rcKey) : n.add(rcKey); return n; })}
-                                        className="w-full flex items-center justify-between px-5 py-2.5 hover:bg-slate-100/60 text-left"
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <RefreshCw size={13} className="text-violet-400 shrink-0" />
-                                          <span className="text-xs text-slate-700 truncate">{rc.name}</span>
-                                          {months.length > 1 && <span className="text-xs text-slate-400 shrink-0">{months.length}×</span>}
-                                          <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${rcExpanded ? "" : "-rotate-90"}`} />
-                                        </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(total)}</span>
-                                      </button>
-                                      {rcExpanded && months.map(({ month, amount }) => (
-                                        <div key={month} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                          <span className="text-xs text-slate-400">{formatMonthLabel(month)}</span>
-                                          <span className="text-xs text-slate-400">+{formatAmount(amount)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                                {/* Split transfers */}
-                                {txGroups.map((group) => {
-                                  const gKey = `${personKey}:tx:${group.label}`;
-                                  const gExpanded = expandedLedgerGroups.has(gKey);
-                                  return (
-                                    <div key={gKey}>
-                                      <button
-                                        onClick={() => setExpandedLedgerGroups((prev) => { const n = new Set(prev); n.has(gKey) ? n.delete(gKey) : n.add(gKey); return n; })}
-                                        className="w-full flex items-center justify-between px-5 py-2.5 hover:bg-slate-100/60 text-left"
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <ArrowUpRight size={13} className="text-violet-400 shrink-0" />
-                                          <span className="text-xs text-slate-700 truncate">{group.label}</span>
-                                          {group.items.length > 1 && <span className="text-xs text-slate-400 shrink-0">{group.items.length}×</span>}
-                                          <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${gExpanded ? "" : "-rotate-90"}`} />
-                                        </div>
-                                        <span className="text-xs font-medium text-rose-500 shrink-0 ml-3">+{formatAmount(group.totalShare)}</span>
-                                      </button>
-                                      {gExpanded && group.items.map((t) => (
-                                        <div key={t.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
-                                          <span className="text-xs text-slate-400">{formatDate(t.date)} · total {formatAmount(Number(t.amount))}</span>
-                                          <span className="text-xs text-slate-400">+{formatAmount(t.share)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
                                 {/* Category-matched payments received */}
                                 {payments.length > 0 && (
                                   <div>
@@ -2516,15 +1915,6 @@ export default function PaymentsAndExpensesPage() {
       )}
 
       </>}
-
-      {/* Recurring Tab */}
-      {activeTab === "recurring" && <>
-      {/* Monthly Recurring KPI */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 mb-6">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Monthly Recurring</p>
-        <p className="text-2xl font-bold text-slate-900 mt-1">{formatAmount(monthlyRecurringTotal)}</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">{activeRecurring.length} active subscription{activeRecurring.length !== 1 ? "s" : ""}</p>
-      </div>
 
       {/* Utilities Section - hidden until placement is decided */}
       {false && <section className="mb-8">
@@ -2681,131 +2071,6 @@ export default function PaymentsAndExpensesPage() {
         )}
       </section>}
 
-      {/* Recurring Charges Section */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
-            <RefreshCw size={16} className="text-violet-500" />
-            Recurring Charges
-          </div>
-          <button
-            onClick={openAddRecurring}
-            className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
-            aria-label="Add recurring charge"
-          >
-            <Plus size={20} />
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {recurringCharges.length === 0 ? (
-            <div className="p-10 text-center flex flex-col items-center">
-              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                <RefreshCw size={24} className="text-slate-300" />
-              </div>
-              <p className="text-slate-500 text-sm font-medium">No recurring charges set up yet.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {recurringCharges.map((rc) => {
-                const applied = recurringApplied(rc);
-                const catName = getCatName(rc.category_id, expenseCategories);
-                const canceledThisMonth = isCanceledForMonth(rc, selectedMonth);
-                const sortedHistory = [...rc.price_history].sort((a, b) => a.effective_from.localeCompare(b.effective_from));
-                const hasHistory = sortedHistory.some((h) => h.effective_from !== "2000-01-01");
-                const isExpanded = expandedRecurringIds.has(rc.id);
-                return (
-                  <li key={rc.id} className={`divide-y divide-slate-50 ${canceledThisMonth ? "opacity-60" : ""}`}>
-                    {/* Main row */}
-                    <div
-                      className={`group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors ${hasHistory ? "cursor-pointer" : ""}`}
-                      onClick={hasHistory ? () => toggleRecurring(rc.id) : undefined}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm font-medium truncate ${canceledThisMonth ? "text-slate-400 line-through" : "text-slate-800"}`}>{rc.name}</p>
-                          {catName && !canceledThisMonth && (
-                            <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {catName}
-                            </span>
-                          )}
-                          {rc.credit_card_id && !canceledThisMonth && (() => { const cc = creditCards.find((c) => c.id === rc.credit_card_id); return cc ? (
-                            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {cc.name}{cc.last_four ? ` ····${cc.last_four}` : ""}
-                            </span>
-                          ) : null; })()}
-                          {canceledThisMonth && (
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500 bg-rose-50 px-2 py-0.5 rounded-sm shrink-0">
-                              Canceled
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            {ordinal(rc.charge_date)} of each month
-                          </span>
-                          {!canceledThisMonth && (applied ? (
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-sm flex items-center gap-1">
-                              <CheckCircle2 size={10} /> Charged
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-sm">
-                              Upcoming
-                            </span>
-                          ))}
-                          {rc.notes && (
-                            <span className="text-xs text-slate-400 truncate">{rc.notes}</span>
-                          )}
-                          {rc.split_with && !canceledThisMonth && (() => {
-                            const names = rc.split_with.split(",");
-                            const perPerson = getPriceForMonth(rc, selectedMonth) / (names.length + 1);
-                            return (
-                              <span className="text-xs text-indigo-400 flex items-center gap-1 shrink-0">
-                                <Users size={10} />
-                                Split with {names.join(", ")} · {formatAmount(perPerson)} each
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0 ml-4">
-                        <span className={`font-bold ${canceledThisMonth ? "text-slate-300" : "text-slate-600"}`}>
-                          {formatAmount(getPriceForMonth(rc, selectedMonth))}
-                        </span>
-                        <RowMenu
-                          onEdit={() => openEditRecurring(rc)}
-                          onDelete={() => setDeleteTarget({ type: "recurring", id: rc.id })}
-                          onLogPrice={!canceledThisMonth ? () => {
-                            setLogPriceTarget(rc);
-                            setLogPriceForm({ amount: String(rc.amount), effectiveMonth: currentMonth() });
-                            setLogPriceSaveError(null);
-                            setShowLogPriceModal(true);
-                          } : undefined}
-                          onToggleCancel={() => canceledThisMonth ? reactivateRecurring(rc) : cancelRecurring(rc)}
-                          isCanceled={canceledThisMonth}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Price history rows */}
-                    {hasHistory && isExpanded && sortedHistory.map((entry, i) => {
-                      const nextEntry = sortedHistory[i + 1] ?? null;
-                      const label = formatPriceRange(entry, nextEntry);
-                      return (
-                        <div key={entry.id} className="flex items-center justify-between pl-6 pr-4 py-2.5 bg-slate-50/70">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
-                          <span className="text-sm font-semibold text-slate-500">{formatAmount(Number(entry.amount))}</span>
-                        </div>
-                      );
-                    })}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </section>
-      </>}
 
       {/* Transfers Tab */}
       {activeTab === "transfers" && <>
@@ -2814,58 +2079,142 @@ export default function PaymentsAndExpensesPage() {
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
             <Send size={16} className="text-violet-500" />
             Money Transfers
+            <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
+              {filteredTransfers.length} transfer{filteredTransfers.length !== 1 ? "s" : ""}
+            </span>
           </div>
-          <button
-            onClick={openAddTransfer}
-            className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
-            aria-label="Add transfer"
-          >
-            <Plus size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={transferSort}
+              onChange={(e) => setTransferSort(e.target.value as typeof transferSort)}
+              className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 cursor-pointer"
+            >
+              <option value="date-desc">Newest</option>
+              <option value="date-asc">Oldest</option>
+              <option value="amount-desc">Highest</option>
+              <option value="amount-asc">Lowest</option>
+            </select>
+            <button
+              onClick={openAddTransfer}
+              className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
+              aria-label="Add transfer"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
         </div>
-        {moneyTransfers.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center flex flex-col items-center">
-            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-              <Send size={24} className="text-slate-300" />
-            </div>
-            <p className="text-slate-500 text-sm font-medium">No transfers for this month.</p>
+
+        {/* Category filter pills */}
+        {transferPillCats.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <button
+              onClick={() => setTransferCatFilterId("all")}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === "all" ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              All
+            </button>
+            {transferPillCats.map((cat) => (
+              <button
+                key={cat.id ?? "uncat"}
+                onClick={() => setTransferCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === cat.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
-        ) : (
-          <ul className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
-            {moneyTransfers.map((t) => {
-              const isSent = t.direction === "sent";
-              return (
-                <li key={t.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+        )}
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          {moneyTransfers.length === 0 ? (
+            <div className="p-10 text-center flex flex-col items-center">
+              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                <Send size={24} className="text-slate-300" />
+              </div>
+              <p className="text-slate-500 text-sm font-medium">No transfers for this month.</p>
+            </div>
+          ) : sortedTransfers.length === 0 ? (
+            <div className="p-10 text-center flex flex-col items-center">
+              <p className="text-slate-500 text-sm font-medium">No transfers match the selected filter.</p>
+              <button onClick={() => setTransferCatFilterId("all")} className="mt-2 text-xs text-violet-500 hover:underline">
+                Clear filter
+              </button>
+            </div>
+          ) : isTransferDateSort ? (
+            <div>
+              {transferDateGroups.map((group) => (
+                <div key={group.date}>
+                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
+                    <span className={`text-xs font-semibold ${group.dayNet > 0 ? "text-emerald-600" : group.dayNet < 0 ? "text-rose-500" : "text-slate-500"}`}>
+                      {group.dayNet > 0 ? "+" : group.dayNet < 0 ? "−" : ""}{formatAmount(Math.abs(group.dayNet))}
+                    </span>
+                  </div>
+                  {group.items.map((t) => {
+                    const isSent = t.direction === "sent";
+                    const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
+                    return (
+                      <div key={t.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                          {isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-slate-800">
+                            {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
+                            {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                            {t.person && t.name && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
+                            {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-sm font-bold tabular-nums ${isSent ? "text-rose-600" : "text-emerald-600"}`}>
+                            {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
+                          </span>
+                          <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              {sortedTransfers.map((t) => {
+                const isSent = t.direction === "sent";
+                const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
+                return (
+                  <div key={t.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
-                      {isSent ? <ArrowUpRight size={16} className="text-red-500" /> : <ArrowDownLeft size={16} className="text-emerald-500" />}
+                      {isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-slate-800 truncate">
-                          {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
-                        </p>
-                        {t.category_id && (() => { const cat = expenseCategories.find((c) => c.id === t.category_id); return cat ? <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{cat.name}</span> : null; })()}
-                        {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{t.platform}</span>}
-                        {t.bank_id && (() => { const b = banks.find((b) => b.id === t.bank_id); return b ? <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">{b.name}</span> : null; })()}
-                      </div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                        {isSent ? "Sent to" : "Received from"} {t.person} · {formatDate(t.date)}
+                      <span className="text-sm font-medium text-slate-800">
+                        {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
                       </span>
-                      {t.notes && <p className="text-xs text-slate-400 mt-0.5 truncate">{t.notes}</p>}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(t.date)}</span>
+                        {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
+                        {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                        {t.person && t.name && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
+                        {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-sm font-bold tabular-nums ${isSent ? "text-rose-600" : "text-emerald-600"}`}>
+                        {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
+                      </span>
+                      <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className={`font-bold ${isSent ? "text-red-500" : "text-emerald-600"}`}>
-                      {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
-                    </span>
-                    <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
       </>}
 
@@ -2999,10 +2348,52 @@ export default function PaymentsAndExpensesPage() {
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
             <Receipt size={16} className="text-indigo-500" />
-            Recent Expenses
+            Expenses
+            <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
+              {filteredExpenses.length} transaction{filteredExpenses.length !== 1 ? "s" : ""}
+            </span>
+            {filteredExpenses.length > 0 && (
+              <div className="relative" ref={merchantBreakdownRef}>
+                <button
+                  onClick={() => setMerchantBreakdownOpen((o) => !o)}
+                  title="Merchant breakdown"
+                  className={`p-1 rounded-md transition-colors normal-case tracking-normal ${merchantBreakdownOpen ? "bg-indigo-50 text-indigo-600" : "text-slate-300 hover:text-slate-500 hover:bg-slate-100"}`}
+                >
+                  <BarChart2 size={14} />
+                </button>
+                {merchantBreakdownOpen && (
+                  <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-30 w-56 py-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 pb-1.5">Merchant breakdown</p>
+                    <div className="border-t border-slate-100 mb-1" />
+                    {repeatMerchants.map((m) => {
+                      const Icon = getMerchantIcon(m.displayName);
+                      return (
+                        <div key={m.displayName} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50">
+                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                            <Icon size={12} className="text-slate-400" />
+                          </div>
+                          <span className="text-xs text-slate-700 flex-1 truncate font-medium">{m.displayName}</span>
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5 leading-none shrink-0">{m.count}</span>
+                        </div>
+                      );
+                    })}
+                    {oneOffCount > 0 && (
+                      <>
+                        {repeatMerchants.length > 0 && <div className="border-t border-slate-100 my-1" />}
+                        <div className="flex items-center gap-2.5 px-3 py-1.5 text-slate-400">
+                          <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center shrink-0">
+                            <Receipt size={12} />
+                          </div>
+                          <span className="text-xs flex-1">{oneOffCount} one-off{oneOffCount !== 1 ? "s" : ""}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Sort selector */}
             <select
               value={expenseSort}
               onChange={(e) => setExpenseSort(e.target.value as typeof expenseSort)}
@@ -3014,7 +2405,6 @@ export default function PaymentsAndExpensesPage() {
               <option value="amount-asc">Lowest</option>
             </select>
 
-            {/* CC filter dropdown */}
             {creditCards.length > 0 && (
               <div className="relative" ref={ccFilterDropRef}>
                 <button
@@ -3043,13 +2433,11 @@ export default function PaymentsAndExpensesPage() {
                       return (
                         <button
                           key={card.id ?? "none"}
-                          onClick={() => {
-                            setCardFilterIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
-                              return next;
-                            });
-                          }}
+                          onClick={() => setCardFilterIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
+                            return next;
+                          })}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                         >
                           <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-slate-300"}`}>
@@ -3104,7 +2492,7 @@ export default function PaymentsAndExpensesPage() {
         )}
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {expenseGroups.length === 0 ? (
+          {sortedExpenses.length === 0 ? (
             <div className="p-10 text-center flex flex-col items-center">
               <p className="text-slate-500 text-sm font-medium">
                 {cardFilterIds.size > 0 || catFilterId !== "all" ? "No expenses match the selected filters." : "No expenses logged for this month."}
@@ -3115,150 +2503,118 @@ export default function PaymentsAndExpensesPage() {
                 </button>
               )}
             </div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {expenseGroups.map((group) => {
-                const isGroup = group.items.length > 1;
-                const isExpanded = expandedGroups.has(group.key);
-                const solo = group.items[0];
-                const catName = getCatName(solo.category_id, expenseCategories);
-                const cardName = getCardDisplayName(solo.credit_card_id);
-                const splitNames = solo.split_with ? solo.split_with.split(",") : [];
-                const perPerson = splitNames.length > 0 ? Number(solo.amount) / (splitNames.length + 1) : null;
-
-                return (
-                  <li key={group.key} className="divide-y divide-slate-50">
-                    {/* Parent / solo row */}
-                    <div
-                      className={`group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors ${isGroup ? "cursor-pointer" : ""}`}
-                      onClick={isGroup ? () => toggleGroup(group.key) : undefined}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-slate-800 truncate">{group.name}</p>
-                          {isGroup && (
-                            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold shrink-0">
-                              {group.items.length}×
-                            </span>
-                          )}
-                          {!isGroup && catName && (
-                            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                              {catName}
-                            </span>
-                          )}
-                          {!isGroup && cardName && (
-                            <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0 flex items-center gap-1">
-                              <CreditCardIcon size={10} />
-                              {cardName}
-                            </span>
-                          )}
+          ) : isDateSort ? (
+            <div>
+              {expenseDateGroups.map((group) => (
+                <div key={group.date}>
+                  {/* Day header */}
+                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
+                    <span className={`text-xs font-semibold ${group.dayTotal < 0 ? "text-emerald-600" : "text-slate-500"}`}>
+                      {group.dayTotal < 0 ? "+" : ""}{formatAmount(Math.abs(group.dayTotal))}
+                    </span>
+                  </div>
+                  {/* Expense rows */}
+                  {group.items.map((expense) => {
+                    const isReturn = Number(expense.amount) < 0;
+                    const catName = getCatName(expense.category_id, expenseCategories);
+                    const cardName = getCardDisplayName(expense.credit_card_id);
+                    const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
+                    return (
+                      <div key={expense.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
+                          <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
                         </div>
-                        {isGroup ? (
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                            {group.items.length} transactions · latest {formatDate(group.items[0].date)}
-                          </span>
-                        ) : (
-                          <>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                              {formatDate(solo.date)}
-                            </span>
-                            {solo.service_period_start && solo.service_period_end && (
-                              <p className="text-xs text-amber-600 font-medium mt-0.5">
-                                Service: {formatDate(solo.service_period_start)} – {formatDate(solo.service_period_end)}
-                              </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-slate-800">{expense.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {catName && (
+                              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
                             )}
-                            {solo.notes && (
-                              <p className="text-xs text-slate-400 mt-0.5 truncate">{solo.notes}</p>
-                            )}
-                            {splitNames.length > 0 && (
-                              <p className="text-xs text-indigo-400 mt-0.5 flex items-center gap-1">
-                                <Users size={10} />
-                                Split with {splitNames.join(", ")}
-                                {perPerson != null && <span className="text-slate-300 mx-0.5">·</span>}
-                                {perPerson != null && <span>{formatAmount(perPerson)} each</span>}
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0 ml-4">
-                        <span className={`font-bold ${group.total < 0 ? "text-emerald-600" : "text-slate-600"}`}>
-                          {formatAmount(group.total)}
-                        </span>
-                        {!isGroup ? (
-                          <RowMenu
-                            onEdit={() => openEditExpense(solo)}
-                            onDelete={() => setDeleteTarget({ type: "expense", id: solo.id })}
-                            onReturn={Number(solo.amount) > 0 ? () => returnExpense(solo) : undefined}
-                          />
-                        ) : (
-                          <div className="w-[30px]" />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Children rows */}
-                    {isGroup && isExpanded && group.items.map((expense) => {
-                      const expCatName = getCatName(expense.category_id, expenseCategories);
-                      const expCardName = getCardDisplayName(expense.credit_card_id);
-                      const expSplitNames = expense.split_with ? expense.split_with.split(",") : [];
-                      const expPerPerson = expSplitNames.length > 0 ? Number(expense.amount) / (expSplitNames.length + 1) : null;
-                      return (
-                        <div
-                          key={expense.id}
-                          className="group flex items-center justify-between pl-9 pr-4 py-3 bg-slate-50/70 hover:bg-slate-100/60 transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              {expCatName && (
-                                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0">
-                                  {expCatName}
-                                </span>
-                              )}
-                              {expCardName && (
-                                <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0 flex items-center gap-1">
-                                  <CreditCardIcon size={10} />
-                                  {expCardName}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                              {formatDate(expense.date)}
-                            </span>
-                            {expense.service_period_start && expense.service_period_end && (
-                              <p className="text-xs text-amber-600 font-medium mt-0.5">
-                                Service: {formatDate(expense.service_period_start)} – {formatDate(expense.service_period_end)}
-                              </p>
+                            {cardName && (
+                              <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium shrink-0 flex items-center gap-1">
+                                <CreditCardIcon size={10} />{cardName}
+                              </span>
                             )}
                             {expense.notes && (
-                              <p className="text-xs text-slate-400 mt-0.5 truncate">{expense.notes}</p>
-                            )}
-                            {expSplitNames.length > 0 && (
-                              <p className="text-xs text-indigo-400 mt-0.5 flex items-center gap-1">
-                                <Users size={10} />
-                                Split with {expSplitNames.join(", ")}
-                                {expPerPerson != null && <span className="text-slate-300 mx-0.5">·</span>}
-                                {expPerPerson != null && <span>{formatAmount(expPerPerson)} each</span>}
-                              </p>
+                              <span className="text-xs text-slate-400 truncate max-w-[200px]">{expense.notes}</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 shrink-0 ml-4">
-                            <span className={`font-bold text-sm ${Number(expense.amount) < 0 ? "text-emerald-600" : "text-slate-600"}`}>
-                              {formatAmount(Number(expense.amount))}
-                            </span>
-                            <RowMenu
-                              onEdit={() => openEditExpense(expense)}
-                              onDelete={() => setDeleteTarget({ type: "expense", id: expense.id })}
-                              onReturn={Number(expense.amount) > 0 ? () => returnExpense(expense) : undefined}
-                            />
-                          </div>
+                          {expense.service_period_start && expense.service_period_end && (
+                            <p className="text-xs text-amber-600 font-medium mt-0.5">
+                              Service: {formatDate(expense.service_period_start)} – {formatDate(expense.service_period_end)}
+                            </p>
+                          )}
                         </div>
-                      );
-                    })}
-                  </li>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-sm font-bold tabular-nums ${isReturn ? "text-emerald-600" : "text-rose-600"}`}>
+                            {isReturn ? "+" : "−"}{formatAmount(Math.abs(Number(expense.amount)))}
+                          </span>
+                          <RowMenu
+                            onEdit={() => openEditExpense(expense)}
+                            onDelete={() => setDeleteTarget({ type: "expense", id: expense.id })}
+                            onReturn={!isReturn ? () => returnExpense(expense) : undefined}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Amount-sorted flat list */
+            <div>
+              {sortedExpenses.map((expense) => {
+                const isReturn = Number(expense.amount) < 0;
+                const catName = getCatName(expense.category_id, expenseCategories);
+                const cardName = getCardDisplayName(expense.credit_card_id);
+                const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
+                return (
+                  <div key={expense.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
+                      <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-slate-800">{expense.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(expense.date)}</span>
+                        {catName && (
+                          <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
+                        )}
+                        {cardName && (
+                          <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium shrink-0 flex items-center gap-1">
+                            <CreditCardIcon size={10} />{cardName}
+                          </span>
+                        )}
+                        {expense.notes && (
+                          <span className="text-xs text-slate-400 truncate max-w-[200px]">{expense.notes}</span>
+                        )}
+                      </div>
+                      {expense.service_period_start && expense.service_period_end && (
+                        <p className="text-xs text-amber-600 font-medium mt-0.5">
+                          Service: {formatDate(expense.service_period_start)} – {formatDate(expense.service_period_end)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-sm font-bold tabular-nums ${isReturn ? "text-emerald-600" : "text-rose-600"}`}>
+                        {isReturn ? "+" : "−"}{formatAmount(Math.abs(Number(expense.amount)))}
+                      </span>
+                      <RowMenu
+                        onEdit={() => openEditExpense(expense)}
+                        onDelete={() => setDeleteTarget({ type: "expense", id: expense.id })}
+                        onReturn={!isReturn ? () => returnExpense(expense) : undefined}
+                      />
+                    </div>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
       </section>
@@ -3319,15 +2675,11 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Expense Modal */}
       {showExpenseModal && (() => {
-        const total = parseFloat(expenseForm.amount) || 0;
-        const splitCount = splitPeople.length + 1;
-        const perPerson = total > 0 && splitCount > 1 ? total / splitCount : 0;
         const closeModal = () => {
           setShowExpenseModal(false);
           setEditExpense(null);
           setExpenseForm(EMPTY_EXPENSE);
           setExpenseSaveError(null);
-          resetSplit();
           setAddingCat(false); setNewCatName(""); setCatDropOpen(false);
           setCardDropOpen(false);
           resetInlineCard();
@@ -3371,6 +2723,28 @@ export default function PaymentsAndExpensesPage() {
                     <input type="date" required value={expenseForm.date}
                       onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                </div>
+
+                {/* Service period */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Service period
+                    <span className="text-slate-400 font-normal ml-1 text-xs">(optional)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">From</label>
+                      <input type="date" value={expenseForm.service_period_start}
+                        onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_start: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">To</label>
+                      <input type="date" value={expenseForm.service_period_end}
+                        onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_end: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
                   </div>
                 </div>
 
@@ -3441,7 +2815,7 @@ export default function PaymentsAndExpensesPage() {
                       <button type="button"
                         onClick={() => { setCardDropOpen(false); setAddingCard(true); setNewCardName(""); setNewCardColor("blue"); }}
                         className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 transition-colors">
-                        <Plus size={12} /> New card
+                        <Plus size={12} /> New
                       </button>
                     )}
                   </div>
@@ -3453,7 +2827,7 @@ export default function PaymentsAndExpensesPage() {
                         value={newCardName}
                         onChange={(e) => setNewCardName(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); addCardInline("expense"); }
+                          if (e.key === "Enter") { e.preventDefault(); addCardInline(); }
                           if (e.key === "Escape") resetInlineCard();
                         }}
                         placeholder="e.g. Chase Sapphire"
@@ -3468,7 +2842,7 @@ export default function PaymentsAndExpensesPage() {
                           ))}
                         </div>
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => addCardInline("expense")}
+                          <button type="button" onClick={() => addCardInline()}
                             className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                             Add
                           </button>
@@ -3518,103 +2892,12 @@ export default function PaymentsAndExpensesPage() {
                   )}
                 </div>
 
-                {/* Split section */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
-                    <Users size={14} className="text-slate-400" />
-                    Split this expense
-                  </label>
-                  <div className="relative" ref={splitDropRef}>
-                    <button type="button"
-                      onClick={() => { setSplitDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                      <span className={splitPeople.length ? "text-slate-800" : "text-slate-400"}>
-                        {splitPeople.length ? splitPeople.join(", ") : "Select people…"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${splitDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {splitDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        {knownPeople.length === 0 && !addingPerson && (
-                          <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
-                        )}
-                        {knownPeople.map((p) => {
-                          const selected = splitPeople.includes(p.name);
-                          return (
-                            <div key={p.id} className="flex items-center group/opt">
-                              <button type="button"
-                                onClick={() => toggleSplitPerson(p.name)}
-                                className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${selected ? "bg-indigo-50/60 text-indigo-600 font-medium hover:bg-indigo-50" : "text-slate-700 hover:bg-slate-50"}`}>
-                                <span className="w-3.5 shrink-0 flex items-center">
-                                  {selected && <CheckCircle2 size={13} className="text-indigo-500" />}
-                                </span>
-                                {p.name}
-                              </button>
-                              <button type="button"
-                                onClick={() => removePerson(p.name)}
-                                className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                                <X size={13} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                        <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
-                          {addingPerson ? (
-                            <div className="flex gap-1.5 px-2 py-1.5">
-                              <input type="text" autoFocus value={newPersonName}
-                                onChange={(e) => setNewPersonName(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewPerson(); } if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); } }}
-                                placeholder="Person name"
-                                className="flex-1 border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                              <button type="button" onClick={addNewPerson} className="px-2.5 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Add</button>
-                              <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
-                            </div>
-                          ) : (
-                            <button type="button"
-                              onClick={() => setAddingPerson(true)}
-                              className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors">
-                              <Plus size={13} /> New person
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {splitPeople.length > 0 && perPerson > 0 && (
-                    <p className="text-xs text-indigo-600 font-medium bg-indigo-50 rounded-md px-3 py-2 mt-2">
-                      Split with {splitPeople.join(", ")} · {formatAmount(perPerson)} each
-                    </p>
-                  )}
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
                   <textarea value={expenseForm.notes}
                     onChange={(e) => setExpenseForm((f) => ({ ...f, notes: e.target.value }))}
                     rows={2} placeholder="Optional notes"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-                </div>
-
-                {/* Service period */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Service period
-                    <span className="text-slate-400 font-normal ml-1 text-xs">— for bills charged after the service period (e.g. water)</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">From</label>
-                      <input type="date" value={expenseForm.service_period_start}
-                        onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_start: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">To</label>
-                      <input type="date" value={expenseForm.service_period_end}
-                        onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_end: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="flex gap-2 justify-end pt-1">
@@ -3639,382 +2922,6 @@ export default function PaymentsAndExpensesPage() {
           </div>
         );
       })()}
-
-      {/* Recurring Charge Modal */}
-      {showRecurringModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editRecurring ? "Edit Recurring Charge" : "New Recurring Charge"}
-              </h2>
-              <button
-                onClick={() => { setShowRecurringModal(false); setEditRecurring(null); setRecurringForm(EMPTY_RECURRING); setRecurringSaveError(null); }}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={saveRecurring} className="flex flex-col gap-4 p-6">
-              {recurringSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {recurringSaveError}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  required
-                  value={recurringForm.name}
-                  onChange={(e) => setRecurringForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Netflix, Electric Bill"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    value={recurringForm.amount}
-                    onChange={(e) => setRecurringForm((f) => ({ ...f, amount: e.target.value }))}
-                    placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Charge Date
-                    <span className="text-slate-400 font-normal ml-1 text-xs">(day of month)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    required
-                    value={recurringForm.charge_date}
-                    onChange={(e) => setRecurringForm((f) => ({ ...f, charge_date: e.target.value }))}
-                    placeholder="1–31"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              {/* Recurring category */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Category</label>
-                  {!addingRecurringCat && (
-                    <button type="button" onClick={() => { setAddingRecurringCat(true); setNewRecurringCatName(""); setRecurringCatDropOpen(false); }}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New
-                    </button>
-                  )}
-                </div>
-                {addingRecurringCat ? (
-                  <div className="flex gap-2">
-                    <input type="text" autoFocus value={newRecurringCatName} onChange={(e) => setNewRecurringCatName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRecurringCategory(); } if (e.key === "Escape") { setAddingRecurringCat(false); setNewRecurringCatName(""); } }}
-                      placeholder="Category name"
-                      className="flex-1 border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <button type="button" onClick={addRecurringCategory} className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Add</button>
-                    <button type="button" onClick={() => { setAddingRecurringCat(false); setNewRecurringCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="relative" ref={recurringCatDropRef}>
-                    <button type="button"
-                      onClick={() => setRecurringCatDropOpen((o) => !o)}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                      <span className={recurringForm.category_id ? "text-slate-800" : "text-slate-400"}>
-                        {recurringForm.category_id
-                          ? (expenseCategories.find((c) => c.id === parseInt(recurringForm.category_id))?.name ?? "None")
-                          : "None"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${recurringCatDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {recurringCatDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        <button type="button"
-                          onClick={() => { setRecurringForm((f) => ({ ...f, category_id: "" })); setRecurringCatDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
-                          None
-                        </button>
-                        {expenseCategories.map((c) => (
-                          <div key={c.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => { setRecurringForm((f) => ({ ...f, category_id: String(c.id) })); setRecurringCatDropOpen(false); }}
-                              className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              {c.name}
-                            </button>
-                            <button type="button"
-                              onClick={() => deleteCategory(c.id, "recurring")}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Credit card */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Credit Card</label>
-                  {!addingCard && (
-                    <button type="button"
-                      onClick={() => { setRecurringCardDropOpen(false); setAddingCard(true); setNewCardName(""); setNewCardColor("blue"); }}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New card
-                    </button>
-                  )}
-                </div>
-                {addingCard ? (
-                  <div className="flex flex-col gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={newCardName}
-                      onChange={(e) => setNewCardName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); addCardInline("recurring"); }
-                        if (e.key === "Escape") resetInlineCard();
-                      }}
-                      placeholder="e.g. Chase Sapphire"
-                      className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {Object.entries(CARD_COLOR_MAP).map(([key, hex]) => (
-                          <button key={key} type="button" onClick={() => setNewCardColor(key)}
-                            className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-slate-700 scale-110" : "border-transparent"}`}
-                            style={{ backgroundColor: hex }} />
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => addCardInline("recurring")}
-                          className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                          Add
-                        </button>
-                        <button type="button" onClick={resetInlineCard}
-                          className="px-2 py-1.5 text-slate-400 hover:text-slate-600 transition-colors">
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative" ref={recurringCardDropRef}>
-                    <button type="button"
-                      onClick={() => setRecurringCardDropOpen((o) => !o)}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                      <span className={recurringForm.credit_card_id ? "text-slate-800" : "text-slate-400"}>
-                        {recurringForm.credit_card_id
-                          ? (() => { const c = creditCards.find((c) => c.id === parseInt(recurringForm.credit_card_id)); return c ? `${c.name}${c.last_four ? ` ····${c.last_four}` : ""}` : "None"; })()
-                          : "None"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${recurringCardDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {recurringCardDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        <button type="button"
-                          onClick={() => { setRecurringForm((f) => ({ ...f, credit_card_id: "" })); setRecurringCardDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
-                          None
-                        </button>
-                        {creditCards.map((c) => (
-                          <div key={c.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => { setRecurringForm((f) => ({ ...f, credit_card_id: String(c.id) })); setRecurringCardDropOpen(false); }}
-                              className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              {c.name}{c.last_four ? ` ····${c.last_four}` : ""}
-                            </button>
-                            <button type="button"
-                              onClick={() => deleteCreditCard(c.id)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Split section */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Users size={14} className="text-slate-400" />
-                  Split this charge
-                </label>
-                <div className="relative" ref={splitDropRef}>
-                  <button type="button"
-                    onClick={() => { setSplitDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <span className={splitPeople.length ? "text-slate-800" : "text-slate-400"}>
-                      {splitPeople.length ? splitPeople.join(", ") : "Select people…"}
-                    </span>
-                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${splitDropOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {splitDropOpen && (
-                    <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                      {knownPeople.length === 0 && !addingPerson && (
-                        <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
-                      )}
-                      {knownPeople.map((p) => {
-                        const selected = splitPeople.includes(p.name);
-                        return (
-                          <div key={p.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => toggleSplitPerson(p.name)}
-                              className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${selected ? "bg-indigo-50/60 text-indigo-600 font-medium hover:bg-indigo-50" : "text-slate-700 hover:bg-slate-50"}`}>
-                              <span className="w-3.5 shrink-0 flex items-center">
-                                {selected && <CheckCircle2 size={13} className="text-indigo-500" />}
-                              </span>
-                              {p.name}
-                            </button>
-                            <button type="button" onClick={() => removePerson(p.name)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
-                        {addingPerson ? (
-                          <div className="flex gap-1.5 px-2 py-1.5">
-                            <input type="text" autoFocus value={newPersonName}
-                              onChange={(e) => setNewPersonName(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewPerson(); } if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); } }}
-                              placeholder="Person name"
-                              className="flex-1 border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                            <button type="button" onClick={addNewPerson} className="px-2.5 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Add</button>
-                            <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
-                          </div>
-                        ) : (
-                          <button type="button"
-                            onClick={() => setAddingPerson(true)}
-                            className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors">
-                            <Plus size={13} /> New person
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {splitPeople.length > 0 && (() => {
-                  const rcTotal = parseFloat(recurringForm.amount) || 0;
-                  const rcCount = splitPeople.length + 1;
-                  const rcPer = rcTotal > 0 ? rcTotal / rcCount : 0;
-                  return rcPer > 0 ? (
-                    <p className="text-xs text-indigo-600 font-medium bg-indigo-50 rounded-md px-3 py-2 mt-2">
-                      Split with {splitPeople.join(", ")} · {formatAmount(rcPer)} each
-                    </p>
-                  ) : null;
-                })()}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                <textarea
-                  value={recurringForm.notes}
-                  onChange={(e) => setRecurringForm((f) => ({ ...f, notes: e.target.value }))}
-                  rows={2}
-                  placeholder="Optional notes"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                />
-              </div>
-
-              <div className="flex gap-3 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setShowRecurringModal(false); setEditRecurring(null); setRecurringForm(EMPTY_RECURRING); setRecurringSaveError(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                  {editRecurring ? "Save changes" : "Save"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Log price change modal */}
-      {showLogPriceModal && logPriceTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                <DollarSign size={18} className="text-violet-500" />
-                Log price change
-              </h2>
-              <button
-                onClick={() => { setShowLogPriceModal(false); setLogPriceTarget(null); }}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-slate-500 mb-4">
-              Recording a price change for <span className="font-medium text-slate-700">{logPriceTarget.name}</span>.
-            </p>
-            <form onSubmit={saveLogPrice} className="flex flex-col gap-4">
-              {logPriceSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {logPriceSaveError}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">New price</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  autoFocus
-                  value={logPriceForm.amount}
-                  onChange={(e) => setLogPriceForm((f) => ({ ...f, amount: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Effective from</label>
-                <input
-                  type="month"
-                  required
-                  value={logPriceForm.effectiveMonth}
-                  onChange={(e) => setLogPriceForm((f) => ({ ...f, effectiveMonth: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <p className="text-xs text-slate-400 mt-1">The month from which this new price takes effect.</p>
-              </div>
-              <div className="flex gap-3 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setShowLogPriceModal(false); setLogPriceTarget(null); setLogPriceSaveError(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Utility log price modal */}
       {showUtilLogPriceModal && utilLogPriceTarget && (
@@ -4101,7 +3008,7 @@ export default function PaymentsAndExpensesPage() {
               <h2 className="text-lg font-semibold text-slate-900">
                 {editTransfer ? "Edit Transfer" : "New Transfer"}
               </h2>
-              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferSplitPeople([]); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -4249,47 +3156,71 @@ export default function PaymentsAndExpensesPage() {
 
               {/* Category */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                <select
-                  value={transferForm.category_id}
-                  onChange={(e) => setTransferForm((f) => ({ ...f, category_id: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option value="">None</option>
-                  {expenseCategories.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-slate-700">Category</label>
+                  {!addingCat && (
+                    <button type="button" onClick={() => { setAddingCat(true); setNewCatName(""); setCatDropOpen(false); }}
+                      className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
+                      <Plus size={12} /> New
+                    </button>
+                  )}
+                </div>
+                {addingCat ? (
+                  <div className="flex gap-2">
+                    <input type="text" autoFocus value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTransferCategory(); } if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
+                      placeholder="Category name"
+                      className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                    <button type="button" onClick={addTransferCategory} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                    <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="relative" ref={catDropRef}>
+                    <button type="button"
+                      onClick={() => setCatDropOpen((o) => !o)}
+                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                      <span className={transferForm.category_id ? "text-slate-800" : "text-slate-400"}>
+                        {transferForm.category_id
+                          ? (expenseCategories.find((c) => c.id === parseInt(transferForm.category_id))?.name ?? "None")
+                          : "None"}
+                      </span>
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${catDropOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {catDropOpen && (
+                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                        <button type="button"
+                          onClick={() => { setTransferForm((f) => ({ ...f, category_id: "" })); setCatDropOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
+                          None
+                        </button>
+                        {expenseCategories.map((c) => (
+                          <div key={c.id} className="flex items-center group/opt">
+                            <button type="button"
+                              onClick={() => { setTransferForm((f) => ({ ...f, category_id: String(c.id) })); setCatDropOpen(false); }}
+                              className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                              {c.name}
+                            </button>
+                            <button type="button"
+                              onClick={() => deleteCategory(c.id)}
+                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Platform */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Platform</label>
-                <div className="flex gap-2">
-                  <select
-                    value={TRANSFER_PLATFORMS.includes(transferForm.platform) ? transferForm.platform : (transferForm.platform ? "custom" : "")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "custom") setTransferForm((f) => ({ ...f, platform: "" }));
-                      else setTransferForm((f) => ({ ...f, platform: v }));
-                    }}
-                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  >
-                    <option value="">None</option>
-                    {TRANSFER_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    {transferForm.platform && !TRANSFER_PLATFORMS.includes(transferForm.platform) && (
-                      <option value="custom">Custom: {transferForm.platform}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {/* Bank */}
-              <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Bank</label>
+                  <label className="block text-sm font-medium text-slate-700">Platform</label>
                   {!addingBank && (
                     <button type="button" onClick={() => { setBankDropOpen(false); setAddingBank(true); setNewBankName(""); }}
                       className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New bank
+                      <Plus size={12} /> New
                     </button>
                   )}
                 </div>
@@ -4297,7 +3228,7 @@ export default function PaymentsAndExpensesPage() {
                   <div className="flex gap-2">
                     <input type="text" autoFocus value={newBankName} onChange={(e) => setNewBankName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInline(); } if (e.key === "Escape") { setAddingBank(false); setNewBankName(""); } }}
-                      placeholder="e.g. Chase, Bank of America"
+                      placeholder="e.g. Zelle, Venmo, Cash App"
                       className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                     <button type="button" onClick={addBankInline} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
                     <button type="button" onClick={() => { setAddingBank(false); setNewBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
@@ -4317,14 +3248,14 @@ export default function PaymentsAndExpensesPage() {
                     {bankDropOpen && (
                       <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                         <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, bank_id: "" })); setBankDropOpen(false); }}
+                          onClick={() => { setTransferForm((f) => ({ ...f, bank_id: "", platform: "" })); setBankDropOpen(false); }}
                           className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
                           None
                         </button>
                         {banks.map((b) => (
                           <div key={b.id} className="flex items-center group/opt">
                             <button type="button"
-                              onClick={() => { setTransferForm((f) => ({ ...f, bank_id: String(b.id) })); setBankDropOpen(false); }}
+                              onClick={() => { setTransferForm((f) => ({ ...f, bank_id: String(b.id), platform: b.name })); setBankDropOpen(false); }}
                               className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
                               {b.name}
                             </button>
@@ -4356,80 +3287,6 @@ export default function PaymentsAndExpensesPage() {
                 />
               </div>
 
-              {/* Split section */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Users size={14} className="text-slate-400" />
-                  Split this transfer
-                </label>
-                <div className="relative" ref={transferSplitDropRef}>
-                  <button type="button"
-                    onClick={() => { setTransferSplitDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                    <span className={transferSplitPeople.length ? "text-slate-800" : "text-slate-400"}>
-                      {transferSplitPeople.length ? transferSplitPeople.join(", ") : "Select people…"}
-                    </span>
-                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${transferSplitDropOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {transferSplitDropOpen && (
-                    <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                      {knownPeople.length === 0 && !addingPerson && (
-                        <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
-                      )}
-                      {knownPeople.map((p) => {
-                        const selected = transferSplitPeople.includes(p.name);
-                        return (
-                          <div key={p.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => setTransferSplitPeople((prev) => selected ? prev.filter((n) => n !== p.name) : [...prev, p.name])}
-                              className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${selected ? "bg-violet-50/60 text-violet-600 font-medium hover:bg-violet-50" : "text-slate-700 hover:bg-slate-50"}`}>
-                              <span className="w-3.5 shrink-0 flex items-center">
-                                {selected && <CheckCircle2 size={13} className="text-violet-500" />}
-                              </span>
-                              {p.name}
-                            </button>
-                            <button type="button"
-                              onClick={() => { removePerson(p.name); setTransferSplitPeople((prev) => prev.filter((n) => n !== p.name)); }}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
-                        {addingPerson ? (
-                          <div className="flex gap-1.5 px-2 py-1.5">
-                            <input type="text" autoFocus value={newPersonName}
-                              onChange={(e) => setNewPersonName(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewPerson(); } if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); } }}
-                              placeholder="Person name"
-                              className="flex-1 border border-violet-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                            <button type="button" onClick={addNewPerson} className="px-2.5 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                            <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
-                          </div>
-                        ) : (
-                          <button type="button"
-                            onClick={() => setAddingPerson(true)}
-                            className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors">
-                            <Plus size={13} /> New person
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {transferSplitPeople.length > 0 && (() => {
-                  const total = parseFloat(transferForm.amount) || 0;
-                  const count = transferSplitPeople.length + 1;
-                  const perPerson = total > 0 ? total / count : 0;
-                  return perPerson > 0 ? (
-                    <p className="text-xs text-violet-600 font-medium bg-violet-50 rounded-md px-3 py-2 mt-2">
-                      Split with {transferSplitPeople.join(", ")} · {formatAmount(perPerson)} each
-                    </p>
-                  ) : null;
-                })()}
-              </div>
-
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
@@ -4443,7 +3300,7 @@ export default function PaymentsAndExpensesPage() {
               </div>
 
               <div className="flex gap-2 justify-end pt-1">
-                <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferSplitPeople([]); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
+                <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
                   className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
                 {!editTransfer && (
                   <button type="button" onClick={saveTransferAndAddAnother}
