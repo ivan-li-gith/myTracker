@@ -7,6 +7,7 @@ class CreditCardReminderCreate(BaseModel):
     card_name: str
     owner: Optional[str] = None
     due_day: int
+    days_before: Optional[int] = None
 
     @field_validator("due_day")
     @classmethod
@@ -20,6 +21,7 @@ class CreditCardReminderUpdate(BaseModel):
     card_name: Optional[str] = None
     owner: Optional[str] = None
     due_day: Optional[int] = None
+    days_before: Optional[int] = None
 
     @field_validator("due_day")
     @classmethod

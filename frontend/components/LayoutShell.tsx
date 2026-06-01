@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
-import QuickAddFAB from "@/components/QuickAddFAB";
 import NotificationScheduler from "@/components/NotificationScheduler";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
@@ -30,7 +29,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
 
   return (
     <>
-      <Sidebar collapsed={collapsed} onToggle={toggle} onSearchOpen={() => setSearchOpen(true)} />
+      <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main
         className={`flex-1 transition-[margin] duration-200 ${
           collapsed ? "md:ml-16" : "md:ml-64"
@@ -39,7 +38,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         {children}
       </main>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <QuickAddFAB />
       <NotificationScheduler />
     </>
   );

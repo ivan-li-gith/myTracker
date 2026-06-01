@@ -41,15 +41,6 @@ const STATUS_ORDER: Record<string, number> = {
   applied: 0, phone_screen: 1, interview: 2, offer: 3, rejected: 4,
 };
 
-const COLUMNS: { label: string; align: string; width: string; sortKey: SortCol | null }[] = [
-  { label: "",             align: "",           width: "w-[40px]",  sortKey: null },
-  { label: "Company",      align: "text-left",  width: "w-[200px]", sortKey: "company" },
-  { label: "Role",         align: "text-left",  width: "w-[260px]", sortKey: "role" },
-  { label: "Status",       align: "text-left",  width: "w-[150px]", sortKey: "status" },
-  { label: "Date Applied", align: "text-left",  width: "w-[140px]", sortKey: "date_applied" },
-  { label: "Type",         align: "text-left",  width: "w-[100px]", sortKey: "job_type" },
-  { label: "",             align: "",           width: "w-[80px]",  sortKey: null },
-];
 
 const EMPTY_FORM = {
   company: "", role: "", url: "", status: "applied",
@@ -130,7 +121,7 @@ function formatSalaryDisplay(range: string | null, type: string | null): string 
   const typeLabel = salaryTypeLabel(type);
   const useK = type === "monthly" || type === "yearly";
   const parts = range.split("-");
-  const fmt = (v: string) => (useK ? `$${v}K` : `$${v}`);
+  const fmt = (v: string) => { const c = v.replace(/^\$/, ""); return useK ? `$${c}K` : `$${c}`; };
   const display = parts.length > 1 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : fmt(parts[0]);
   return typeLabel ? `${display} ${typeLabel}` : display;
 }
@@ -532,6 +523,29 @@ export default function JobsPage() {
     sortCol, sortDir, resumes,
   );
 
+  type JobDateGroup = { date: string; label: string; items: JobApplication[] };
+  const jobDateGroups: JobDateGroup[] = [];
+  for (const job of filtered) {
+    const date = job.date_applied ?? "no-date";
+    let group = jobDateGroups.find((g) => g.date === date);
+    if (!group) {
+      let label: string;
+      if (date === "no-date") {
+        label = "No Date";
+      } else {
+        const [y, m, d] = date.split("-").map(Number);
+        label = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+          weekday: "short", month: "short", day: "numeric", year: "numeric",
+        });
+      }
+      group = { date, label, items: [] };
+      jobDateGroups.push(group);
+    }
+    group.items.push(job);
+  }
+
+  const STATUS_SUMMARY_ORDER = ["applied", "phone_screen", "interview", "offer", "rejected"] as const;
+
   const statusCounts = jobs.reduce<Record<string, number>>((acc, j) => {
     const s = j.status ?? "applied";
     acc[s] = (acc[s] ?? 0) + 1;
@@ -801,188 +815,162 @@ export default function JobsPage() {
             </button>
           );
         })}
-        {activeCount > 0 && (
-          <span className="ml-auto text-xs text-slate-500">
-            {activeCount} active application{activeCount > 1 ? "s" : ""}
-          </span>
-        )}
+        <button
+          onClick={() => setSortDir((d) => d === "desc" ? "asc" : "desc")}
+          className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+        >
+          {sortDir === "desc" ? <><ArrowDown size={12} /> Newest first</> : <><ArrowUp size={12} /> Oldest first</>}
+        </button>
       </div>
 
-      {/* Table */}
+      {/* Applications table */}
       {jobs.length === 0 ? (
         <div className="text-center py-20">
           <p className="text-slate-400 text-sm mb-3">No applications yet.</p>
-          <button
-            onClick={openNewJob}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-          >
+          <button onClick={openNewJob} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
             Add your first application →
           </button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-10 text-center">
+          <p className="text-slate-400 text-sm">No applications match the selected filter.</p>
+          <button onClick={() => setStatusFilter("all")} className="mt-2 text-xs text-indigo-500 hover:underline">Clear filter</button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                {COLUMNS.map(({ label, align, width, sortKey }, i) => (
-                  <th
-                    key={i}
-                    onClick={() => sortKey && handleSort(sortKey)}
-                    className={`${align} ${width} text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap ${sortKey ? "cursor-pointer hover:text-slate-800 select-none" : ""}`}
-                  >
-                    {sortKey ? (
+                <th className="w-10" />
+                {(["company", "role", "status", "location", "salary_range"] as const).map((col) => {
+                  const labels: Record<string, string> = { company: "Company", role: "Role", status: "Status", location: "Location", salary_range: "Salary" };
+                  return (
+                    <th
+                      key={col}
+                      onClick={() => handleSort(col)}
+                      className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-3 whitespace-nowrap cursor-pointer hover:text-slate-800 select-none"
+                    >
                       <span className="inline-flex items-center gap-1">
-                        {label}
-                        {sortCol === sortKey
-                          ? sortDir === "asc"
-                            ? <ArrowUp size={11} className="text-indigo-500" />
-                            : <ArrowDown size={11} className="text-indigo-500" />
-                          : <ArrowUpDown size={11} className="opacity-25" />
-                        }
+                        {labels[col]}
+                        {sortCol === col
+                          ? sortDir === "asc" ? <ArrowUp size={11} className="text-indigo-500" /> : <ArrowDown size={11} className="text-indigo-500" />
+                          : <ArrowUpDown size={11} className="opacity-25" />}
                       </span>
-                    ) : label}
-                  </th>
-                ))}
+                    </th>
+                  );
+                })}
+                <th className="w-20" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((job) => {
-                const expanded = expandedRows.has(job.id);
+              {jobDateGroups.map((group) => {
+                const groupStatuses = new Map<string, number>();
+                for (const job of group.items) groupStatuses.set(job.status ?? "applied", (groupStatuses.get(job.status ?? "applied") ?? 0) + 1);
+                const statusSummary = STATUS_SUMMARY_ORDER
+                  .filter((s) => groupStatuses.has(s))
+                  .map((s) => `${groupStatuses.get(s)} ${STATUS_CONFIG[s].label}`)
+                  .join(" · ");
+
                 return (
-                  <React.Fragment key={job.id}>
-                    <tr
-                      onClick={() => toggleRow(job.id)}
-                      className={`cursor-pointer group transition-colors border-b border-slate-50 ${expanded ? "bg-slate-50" : "hover:bg-slate-50/60"}`}
-                    >
-                      <td className="px-4 py-4 w-[40px]">
-                        <ChevronRight
-                          size={15}
-                          className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90 text-indigo-500" : ""}`}
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        {job.url ? (
-                          <a
-                            href={job.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="group/link inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
-                            title={job.url}
-                          >
-                            {job.company}
-                            <ExternalLink size={11} className="flex-shrink-0 opacity-0 group-hover/link:opacity-60 transition-opacity" />
-                          </a>
-                        ) : (
-                          <span className="text-sm font-semibold text-slate-900">{job.company}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-sm text-slate-700">{job.role}</span>
-                      </td>
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        <StatusDropup value={job.status} onChange={(s) => updateField(job.id, { status: s })} />
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="text-sm text-slate-500">{formatDate(job.date_applied)}</span>
-                      </td>
-                      <td className="px-4 py-4">
-                        {job.job_type ? (
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${JOB_TYPE_STYLE[job.job_type] ?? "bg-slate-100 text-slate-500"}`}>
-                            {job.job_type}
-                          </span>
-                        ) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openEdit(job)}
-                            className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(job.id)}
-                            className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                  <React.Fragment key={group.date}>
+                    {/* Date separator row */}
+                    <tr className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                      <td colSpan={7} className="px-4 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <span>{group.items.length} applied</span>
+                            {statusSummary && <><span>·</span><span>{statusSummary}</span></>}
+                          </div>
                         </div>
                       </td>
                     </tr>
 
-                    {expanded && (
-                      <tr key={`${job.id}-expanded`} className="border-b border-slate-100">
-                        <td colSpan={7} className="px-8 py-6 bg-[#f5f5f7]">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                            {[
-                              {
-                                label: "Location",
-                                content: (
-                                  <LocationCell
-                                    value={job.location}
-                                    onSave={(v) => updateField(job.id, { location: v } as Partial<JobApplication>)}
-                                  />
-                                ),
-                              },
-                              {
-                                label: "Salary",
-                                content: (
-                                  <SalaryCell
-                                    range={job.salary_range}
-                                    type={job.salary_type}
-                                    onSave={(range, type) => updateField(job.id, { salary_range: range, salary_type: type } as Partial<JobApplication>)}
-                                  />
-                                ),
-                              },
-                              {
-                                label: "Resume",
-                                content: (
-                                  <FileDropup
-                                    value={job.resume_id}
-                                    options={resumeOptions}
-                                    placeholder="None"
-                                    nullable={false}
-                                    onChange={(id) => updateField(job.id, { resume_id: id } as Partial<JobApplication>)}
-                                    onOpenResumes={() => setShowResumesPanel(true)}
-                                  />
-                                ),
-                              },
-                              {
-                                label: "Cover Letter",
-                                content: (
-                                  <FileDropup
-                                    value={job.cover_letter_id}
-                                    options={coverLetterOptions}
-                                    placeholder="Not required"
-                                    nullable={true}
-                                    onChange={(id) => updateField(job.id, { cover_letter_id: id } as Partial<JobApplication>)}
-                                    onOpenResumes={() => setShowResumesPanel(true)}
-                                  />
-                                ),
-                              },
-                            ].map(({ label, content }) => (
-                              <div key={label} className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
-                                <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">{label}</p>
-                                {content}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
-                            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">Notes</p>
-                            <button onClick={() => openComment(job)} className="text-left w-full group/notes">
-                              {job.notes ? (
-                                <p className="text-[15px] text-slate-700 leading-relaxed group-hover/notes:text-slate-900 transition-colors whitespace-pre-wrap">{job.notes}</p>
+                    {group.items.map((job) => {
+                      const expanded = expandedRows.has(job.id);
+                      return (
+                        <React.Fragment key={job.id}>
+                          <tr
+                            onClick={() => toggleRow(job.id)}
+                            className={`cursor-pointer group transition-colors border-b border-slate-50 ${expanded ? "bg-slate-50" : "hover:bg-slate-50/60"}`}
+                          >
+                            <td className="px-4 py-4 w-10">
+                              <ChevronRight size={15} className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90 text-indigo-500" : ""}`} />
+                            </td>
+                            <td className="px-4 py-4">
+                              {job.url ? (
+                                <a
+                                  href={job.url} target="_blank" rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="group/link inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+                                >
+                                  {job.company}
+                                  <ExternalLink size={11} className="opacity-0 group-hover/link:opacity-60 transition-opacity" />
+                                </a>
                               ) : (
-                                <p className="text-[15px] text-slate-400 group-hover/notes:text-slate-500 transition-colors flex items-center gap-2">
-                                  <MessageSquare size={15} /> Add a note...
-                                </p>
+                                <span className="text-sm font-semibold text-slate-900">{job.company}</span>
                               )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-700">{job.role}</span>
+                            </td>
+                            <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                              <StatusDropup value={job.status} onChange={(s) => updateField(job.id, { status: s })} />
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-500">{job.location ?? <span className="text-slate-300">—</span>}</span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="text-sm text-slate-500">
+                                {formatSalaryDisplay(job.salary_range, job.salary_type) ?? <span className="text-slate-300">—</span>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button onClick={() => openEdit(job)} className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                                  <Pencil size={14} />
+                                </button>
+                                <button onClick={() => setDeleteId(job.id)} className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {expanded && (
+                            <tr className="border-b border-slate-100">
+                              <td colSpan={7} className="px-8 py-6 bg-[#f5f5f7]">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                  {[
+                                    { label: "Location", content: <LocationCell value={job.location} onSave={(v) => updateField(job.id, { location: v } as Partial<JobApplication>)} /> },
+                                    { label: "Salary", content: <SalaryCell range={job.salary_range} type={job.salary_type} onSave={(range, type) => updateField(job.id, { salary_range: range, salary_type: type } as Partial<JobApplication>)} /> },
+                                    { label: "Resume", content: <FileDropup value={job.resume_id} options={resumeOptions} placeholder="None" nullable={false} onChange={(id) => updateField(job.id, { resume_id: id } as Partial<JobApplication>)} onOpenResumes={() => setShowResumesPanel(true)} /> },
+                                    { label: "Cover Letter", content: <FileDropup value={job.cover_letter_id} options={coverLetterOptions} placeholder="Not required" nullable={true} onChange={(id) => updateField(job.id, { cover_letter_id: id } as Partial<JobApplication>)} onOpenResumes={() => setShowResumesPanel(true)} /> },
+                                  ].map(({ label, content }) => (
+                                    <div key={label} className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
+                                      <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">{label}</p>
+                                      {content}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4">
+                                  <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase mb-2">Notes</p>
+                                  <button onClick={() => openComment(job)} className="text-left w-full group/notes">
+                                    {job.notes ? (
+                                      <p className="text-[15px] text-slate-700 leading-relaxed group-hover/notes:text-slate-900 transition-colors whitespace-pre-wrap">{job.notes}</p>
+                                    ) : (
+                                      <p className="text-[15px] text-slate-400 group-hover/notes:text-slate-500 transition-colors flex items-center gap-2">
+                                        <MessageSquare size={15} /> Add a note...
+                                      </p>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </React.Fragment>
                 );
               })}

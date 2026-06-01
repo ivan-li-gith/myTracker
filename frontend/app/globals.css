@@ -37,3 +37,17 @@ body {
 .confetti-piece {
   animation: confetti-rise var(--conf-dur, 1.5s) ease-out var(--conf-delay, 0s) both;
 }
+
+/* Search result highlight */
+@keyframes highlight-fade {
+  0%   { background-color: #fbbf24; }
+  20%  { background-color: #fef3c7; }
+  40%  { background-color: #fbbf24; }
+  65%  { background-color: #fef3c7; }
+  100% { background-color: transparent; }
+}
+.highlight-row {
+  animation: highlight-fade 2.5s ease-in-out forwards;
+  position: relative;
+  z-index: 1;
+}

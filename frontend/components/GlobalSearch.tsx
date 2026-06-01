@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search, X, Loader2, Receipt, RefreshCw,
-  ArrowUpRight, ArrowDownLeft, RotateCcw,
+  ArrowUpRight, ArrowDownLeft, RotateCcw, BarChart2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import type { Expense, MoneyTransfer, RecurringCharge, Category, Bank, PriceHistoryEntry, CancellationPeriod } from "@/lib/types";
+import type { Expense, MoneyTransfer, RecurringCharge, Category, Bank, PriceHistoryEntry, CancellationPeriod, StockHolding } from "@/lib/types";
 
 type SearchItem = {
   kind: "expense" | "recurring" | "transfer";
@@ -16,6 +17,7 @@ type SearchItem = {
   name: string;
   category: string | null;
   amount: number;
+  notes?: string | null;
   isReturn?: boolean;
   isSent?: boolean;
 };
@@ -58,6 +60,7 @@ interface GlobalSearchProps {
 }
 
 export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [yearDataLoaded, setYearDataLoaded] = useState(false);
   const [yearDataLoading, setYearDataLoading] = useState(false);
@@ -66,6 +69,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const [recurringCharges, setRecurringCharges] = useState<RecurringCharge[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [stocks, setStocks] = useState<StockHolding[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,12 +84,14 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
       apiFetch("/recurring-charges"),
       apiFetch("/categories"),
       apiFetch("/banks"),
-    ]).then(([exps, trans, rcs, cats, bks]) => {
+      apiFetch("/stocks"),
+    ]).then(([exps, trans, rcs, cats, bks, stks]) => {
       setYearExpenses(exps);
       setYearTransfers(trans);
       setRecurringCharges(rcs);
       setCategories(cats);
       setBanks(bks);
+      setStocks(stks);
       setYearDataLoaded(true);
     }).catch(console.error).finally(() => setYearDataLoading(false));
   }, [open]);
@@ -104,6 +110,15 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const allCatsMap = new Map(categories.map((c: Category) => [c.id, c.name]));
   const q = searchQuery.toLowerCase().trim();
 
+  // Stock matches
+  const matchedStocks = q && yearDataLoaded
+    ? stocks.filter((h) =>
+        h.ticker.toLowerCase().includes(q) ||
+        (h.company_name ?? "").toLowerCase().includes(q) ||
+        (h.notes ?? "").toLowerCase().includes(q)
+      )
+    : [];
+
   const rawSearchItems: SearchItem[] = [];
   if (q && yearDataLoaded) {
     for (const e of yearExpenses) {
@@ -118,6 +133,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           date: e.date, month: e.date.slice(0, 7),
           name: e.name, category: catName,
           amount: Number(e.amount), isReturn: Number(e.amount) < 0,
+          notes: e.notes,
         });
       }
     }
@@ -138,6 +154,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             date: `${monthStr}-${String(day).padStart(2, "0")}`,
             month: monthStr, name: rc.name,
             category: catName, amount: getPriceForMonth(rc, monthStr),
+            notes: rc.notes,
           });
         }
       }
@@ -158,6 +175,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           category: [t.platform, bankName].filter(Boolean).join(" · ") || null,
           amount: Number(t.amount),
           isSent: t.direction === "sent",
+          notes: t.notes,
         });
       }
     }
@@ -176,6 +194,8 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     group.items.push(item);
   }
 
+  const hasResults = matchedStocks.length > 0 || searchGroups.length > 0;
+
   if (!open) return null;
 
   return (
@@ -192,7 +212,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search expenses, recurring charges, transfers…"
+            placeholder="Search expenses, transfers, stock holdings…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-slate-400"
@@ -212,72 +232,149 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
               <div className="p-8 flex justify-center">
                 <Loader2 size={20} className="animate-spin text-slate-400" />
               </div>
-            ) : searchGroups.length === 0 ? (
+            ) : !hasResults ? (
               <div className="p-8 text-center">
-                <p className="text-slate-500 text-sm font-medium">No transactions found for {searchYear}</p>
+                <p className="text-slate-500 text-sm font-medium">No results found</p>
               </div>
             ) : (
-              searchGroups.map((group) => (
-                <div key={group.month}>
-                  <div className="px-4 py-2 bg-slate-50 border-b border-t border-slate-100 sticky top-0">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
-                  </div>
-                  {group.items.map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-b-0 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                          item.kind === "expense"
-                            ? item.isReturn ? "bg-emerald-50" : "bg-indigo-50"
-                            : item.kind === "recurring"
-                            ? "bg-violet-50"
-                            : item.isSent ? "bg-red-50" : "bg-emerald-50"
-                        }`}>
-                          {item.kind === "expense"
-                            ? item.isReturn
-                              ? <RotateCcw size={13} className="text-emerald-500" />
-                              : <Receipt size={13} className="text-indigo-500" />
-                            : item.kind === "recurring"
-                            ? <RefreshCw size={13} className="text-violet-500" />
-                            : item.isSent
-                            ? <ArrowUpRight size={13} className="text-red-500" />
-                            : <ArrowDownLeft size={13} className="text-emerald-500" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                              {formatDate(item.date)}
-                            </span>
-                            {item.category && (
-                              <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">
-                                {item.category}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <span className={`text-sm font-bold shrink-0 ml-4 ${
-                        item.isReturn
-                          ? "text-emerald-600"
-                          : item.kind === "transfer" && !item.isSent
-                          ? "text-emerald-600"
-                          : "text-slate-700"
-                      }`}>
-                        {item.isReturn ? "+" : item.kind === "transfer" ? (item.isSent ? "−" : "+") : ""}
-                        {formatAmount(Math.abs(item.amount))}
-                      </span>
+              <>
+                {/* Stock holdings section */}
+                {matchedStocks.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 bg-slate-50 border-b border-t border-slate-100 sticky top-0">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Holdings</span>
                     </div>
-                  ))}
-                </div>
-              ))
+                    {matchedStocks.map((h) => {
+                      const currentValue = Number(h.shares) * Number(h.current_price);
+                      const costBasis = Number(h.shares) * Number(h.buy_price);
+                      const gain = currentValue - costBasis;
+                      const isUp = gain >= 0;
+                      const isSold = Number(h.shares) === 0;
+                      return (
+                        <div
+                          key={h.id}
+                          className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer"
+                          onClick={() => { router.push(`/payments?tab=stocks&holdingId=${h.id}`); onClose(); setSearchQuery(""); }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                              <BarChart2 size={13} className="text-indigo-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-800">
+                                {h.ticker}
+                                {h.company_name && <span className="text-slate-400 font-normal ml-1.5">{h.company_name}</span>}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {isSold ? (
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sold</span>
+                                ) : (
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    {Number(h.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })} shares
+                                  </span>
+                                )}
+                                {!isSold && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${isUp ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                                    {isUp ? "+" : ""}{formatAmount(gain)}
+                                  </span>
+                                )}
+                                {isSold && Number(h.realized_gain) !== 0 && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${Number(h.realized_gain) >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                                    {Number(h.realized_gain) >= 0 ? "+" : ""}{formatAmount(Number(h.realized_gain))} realized
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-sm font-bold text-slate-700 shrink-0 ml-4">
+                            {isSold ? "—" : formatAmount(currentValue)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Date-grouped transactions */}
+                {searchGroups.map((group) => (
+                  <div key={group.month}>
+                    <div className="px-4 py-2 bg-slate-50 border-b border-t border-slate-100 sticky top-0">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
+                    </div>
+                    {group.items.map((item) => {
+                      const tab = item.kind === "transfer" ? "transfers" : item.kind === "recurring" ? "overview" : "expenses";
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer"
+                          onClick={() => {
+                          const id = (item.kind === "expense" || item.kind === "transfer") ? item.key.split("-")[1] : null;
+                          const url = id
+                            ? `/payments?tab=${tab}&month=${item.month}&id=${id}`
+                            : `/payments?tab=${tab}&month=${item.month}`;
+                          router.push(url);
+                          onClose();
+                          setSearchQuery("");
+                        }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                              item.kind === "expense"
+                                ? item.isReturn ? "bg-emerald-50" : "bg-indigo-50"
+                                : item.kind === "recurring"
+                                ? "bg-violet-50"
+                                : item.isSent ? "bg-red-50" : "bg-emerald-50"
+                            }`}>
+                              {item.kind === "expense"
+                                ? item.isReturn
+                                  ? <RotateCcw size={13} className="text-emerald-500" />
+                                  : <Receipt size={13} className="text-indigo-500" />
+                                : item.kind === "recurring"
+                                ? <RefreshCw size={13} className="text-violet-500" />
+                                : item.isSent
+                                ? <ArrowUpRight size={13} className="text-red-500" />
+                                : <ArrowDownLeft size={13} className="text-emerald-500" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                  {formatDate(item.date)}
+                                </span>
+                                {item.category && (
+                                  <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">
+                                    {item.category}
+                                  </span>
+                                )}
+                                {item.notes && (
+                                  <span className="text-[11px] text-slate-400 italic truncate max-w-[200px]">
+                                    {item.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-sm font-bold shrink-0 ml-4 ${
+                            item.isReturn
+                              ? "text-emerald-600"
+                              : item.kind === "transfer" && !item.isSent
+                              ? "text-emerald-600"
+                              : "text-slate-700"
+                          }`}>
+                            {item.isReturn ? "+" : item.kind === "transfer" ? (item.isSent ? "−" : "+") : ""}
+                            {formatAmount(Math.abs(item.amount))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </>
             )}
           </div>
         ) : (
           <div className="px-4 py-6 text-center">
-            <p className="text-slate-400 text-sm">Type to search across all your transactions</p>
+            <p className="text-slate-400 text-sm">Type to search across all your transactions and holdings</p>
           </div>
         )}
       </div>

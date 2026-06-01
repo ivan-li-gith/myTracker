@@ -4,11 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   CheckCircle2, Flame, Briefcase, DollarSign, CheckSquare,
-  Check, AlertTriangle, ArrowRight, ChevronDown,
+  Check, AlertTriangle, ArrowRight, ChevronDown, TrendingUp,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import {
-  Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication,
+  Task, HabitWithStreak, Payment, ExpenseSummary, Category, JobApplication, StockHolding,
 } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -238,6 +238,7 @@ export default function HomePage() {
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<JobApplication[]>([]);
+  const [stocks, setStocks] = useState<StockHolding[]>([]);
   const [checkingTasks, setCheckingTasks] = useState<Set<number>>(new Set());
   const [checkingHabits, setCheckingHabits] = useState<Set<number>>(new Set());
   const [checkingPayments, setCheckingPayments] = useState<Set<number>>(new Set());
@@ -262,13 +263,15 @@ export default function HomePage() {
       apiFetch(`/expenses/summary?month=${month}`),
       apiFetch("/categories"),
       apiFetch("/jobs"),
-    ]).then(([t, h, p, es, cats, j]) => {
+      apiFetch("/stocks"),
+    ]).then(([t, h, p, es, cats, j, s]) => {
       if (t.status === "fulfilled") setTasks(t.value || []);
       if (h.status === "fulfilled") setHabits(h.value || []);
       if (p.status === "fulfilled") setPayments(p.value || []);
       if (es.status === "fulfilled") setExpenseSummary(es.value || null);
       if (cats.status === "fulfilled") setCategories(cats.value || []);
       if (j.status === "fulfilled") setJobs(j.value || []);
+      if (s.status === "fulfilled") setStocks(s.value || []);
     });
   }, []);
 
@@ -334,6 +337,23 @@ export default function HomePage() {
     ? Math.round(((jobs.length - jobCounts.applied) / jobs.length) * 100)
     : null;
   const maxJobCount = Math.max(...Object.values(jobCounts), 1);
+  const weekStart = getWeekStart();
+  const jobsThisWeek = jobs.filter(j => j.date_applied && j.date_applied >= weekStart).length;
+  const jobsToday = jobs.filter(j => j.date_applied === todayStr()).length;
+
+  // ── Derived: Portfolio ───────────────────────────────────────────────────
+
+  const PORTFOLIO_COLORS_HOME = ["#6366f1", "#f59e0b", "#10b981", "#3b82f6", "#f97316", "#8b5cf6"];
+  const activeHoldings = stocks.filter(s => Number(s.shares) > 0);
+  const portfolioTotalValue = activeHoldings.reduce((sum, s) => sum + Number(s.shares) * Number(s.current_price), 0);
+  const portfolioTotalCost = activeHoldings.reduce((sum, s) => sum + Number(s.shares) * Number(s.buy_price), 0);
+  const portfolioUnrealized = portfolioTotalValue - portfolioTotalCost;
+  const portfolioUnrealizedPct = portfolioTotalCost > 0 ? ((portfolioUnrealized / portfolioTotalCost) * 100).toFixed(1) : null;
+  const portfolioRealized = stocks.reduce((sum, s) => sum + Number(s.realized_gain), 0);
+  const portfolioTotalDividends = stocks.reduce((sum, s) => sum + Number(s.total_dividends), 0);
+  const topHoldings = [...activeHoldings]
+    .sort((a, b) => Number(b.shares) * Number(b.current_price) - Number(a.shares) * Number(a.current_price))
+    .slice(0, 5);
 
   // ── Derived: Finance ──────────────────────────────────────────────────────
 
@@ -427,7 +447,7 @@ export default function HomePage() {
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
           icon={<DollarSign size={16} className="text-emerald-600" />}
           accent="bg-emerald-50"
@@ -438,6 +458,14 @@ export default function HomePage() {
               : "—"
           }
           sub={expenseSummary ? `${expenseSummary.count} expense${expenseSummary.count !== 1 ? "s" : ""}` : "No data yet"}
+          href="/payments"
+        />
+        <KpiCard
+          icon={<TrendingUp size={16} className="text-sky-600" />}
+          accent="bg-sky-50"
+          label="Portfolio"
+          value={stocks.length > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(portfolioTotalValue) : "—"}
+          sub={portfolioUnrealizedPct !== null ? `${portfolioUnrealized >= 0 ? "+" : ""}${portfolioUnrealizedPct}% unrealized` : stocks.length > 0 ? `${activeHoldings.length} holding${activeHoldings.length !== 1 ? "s" : ""}` : "No holdings yet"}
           href="/payments"
         />
         <KpiCard
@@ -497,7 +525,7 @@ export default function HomePage() {
                     />
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-3 gap-3 pt-1">
                   <StatTile
                     label="Success Rate"
                     value={successRate !== null ? `${successRate}%` : "—"}
@@ -515,6 +543,11 @@ export default function HomePage() {
                         ? `${jobs.length - jobCounts.applied} responded`
                         : "No responses yet"
                     }
+                  />
+                  <StatTile
+                    label="This Week"
+                    value={String(jobsThisWeek)}
+                    sub={jobsToday > 0 ? `${jobsToday} today` : "applied"}
                   />
                 </div>
               </>
@@ -622,6 +655,76 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Portfolio Panel */}
+      {stocks.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-sky-600" />
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Portfolio</h2>
+              <span className="text-xs text-slate-400">{activeHoldings.length} holding{activeHoldings.length !== 1 ? "s" : ""}</span>
+            </div>
+            <Link href="/payments" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors">
+              View all <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left: summary stats */}
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Value</p>
+                <p className="text-[32px] font-bold text-slate-900 tracking-tight leading-none mt-1.5">
+                  {fmtAmount(portfolioTotalValue)}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Unrealized</p>
+                  <p className={`text-sm font-bold mt-1 ${portfolioUnrealized >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {portfolioUnrealized >= 0 ? "+" : ""}{fmtAmount(portfolioUnrealized)}
+                  </p>
+                  {portfolioUnrealizedPct !== null && (
+                    <p className={`text-[11px] mt-0.5 ${portfolioUnrealized >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
+                      {portfolioUnrealized >= 0 ? "+" : ""}{portfolioUnrealizedPct}%
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Realized</p>
+                  <p className={`text-sm font-bold mt-1 ${portfolioRealized >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {portfolioRealized >= 0 ? "+" : ""}{fmtAmount(portfolioRealized)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Dividends</p>
+                  <p className="text-sm font-bold text-indigo-600 mt-1">{fmtAmount(portfolioTotalDividends)}</p>
+                </div>
+              </div>
+            </div>
+            {/* Right: top holdings */}
+            <div className="flex flex-col gap-2 justify-center">
+              {topHoldings.map((h, i) => {
+                const val = Number(h.shares) * Number(h.current_price);
+                const pct = portfolioTotalValue > 0 ? Math.round((val / portfolioTotalValue) * 100) : 0;
+                return (
+                  <div key={h.ticker} className="flex items-center gap-3">
+                    <span className="text-[12px] text-slate-500 w-12 flex-shrink-0 font-medium">{h.ticker}</span>
+                    <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700 ease-out"
+                        style={{ width: `${pct}%`, backgroundColor: PORTFOLIO_COLORS_HOME[i % PORTFOLIO_COLORS_HOME.length] }}
+                      />
+                    </div>
+                    <span className="text-[12px] font-semibold text-slate-700 w-[60px] text-right flex-shrink-0">{fmtAmount(val)}</span>
+                    <span className="text-[11px] text-slate-400 w-[26px] text-right flex-shrink-0">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reminders */}
       <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)]">

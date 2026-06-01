@@ -12,7 +12,7 @@ import AddHabitModal from "@/components/AddHabitModal";
 import EditTaskModal from "@/components/EditTaskModal";
 import EditHabitModal from "@/components/EditHabitModal";
 import { apiFetch } from "@/lib/api";
-import { Task, HabitWithStreak, CreditCardReminder } from "@/lib/types";
+import { Task, HabitWithStreak, CreditCardReminder, ReminderOwner } from "@/lib/types";
 
 function dateToStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -70,7 +70,7 @@ function ordinal(n: number) {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
-const EMPTY_CC_REMINDER = { card_name: "", owner: "", due_day: "" };
+const EMPTY_CC_REMINDER = { card_name: "", owner: "", due_day: "", days_before: "" };
 
 // ---- Confetti ----
 
@@ -510,11 +510,16 @@ export default function TasksAndHabitsPage() {
   const [ccReminderForm, setCcReminderForm] = useState(EMPTY_CC_REMINDER);
   const [ccReminderSaveError, setCcReminderSaveError] = useState<string | null>(null);
   const [ccReminderDeleteId, setCcReminderDeleteId] = useState<number | null>(null);
+  const [reminderOwners, setReminderOwners] = useState<ReminderOwner[]>([]);
+  const [newOwnerInput, setNewOwnerInput] = useState("");
+  const [addingOwner, setAddingOwner] = useState(false);
+  const [ownerSaveError, setOwnerSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch("/tasks").then(setTasks).catch(console.error);
     apiFetch("/habits").then(setHabits).catch(console.error);
     apiFetch("/credit-card-reminders").then(setCcReminders).catch(console.error);
+    apiFetch("/reminder-owners").then(setReminderOwners).catch(console.error);
   }, []);
 
   const today = todayStr();
@@ -619,8 +624,14 @@ export default function TasksAndHabitsPage() {
       setCcReminderSaveError("Due day must be between 1 and 31");
       return;
     }
+    const days_before = ccReminderForm.days_before ? parseInt(ccReminderForm.days_before) : null;
     try {
-      const body = { card_name: ccReminderForm.card_name.trim(), owner: ccReminderForm.owner.trim() || null, due_day };
+      const body = {
+        card_name: ccReminderForm.card_name.trim(),
+        owner: ccReminderForm.owner || null,
+        due_day,
+        days_before,
+      };
       if (editCcReminder) {
         await apiFetch(`/credit-card-reminders/${editCcReminder.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       } else {
@@ -633,6 +644,31 @@ export default function TasksAndHabitsPage() {
       setCcReminderForm(EMPTY_CC_REMINDER);
     } catch (err) {
       setCcReminderSaveError(err instanceof Error ? err.message : "Failed to save reminder");
+    }
+  }
+
+  async function addReminderOwner() {
+    const name = newOwnerInput.trim();
+    if (!name) return;
+    setOwnerSaveError(null);
+    try {
+      const created: ReminderOwner = await apiFetch("/reminder-owners", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+      });
+      setReminderOwners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setCcReminderForm((f) => ({ ...f, owner: created.name }));
+      setNewOwnerInput("");
+      setAddingOwner(false);
+    } catch {
+      setOwnerSaveError("Owner already exists or could not be saved.");
+    }
+  }
+
+  async function deleteReminderOwner(id: number) {
+    await apiFetch(`/reminder-owners/${id}`, { method: "DELETE" });
+    setReminderOwners((prev) => prev.filter((o) => o.id !== id));
+    if (ccReminderForm.owner === reminderOwners.find((o) => o.id === id)?.name) {
+      setCcReminderForm((f) => ({ ...f, owner: "" }));
     }
   }
 
@@ -826,63 +862,84 @@ export default function TasksAndHabitsPage() {
           <div className="px-4 py-5 text-center">
             <p className="text-sm text-slate-400">No credit card reminders yet.</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Card</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Day</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {ccReminders.map((reminder) => {
-                  const today = new Date();
-                  const todayDay = today.getDate();
-                  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                  const daysUntilDue = reminder.due_day >= todayDay
-                    ? reminder.due_day - todayDay
-                    : (daysInMonth - todayDay) + reminder.due_day;
-                  const dueSoon = daysUntilDue <= 5;
-                  return (
-                    <tr key={reminder.id} className={`group transition-colors ${dueSoon ? "bg-amber-50 hover:bg-amber-100/70" : "hover:bg-slate-50"}`}>
-                      <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                        <span className="flex items-center gap-2">
-                          {dueSoon && <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />}
-                          {reminder.card_name}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{reminder.owner ?? <span className="text-slate-300">—</span>}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`font-medium ${dueSoon ? "text-amber-700" : "text-slate-700"}`}>
-                          {ordinal(reminder.due_day)} of month
-                        </span>
-                        {dueSoon && (
-                          <span className="ml-2 text-xs text-amber-600 font-semibold">
-                            {daysUntilDue === 0 ? "Due today!" : `Due in ${daysUntilDue}d`}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <RowMenu
-                          onEdit={() => {
-                            setEditCcReminder(reminder);
-                            setCcReminderForm({ card_name: reminder.card_name, owner: reminder.owner ?? "", due_day: String(reminder.due_day) });
-                            setCcReminderSaveError(null);
-                            setShowCcReminderModal(true);
-                          }}
-                          onDelete={() => setCcReminderDeleteId(reminder.id)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        ) : (() => {
+          const today = new Date();
+          const todayDay = today.getDate();
+          const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          const ownerGroups = new Map<string, CreditCardReminder[]>();
+          for (const r of [...ccReminders].sort((a, b) => a.due_day - b.due_day)) {
+            const key = r.owner ?? "__none__";
+            if (!ownerGroups.has(key)) ownerGroups.set(key, []);
+            ownerGroups.get(key)!.push(r);
+          }
+          const sortedOwners = [...ownerGroups.keys()].sort((a, b) => {
+            if (a === "__none__") return 1;
+            if (b === "__none__") return -1;
+            return a.localeCompare(b);
+          });
+          return (
+            <div>
+              {sortedOwners.map((ownerKey) => {
+                const groupReminders = ownerGroups.get(ownerKey)!;
+                const ownerLabel = ownerKey === "__none__" ? "No Owner" : ownerKey;
+                return (
+                  <div key={ownerKey}>
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{ownerLabel}</span>
+                      <span className="text-xs text-slate-400">{groupReminders.length} card{groupReminders.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    {groupReminders.map((reminder) => {
+                      const daysUntilDue = reminder.due_day >= todayDay
+                        ? reminder.due_day - todayDay
+                        : (daysInMonth - todayDay) + reminder.due_day;
+                      const threshold = reminder.days_before ?? 5;
+                      const dueSoon = daysUntilDue <= threshold;
+                      return (
+                        <div key={reminder.id} className={`group flex items-center gap-3 px-4 py-3.5 border-b border-slate-50 last:border-b-0 transition-colors ${dueSoon ? "bg-amber-50 hover:bg-amber-100/60" : "hover:bg-slate-50/80"}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${dueSoon ? "bg-amber-100" : "bg-slate-100"}`}>
+                            {dueSoon
+                              ? <AlertCircle size={14} className="text-amber-500" />
+                              : <Bell size={14} className="text-slate-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900">{reminder.card_name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className={`text-xs font-medium ${dueSoon ? "text-amber-700" : "text-slate-500"}`}>
+                                Due {ordinal(reminder.due_day)} of month
+                              </span>
+                              {dueSoon && (
+                                <span className="text-xs font-semibold text-amber-600">
+                                  · {daysUntilDue === 0 ? "Due today!" : `in ${daysUntilDue}d`}
+                                </span>
+                              )}
+                              {reminder.days_before != null && (
+                                <span className="text-xs text-slate-400">· notify {reminder.days_before}d before</span>
+                              )}
+                            </div>
+                          </div>
+                          <RowMenu
+                            onEdit={() => {
+                              setEditCcReminder(reminder);
+                              setCcReminderForm({
+                                card_name: reminder.card_name,
+                                owner: reminder.owner ?? "",
+                                due_day: String(reminder.due_day),
+                                days_before: reminder.days_before != null ? String(reminder.days_before) : "",
+                              });
+                              setCcReminderSaveError(null);
+                              setShowCcReminderModal(true);
+                            }}
+                            onDelete={() => setCcReminderDeleteId(reminder.id)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </CollapsibleSection>
 
       {editingTask && (
@@ -916,7 +973,7 @@ export default function TasksAndHabitsPage() {
                 <Bell size={16} className="text-indigo-500" />
                 {editCcReminder ? "Edit Reminder" : "Add Credit Card Reminder"}
               </h2>
-              <button onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); setAddingOwner(false); setNewOwnerInput(""); setOwnerSaveError(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -932,32 +989,88 @@ export default function TasksAndHabitsPage() {
                   required
                 />
               </div>
+
+              {/* Owner selector */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Owner</label>
-                <input
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="e.g. Ivan"
-                  value={ccReminderForm.owner}
-                  onChange={(e) => setCcReminderForm((f) => ({ ...f, owner: e.target.value }))}
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-600">Owner</label>
+                  {!addingOwner && (
+                    <button type="button" onClick={() => setAddingOwner(true)} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+                      <Plus size={12} /> New
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <select
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    value={ccReminderForm.owner}
+                    onChange={(e) => setCcReminderForm((f) => ({ ...f, owner: e.target.value }))}
+                  >
+                    <option value="">— No owner —</option>
+                    {reminderOwners.map((o) => (
+                      <option key={o.id} value={o.name}>{o.name}</option>
+                    ))}
+                  </select>
+
+                  {addingOwner && (
+                    <div className="border border-slate-100 rounded-lg p-2 flex flex-col gap-1">
+                      {reminderOwners.map((o) => (
+                        <div key={o.id} className="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 group">
+                          <span className="text-sm text-slate-700">{o.name}</span>
+                          <button type="button" onClick={() => deleteReminderOwner(o.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-1 mt-1">
+                        <input
+                          autoFocus
+                          className="flex-1 border border-slate-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          placeholder="Owner name"
+                          value={newOwnerInput}
+                          onChange={(e) => setNewOwnerInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addReminderOwner(); } if (e.key === "Escape") { setAddingOwner(false); setNewOwnerInput(""); } }}
+                        />
+                        <button type="button" onClick={addReminderOwner} className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Add</button>
+                        <button type="button" onClick={() => { setAddingOwner(false); setNewOwnerInput(""); setOwnerSaveError(null); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={13} /></button>
+                      </div>
+                      {ownerSaveError && <p className="text-xs text-red-500 px-2">{ownerSaveError}</p>}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Due Day of Month <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="e.g. 15"
-                  value={ccReminderForm.due_day}
-                  onChange={(e) => setCcReminderForm((f) => ({ ...f, due_day: e.target.value }))}
-                  required
-                />
-                <p className="text-xs text-slate-400 mt-1">Day of the month the payment is due (1–31).</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Due Day of Month <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="e.g. 15"
+                    value={ccReminderForm.due_day}
+                    onChange={(e) => setCcReminderForm((f) => ({ ...f, due_day: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Remind Days Before</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="e.g. 5"
+                    value={ccReminderForm.days_before}
+                    onChange={(e) => setCcReminderForm((f) => ({ ...f, days_before: e.target.value }))}
+                  />
+                </div>
               </div>
+
               {ccReminderSaveError && <p className="text-sm text-red-500">{ccReminderSaveError}</p>}
               <div className="flex gap-2 justify-end pt-2">
-                <button type="button" onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); }} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                <button type="button" onClick={() => { setShowCcReminderModal(false); setEditCcReminder(null); setCcReminderForm(EMPTY_CC_REMINDER); setAddingOwner(false); setNewOwnerInput(""); setOwnerSaveError(null); }} className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                   Cancel
                 </button>
                 <button type="submit" className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">

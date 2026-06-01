@@ -157,6 +157,9 @@ export interface RecurringCharge {
 export interface Bank {
   id: number;
   name: string;
+  account_type: string | null;
+  starting_balance: number | null;
+  starting_balance_as_of: string | null; // YYYY-MM-DD
 }
 
 export interface Person {
@@ -172,6 +175,8 @@ export interface MoneyTransfer {
   person: string;
   platform: string | null;
   bank_id: number | null;
+  from_bank_id: number | null;
+  to_bank_id: number | null;
   category_id: number | null;
   amount: number;
   notes: string | null;
@@ -229,7 +234,53 @@ export interface CreditCardReminder {
   card_name: string;
   owner: string | null;
   due_day: number;
+  days_before: number | null;
   created_at: string;
+}
+
+export interface ReminderOwner {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface StockLot {
+  id: number;
+  stock_holding_id: number;
+  shares: number;
+  buy_price: number;
+  purchased_at: string | null;
+  sold_price: number | null;
+  sold_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface StockDividend {
+  id: number;
+  stock_holding_id: number;
+  paid_at: string;
+  dividend_per_share: number;
+  shares_held: number;
+  total_received: number;
+  reinvested: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface StockHolding {
+  id: number;
+  ticker: string;
+  company_name: string | null;
+  shares: number;
+  buy_price: number;
+  current_price: number;
+  realized_gain: number;
+  total_dividends: number;
+  notes: string | null;
+  created_at: string;
+  lots: StockLot[];
+  dividends: StockDividend[];
 }
 
 export interface Payment {

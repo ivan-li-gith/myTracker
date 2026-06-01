@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   CreditCard as CreditCardIcon, Receipt, MoreHorizontal,
   CheckCircle2, Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2,
   ScanLine, Upload, Loader2, Users, ChevronDown,
-  TrendingDown, Wallet, Tag, DollarSign, ArrowDownLeft, ArrowUpRight, Send, RotateCcw, Zap, GraduationCap, Search,
+  TrendingDown, TrendingUp, Wallet, Tag, DollarSign, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Send, RotateCcw, Zap, GraduationCap, Search, RefreshCw, Landmark, PiggyBank,
   ShoppingCart, Package, Coffee, Utensils, Fuel, ParkingSquare, Car, Tv, Heart, Dumbbell, Plane, Music, Building2, BarChart2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { Expense, Category, CreditCard, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan } from "@/lib/types";
+import { Expense, Category, CreditCard, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan, StockHolding, StockLot, StockDividend } from "@/lib/types";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
 // ---- Price history helper ----
 
@@ -35,6 +37,14 @@ function formatDate(s: string) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+function fmtAxis(v: number) {
+  const abs = Math.abs(v);
+  if (abs >= 1000) return `${v < 0 ? "-" : ""}$${(abs / 1000).toFixed(1)}k`;
+  return `$${v.toFixed(0)}`;
+}
+
+const PORTFOLIO_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#3b82f6", "#f97316", "#8b5cf6", "#ec4899", "#14b8a6", "#64748b", "#a78bfa"];
 
 function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
@@ -472,7 +482,8 @@ function ScanModal({
 
 const EMPTY_EXPENSE = { name: "", amount: "", date: "", category_id: "", credit_card_id: "", notes: "", service_period_start: "", service_period_end: "" };
 const EMPTY_CC_FORM = { name: "", color: "blue" };
-const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", category_id: "", amount: "", notes: "" };
+const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", from_bank_id: "", to_bank_id: "", category_id: "", amount: "", notes: "" };
+const EMPTY_BANK_FORM = { name: "", account_type: "checking" as "checking" | "savings", starting_balance: "", starting_balance_as_of: "" };
 const UTILITY_NAMES = ["Electric", "Water", "Internet", "Gas", "Trash"];
 const EMPTY_BILL = { utility: "", is_recurring: false, service_period_start: "", service_period_end: "", charge_date: "", charge_day: "", billing_start: "", amount: "", split_with: "", notes: "" };
 const EMPTY_LOAN = { name: "", disbursement_date: "", original_principal: "", unpaid_principal: "", interest_rate: "", unpaid_interest: "", total_interest_paid: "0", notes: "" };
@@ -480,15 +491,44 @@ const EMPTY_LOAN = { name: "", disbursement_date: "", original_principal: "", un
 // ---- Page ----
 
 export default function PaymentsAndExpensesPage() {
+  const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "transfer" | "loan"; id: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "transfer" | "loan" | "stock" | "bank"; id: number } | null>(null);
 
   const [showScanModal, setShowScanModal] = useState(false);
   const [monthTotal, setMonthTotal] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "transfers" | "loans">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "transfers" | "loans" | "stocks">("overview");
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const [highlightKind, setHighlightKind] = useState<"expense" | "transfer" | "stock" | null>(null);
+
+  // Stocks
+  const [stocks, setStocks] = useState<StockHolding[]>([]);
+  const [portfolioSlide, setPortfolioSlide] = useState(0);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [editStock, setEditStock] = useState<StockHolding | null>(null);
+  const [stockForm, setStockForm] = useState({ ticker: "", company_name: "", shares: "", buy_price: "", purchased_at: "", notes: "" });
+  const [stockSaveError, setStockSaveError] = useState<string | null>(null);
+  const [refreshingIds, setRefreshingIds] = useState<Set<number>>(new Set());
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [expandedStockIds, setExpandedStockIds] = useState<Set<number>>(new Set());
+  const [addingLotForId, setAddingLotForId] = useState<number | null>(null);
+  const [lotForm, setLotForm] = useState({ shares: "", buy_price: "", purchased_at: "" });
+  const [lotSaveError, setLotSaveError] = useState<string | null>(null);
+  const [selectedLotIds, setSelectedLotIds] = useState<Set<number>>(new Set());
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellForm, setSellForm] = useState({ sold_price: "", sold_at: "" });
+  const [sellSaveError, setSellSaveError] = useState<string | null>(null);
+  const [stockFilter] = useState("");
+  const [stockSortCol, setStockSortCol] = useState<string>("ticker");
+  const [stockSortDir, setStockSortDir] = useState<"asc" | "desc">("asc");
+  const [showDividendModal, setShowDividendModal] = useState(false);
+  const [dividendModalHoldingId, setDividendModalHoldingId] = useState<number | null>(null);
+  const [editingDividend, setEditingDividend] = useState<StockDividend | null>(null);
+  const [dividendModalForm, setDividendModalForm] = useState({ paid_at: "", dividend_per_share: "", shares_held: "", reinvested: false, notes: "" });
+  const [dividendModalError, setDividendModalError] = useState<string | null>(null);
 
   // Expanded transaction groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -542,10 +582,21 @@ export default function PaymentsAndExpensesPage() {
 
   // Banks
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [addingBank, setAddingBank] = useState(false);
-  const [newBankName, setNewBankName] = useState("");
-  const [bankDropOpen, setBankDropOpen] = useState(false);
-  const bankDropRef = useRef<HTMLDivElement>(null);
+  // Bank modal (add/edit bank account)
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [editingBank, setEditingBank] = useState<Bank | null>(null);
+  const [bankModalForm, setBankModalForm] = useState(EMPTY_BANK_FORM);
+  const [bankModalError, setBankModalError] = useState<string | null>(null);
+  // From-bank dropdown in transfer form
+  const [fromBankDropOpen, setFromBankDropOpen] = useState(false);
+  const fromBankDropRef = useRef<HTMLDivElement>(null);
+  const [addingFromBank, setAddingFromBank] = useState(false);
+  const [newFromBankName, setNewFromBankName] = useState("");
+  // To-bank dropdown in transfer form
+  const [toBankDropOpen, setToBankDropOpen] = useState(false);
+  const toBankDropRef = useRef<HTMLDivElement>(null);
+  const [addingToBank, setAddingToBank] = useState(false);
+  const [newToBankName, setNewToBankName] = useState("");
   const [personDropOpen, setPersonDropOpen] = useState(false);
   const personDropRef = useRef<HTMLDivElement>(null);
 
@@ -586,6 +637,8 @@ export default function PaymentsAndExpensesPage() {
   const [showAllCards, setShowAllCards] = useState(false);
   const [expandedOverviewCats, setExpandedOverviewCats] = useState<Set<string>>(new Set());
   const [expandedOverviewCatMerchants, setExpandedOverviewCatMerchants] = useState<Set<string>>(new Set());
+  const [expandedOverviewCards, setExpandedOverviewCards] = useState<Set<string>>(new Set());
+  const [expandedOverviewCardMerchants, setExpandedOverviewCardMerchants] = useState<Set<string>>(new Set());
   const [expandedOwedIds, setExpandedOwedIds] = useState<Set<string>>(new Set());
   const [expandedLedgerGroups, setExpandedLedgerGroups] = useState<Set<string>>(new Set());
   const [recordPaymentId, setRecordPaymentId] = useState<string | null>(null);
@@ -608,13 +661,15 @@ export default function PaymentsAndExpensesPage() {
     apiFetch("/utility-bills").then(setUtilityBills).catch(console.error);
     apiFetch("/utility-reimbursements").then(setUtilityReimbursements).catch(console.error);
     apiFetch("/loans").then(setLoans).catch(console.error);
+    apiFetch("/stocks").then(setStocks).catch(console.error);
   }, []);
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (catDropRef.current && !catDropRef.current.contains(e.target as Node)) setCatDropOpen(false);
       if (cardDropRef.current && !cardDropRef.current.contains(e.target as Node)) setCardDropOpen(false);
-      if (bankDropRef.current && !bankDropRef.current.contains(e.target as Node)) setBankDropOpen(false);
+      if (fromBankDropRef.current && !fromBankDropRef.current.contains(e.target as Node)) setFromBankDropOpen(false);
+      if (toBankDropRef.current && !toBankDropRef.current.contains(e.target as Node)) setToBankDropOpen(false);
       if (personDropRef.current && !personDropRef.current.contains(e.target as Node)) setPersonDropOpen(false);
       if (billSplitDropRef.current && !billSplitDropRef.current.contains(e.target as Node)) setBillSplitDropOpen(false);
       if (ccFilterDropRef.current && !ccFilterDropRef.current.contains(e.target as Node)) setCcFilterDropOpen(false);
@@ -631,6 +686,45 @@ export default function PaymentsAndExpensesPage() {
       .catch(console.error);
     apiFetch(`/money-transfers?month=${selectedMonth}`).then(setMoneyTransfers).catch(console.error);
   }, [selectedMonth]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const month = searchParams.get("month");
+    const id = searchParams.get("id");
+    const holdingId = searchParams.get("holdingId");
+    if (tab && ["overview", "expenses", "transfers", "loans", "stocks"].includes(tab)) {
+      setActiveTab(tab as "overview" | "expenses" | "transfers" | "loans" | "stocks");
+    }
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      setSelectedMonth(month);
+    }
+    if (id) {
+      setHighlightId(Number(id));
+      setHighlightKind(tab === "transfers" ? "transfer" : "expense");
+    } else if (holdingId) {
+      setHighlightId(Number(holdingId));
+      setHighlightKind("stock");
+    } else {
+      setHighlightId(null);
+      setHighlightKind(null);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!highlightId || !highlightKind) return;
+    const elemId =
+      highlightKind === "expense" ? `expense-row-${highlightId}` :
+      highlightKind === "transfer" ? `transfer-row-${highlightId}` :
+      `stock-row-${highlightId}`;
+    const el = document.getElementById(elemId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => {
+      setHighlightId(null);
+      setHighlightKind(null);
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [highlightId, highlightKind, expenses, moneyTransfers, stocks, activeTab]);
 
   const getCatName = (id: number | null, cats: Category[]) =>
     id != null ? (cats.find((c) => c.id === id)?.name ?? null) : null;
@@ -771,8 +865,8 @@ export default function PaymentsAndExpensesPage() {
 
   // ---- Money Transfers ----
 
-  async function addBankInline() {
-    const name = newBankName.trim();
+  async function addBankInlineFrom() {
+    const name = newFromBankName.trim();
     if (!name) return;
     const created: Bank = await apiFetch("/banks", {
       method: "POST",
@@ -780,28 +874,104 @@ export default function PaymentsAndExpensesPage() {
       body: JSON.stringify({ name }),
     });
     setBanks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setTransferForm((f) => ({ ...f, bank_id: String(created.id), platform: name }));
-    setNewBankName("");
-    setAddingBank(false);
+    setTransferForm((f) => ({ ...f, from_bank_id: String(created.id) }));
+    setNewFromBankName("");
+    setAddingFromBank(false);
+  }
+
+  async function addBankInlineTo() {
+    const name = newToBankName.trim();
+    if (!name) return;
+    const created: Bank = await apiFetch("/banks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setBanks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setTransferForm((f) => ({ ...f, to_bank_id: String(created.id) }));
+    setNewToBankName("");
+    setAddingToBank(false);
   }
 
   async function deleteBank(id: number) {
     await apiFetch(`/banks/${id}`, { method: "DELETE" });
     setBanks((prev) => prev.filter((b) => b.id !== id));
-    if (transferForm.bank_id === String(id)) setTransferForm((f) => ({ ...f, bank_id: "", platform: "" }));
+    if (transferForm.from_bank_id === String(id)) setTransferForm((f) => ({ ...f, from_bank_id: "" }));
+    if (transferForm.to_bank_id === String(id)) setTransferForm((f) => ({ ...f, to_bank_id: "" }));
+  }
+
+  function resetTransferBankDropState() {
+    setFromBankDropOpen(false); setAddingFromBank(false); setNewFromBankName("");
+    setToBankDropOpen(false); setAddingToBank(false); setNewToBankName("");
+  }
+
+  // Bank account CRUD (for transfers tab)
+  function openAddBankAccount(type: "checking" | "savings") {
+    setEditingBank(null);
+    setBankModalForm({ ...EMPTY_BANK_FORM, account_type: type });
+    setBankModalError(null);
+    setShowBankModal(true);
+  }
+
+  function openEditBankAccount(bank: Bank) {
+    setEditingBank(bank);
+    setBankModalForm({
+      name: bank.name,
+      account_type: (bank.account_type as "checking" | "savings") ?? "checking",
+      starting_balance: bank.starting_balance != null ? String(bank.starting_balance) : "",
+      starting_balance_as_of: bank.starting_balance_as_of ?? "",
+    });
+    setBankModalError(null);
+    setShowBankModal(true);
+  }
+
+  async function saveBankAccount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBankModalError(null);
+    try {
+      const body = {
+        name: bankModalForm.name.trim(),
+        account_type: bankModalForm.account_type,
+        starting_balance: bankModalForm.starting_balance ? parseFloat(bankModalForm.starting_balance) : null,
+        starting_balance_as_of: bankModalForm.starting_balance_as_of || null,
+      };
+      if (editingBank) {
+        const updated: Bank = await apiFetch(`/banks/${editingBank.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        setBanks((prev) => prev.map((b) => b.id === editingBank.id ? updated : b).sort((a, b) => a.name.localeCompare(b.name)));
+      } else {
+        const created: Bank = await apiFetch("/banks", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        setBanks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      setShowBankModal(false);
+      setEditingBank(null);
+    } catch (err) {
+      setBankModalError(err instanceof Error ? err.message : "Failed to save bank");
+    }
+  }
+
+  async function deleteBankAccount(id: number) {
+    await apiFetch(`/banks/${id}`, { method: "DELETE" });
+    setBanks((prev) => prev.filter((b) => b.id !== id));
   }
 
   function openAddTransfer() {
     setEditTransfer(null);
     setTransferForm(EMPTY_TRANSFER);
     setTransferSaveError(null);
-    setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
+    resetTransferBankDropState();
     setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     setShowTransferModal(true);
   }
 
   function openEditTransfer(t: MoneyTransfer) {
     setEditTransfer(t);
+    // Migrate legacy bank_id → from/to based on direction for old records
+    const legacyFromBank = t.from_bank_id != null ? String(t.from_bank_id) : (t.direction === "sent" && t.bank_id != null ? String(t.bank_id) : "");
+    const legacyToBank = t.to_bank_id != null ? String(t.to_bank_id) : (t.direction === "received" && t.bank_id != null ? String(t.bank_id) : "");
     setTransferForm({
       name: t.name ?? "",
       date: t.date,
@@ -809,12 +979,14 @@ export default function PaymentsAndExpensesPage() {
       person: t.person,
       platform: t.platform ?? "",
       bank_id: t.bank_id != null ? String(t.bank_id) : "",
+      from_bank_id: legacyFromBank,
+      to_bank_id: legacyToBank,
       category_id: t.category_id != null ? String(t.category_id) : "",
       amount: String(t.amount),
       notes: t.notes ?? "",
     });
     setTransferSaveError(null);
-    setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
+    resetTransferBankDropState();
     setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     setShowTransferModal(true);
   }
@@ -827,6 +999,8 @@ export default function PaymentsAndExpensesPage() {
       person: transferForm.person.trim(),
       platform: transferForm.platform.trim() || null,
       bank_id: transferForm.bank_id ? parseInt(transferForm.bank_id) : null,
+      from_bank_id: transferForm.from_bank_id ? parseInt(transferForm.from_bank_id) : null,
+      to_bank_id: transferForm.to_bank_id ? parseInt(transferForm.to_bank_id) : null,
       category_id: transferForm.category_id ? parseInt(transferForm.category_id) : null,
       amount: parseFloat(transferForm.amount),
       notes: transferForm.notes.trim() || null,
@@ -860,7 +1034,7 @@ export default function PaymentsAndExpensesPage() {
       setShowTransferModal(false);
       setEditTransfer(null);
       setTransferForm(EMPTY_TRANSFER);
-      setAddingBank(false); setNewBankName(""); setBankDropOpen(false);
+      resetTransferBankDropState();
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     } catch (err) {
       setTransferSaveError(err instanceof Error ? err.message : "Failed to save transfer");
@@ -872,6 +1046,7 @@ export default function PaymentsAndExpensesPage() {
     try {
       await persistTransfer();
       setTransferForm((f) => ({ ...EMPTY_TRANSFER, date: f.date, direction: f.direction }));
+      resetTransferBankDropState();
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     } catch (err) {
       setTransferSaveError(err instanceof Error ? err.message : "Failed to save transfer");
@@ -1240,6 +1415,200 @@ export default function PaymentsAndExpensesPage() {
     }
   }
 
+  // ---- Stocks ----
+
+  function openAddStock() {
+    setEditStock(null);
+    setStockForm({ ticker: "", company_name: "", shares: "", buy_price: "", purchased_at: "", notes: "" });
+    setStockSaveError(null);
+    setShowStockModal(true);
+  }
+
+  function openEditStock(s: StockHolding) {
+    setEditStock(s);
+    const activeLots = s.lots.filter((l) => l.sold_price == null);
+    const singleLot = activeLots.length === 1 ? activeLots[0] : null;
+    setStockForm({
+      ticker: s.ticker,
+      company_name: s.company_name ?? "",
+      shares: singleLot ? String(singleLot.shares) : "",
+      buy_price: singleLot ? String(singleLot.buy_price) : "",
+      purchased_at: singleLot?.purchased_at ?? "",
+      notes: s.notes ?? "",
+    });
+    setStockSaveError(null);
+    setShowStockModal(true);
+  }
+
+  async function saveStock(e: React.FormEvent) {
+    e.preventDefault();
+    setStockSaveError(null);
+    try {
+      if (editStock) {
+        const holdingBody = {
+          ticker: stockForm.ticker.trim().toUpperCase(),
+          company_name: stockForm.company_name.trim() || null,
+          notes: stockForm.notes.trim() || null,
+        };
+        let updated: StockHolding = await apiFetch(`/stocks/${editStock.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(holdingBody),
+        });
+        const activeLots = editStock.lots.filter((l) => l.sold_price == null);
+        if (activeLots.length === 1 && (stockForm.shares || stockForm.buy_price)) {
+          const lotBody: Record<string, unknown> = {};
+          if (stockForm.shares) lotBody.shares = parseFloat(stockForm.shares);
+          if (stockForm.buy_price) lotBody.buy_price = parseFloat(stockForm.buy_price);
+          if (stockForm.purchased_at) lotBody.purchased_at = stockForm.purchased_at;
+          updated = await apiFetch(`/stocks/lots/${activeLots[0].id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lotBody),
+          });
+        }
+        setStocks((prev) => prev.map((s) => s.id === editStock.id ? updated : s));
+      } else {
+        const body = {
+          ticker: stockForm.ticker.trim().toUpperCase(),
+          company_name: stockForm.company_name.trim() || null,
+          notes: stockForm.notes.trim() || null,
+          shares: parseFloat(stockForm.shares),
+          buy_price: parseFloat(stockForm.buy_price),
+          purchased_at: stockForm.purchased_at || null,
+        };
+        const created: StockHolding = await apiFetch("/stocks", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        setStocks((prev) => [...prev, created].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      }
+      setShowStockModal(false);
+      setEditStock(null);
+      setStockForm({ ticker: "", company_name: "", shares: "", buy_price: "", purchased_at: "", notes: "" });
+    } catch (err) {
+      setStockSaveError(err instanceof Error ? err.message : "Failed to save stock");
+    }
+  }
+
+  async function refreshStockPrice(id: number) {
+    setRefreshingIds((prev) => new Set(prev).add(id));
+    try {
+      const updated: StockHolding = await apiFetch(`/stocks/${id}/refresh-price`, { method: "POST" });
+      setStocks((prev) => prev.map((s) => s.id === id ? updated : s));
+    } finally {
+      setRefreshingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  }
+
+  async function refreshAllPrices() {
+    if (stocks.length === 0) return;
+    setRefreshingAll(true);
+    try {
+      const updated = await Promise.allSettled(
+        stocks.map((s) => apiFetch(`/stocks/${s.id}/refresh-price`, { method: "POST" }) as Promise<StockHolding>)
+      );
+      setStocks((prev) =>
+        prev.map((s, i) => {
+          const result = updated[i];
+          return result.status === "fulfilled" ? result.value : s;
+        })
+      );
+    } finally {
+      setRefreshingAll(false);
+    }
+  }
+
+  function toggleStockExpand(id: number) {
+    setExpandedStockIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); if (addingLotForId === id) setAddingLotForId(null); }
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function addLot(holdingId: number) {
+    setLotSaveError(null);
+    try {
+      const body = {
+        shares: parseFloat(lotForm.shares),
+        buy_price: parseFloat(lotForm.buy_price),
+        purchased_at: lotForm.purchased_at || null,
+      };
+      const updated: StockHolding = await apiFetch(`/stocks/${holdingId}/lots`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      setStocks((prev) => prev.map((s) => s.id === holdingId ? updated : s));
+      setAddingLotForId(null);
+      setLotForm({ shares: "", buy_price: "", purchased_at: "" });
+    } catch (err) {
+      setLotSaveError(err instanceof Error ? err.message : "Failed to add lot");
+    }
+  }
+
+  async function deleteLot(lot: StockLot) {
+    const updated: StockHolding = await apiFetch(`/stocks/lots/${lot.id}`, { method: "DELETE" });
+    setStocks((prev) => prev.map((s) => s.id === lot.stock_holding_id ? updated : s));
+  }
+
+  async function unsellLot(lot: StockLot) {
+    const updated: StockHolding = await apiFetch(`/stocks/lots/${lot.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sold_price: null, sold_at: null }),
+    });
+    setStocks((prev) => prev.map((s) => s.id === lot.stock_holding_id ? updated : s));
+  }
+
+  async function sellSelectedLots() {
+    if (selectedLotIds.size === 0 || !sellForm.sold_price) return;
+    setSellSaveError(null);
+    try {
+      const updatedHoldings: StockHolding[] = await apiFetch("/stocks/lots/sell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lot_ids: Array.from(selectedLotIds),
+          sold_price: parseFloat(sellForm.sold_price),
+          sold_at: sellForm.sold_at || null,
+        }),
+      });
+      setStocks((prev) => {
+        const map = new Map(updatedHoldings.map((h) => [h.id, h]));
+        return prev.map((s) => map.get(s.id) ?? s);
+      });
+      setSelectedLotIds(new Set());
+      setShowSellModal(false);
+      setSellForm({ sold_price: "", sold_at: "" });
+    } catch (err) {
+      setSellSaveError(err instanceof Error ? err.message : "Failed to record sale");
+    }
+  }
+
+  async function saveDividendModal() {
+    if (!dividendModalHoldingId) return;
+    setDividendModalError(null);
+    try {
+      const body = {
+        paid_at: dividendModalForm.paid_at,
+        dividend_per_share: parseFloat(dividendModalForm.dividend_per_share),
+        shares_held: parseFloat(dividendModalForm.shares_held),
+        reinvested: dividendModalForm.reinvested,
+        notes: dividendModalForm.notes.trim() || null,
+      };
+      const updated: StockHolding = editingDividend
+        ? await apiFetch(`/stocks/dividends/${editingDividend.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        : await apiFetch(`/stocks/${dividendModalHoldingId}/dividends`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      setStocks((prev) => prev.map((s) => s.id === dividendModalHoldingId ? updated : s));
+      setShowDividendModal(false);
+      setEditingDividend(null);
+      setDividendModalForm({ paid_at: "", dividend_per_share: "", shares_held: "", reinvested: false, notes: "" });
+    } catch (err) {
+      setDividendModalError(err instanceof Error ? err.message : "Failed to save dividend");
+    }
+  }
+
+  async function deleteDividend(dividend: StockDividend) {
+    const updated: StockHolding = await apiFetch(`/stocks/dividends/${dividend.id}`, { method: "DELETE" });
+    setStocks((prev) => prev.map((s) => s.id === dividend.stock_holding_id ? updated : s));
+  }
+
   // ---- Credit Card Reminders ----
 
   // ---- Misc ----
@@ -1248,10 +1617,15 @@ export default function PaymentsAndExpensesPage() {
     if (!deleteTarget) return;
     if (deleteTarget.type === "credit_card") await deleteCreditCard(deleteTarget.id);
     else if (deleteTarget.type === "expense") await deleteExpense(deleteTarget.id);
-    else if (deleteTarget.type === "loan") {
+    else if (deleteTarget.type === "stock") {
+      await apiFetch(`/stocks/${deleteTarget.id}`, { method: "DELETE" });
+      setStocks((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+    } else if (deleteTarget.type === "loan") {
       await apiFetch(`/loans/${deleteTarget.id}`, { method: "DELETE" });
       const fresh: Loan[] = await apiFetch("/loans");
       setLoans(fresh ?? []);
+    } else if (deleteTarget.type === "bank") {
+      await deleteBankAccount(deleteTarget.id);
     } else {
       await apiFetch(`/money-transfers/${deleteTarget.id}`, { method: "DELETE" });
       setMoneyTransfers((prev) => prev.filter((t) => t.id !== deleteTarget.id));
@@ -1374,10 +1748,35 @@ export default function PaymentsAndExpensesPage() {
   const summaryNetSpend = summaryGrossSpend - summaryRefunds;
   const summaryPositiveCount = expenses.filter((e) => Number(e.amount) > 0).length;
   const summaryRefundCount = expenses.filter((e) => Number(e.amount) < 0).length;
-  const sentTransfers = moneyTransfers.filter((t) => t.direction === "sent");
-  const receivedTransfers = moneyTransfers.filter((t) => t.direction === "received");
+  // Bank balance: starting_balance + all inflows (to_bank_id) - all outflows (from_bank_id) since starting_balance_as_of
+  function bankCurrentBalance(bank: Bank): number {
+    if (bank.starting_balance == null) return 0;
+    const asOf = bank.starting_balance_as_of ?? "1900-01-01";
+    const base = Number(bank.starting_balance);
+    const inflow = allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+    const outflow = allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+    return base + inflow - outflow;
+  }
+  function bankTotalIn(bank: Bank): number {
+    const asOf = bank.starting_balance_as_of ?? "1900-01-01";
+    return allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+  }
+  function bankTotalOut(bank: Bank): number {
+    const asOf = bank.starting_balance_as_of ?? "1900-01-01";
+    return allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+  }
+  const checkingBanks = banks.filter(b => b.account_type === "checking");
+  const savingsBanks = banks.filter(b => b.account_type === "savings");
+
+  // Internal = both from_bank_id and to_bank_id are set (money stays in your accounts)
+  // External = only one side set (real money in/out)
+  const isInternalTransfer = (t: MoneyTransfer) => t.from_bank_id != null && t.to_bank_id != null;
+  const sentTransfers = moneyTransfers.filter((t) => t.direction === "sent" && !isInternalTransfer(t));
+  const receivedTransfers = moneyTransfers.filter((t) => t.direction === "received" && !isInternalTransfer(t));
+  const internalTransfers = moneyTransfers.filter(isInternalTransfer);
   const summarySent = sentTransfers.reduce((s, t) => s + Number(t.amount), 0);
   const summaryReceived = receivedTransfers.reduce((s, t) => s + Number(t.amount), 0);
+  const summaryInternal = internalTransfers.reduce((s, t) => s + Number(t.amount), 0);
   const summarySentCount = sentTransfers.length;
   const summaryReceivedCount = receivedTransfers.length;
   const summaryGrandTotal = summaryNetSpend + (summarySent - summaryReceived);
@@ -1416,25 +1815,83 @@ export default function PaymentsAndExpensesPage() {
     if (amt > 0) overviewCardTotals.set(e.credit_card_id, (overviewCardTotals.get(e.credit_card_id) ?? 0) + amt);
   }
   const overviewCardGross = Array.from(overviewCardTotals.values()).reduce((s, v) => s + v, 0);
-  const overviewCardNameData = new Map<string, { total: number; rawColor: string | null }>();
+  const overviewCardNameData = new Map<string, { total: number; rawColor: string | null; ids: (number | null)[] }>();
   for (const [id, total] of overviewCardTotals.entries()) {
     const card = creditCards.find((c) => c.id === id);
     const name = card ? `${card.name}${card.last_four ? ` ····${card.last_four}` : ""}` : "No card";
     const existing = overviewCardNameData.get(name);
     if (existing) {
       existing.total += total;
+      existing.ids.push(id);
     } else {
-      overviewCardNameData.set(name, { total, rawColor: card?.color ?? null });
+      overviewCardNameData.set(name, { total, rawColor: card?.color ?? null, ids: [id] });
     }
   }
   const overviewCardBreakdown = Array.from(overviewCardNameData.entries())
-    .map(([name, { total, rawColor }], i) => ({
+    .map(([name, { total, rawColor, ids }], i) => ({
       name,
       total,
+      ids,
       pct: overviewCardGross > 0 ? (total / overviewCardGross) * 100 : 0,
       color: resolveCardColor(rawColor, i),
     }))
     .sort((a, b) => b.total - a.total);
+
+  const activeStockHoldings = stocks.filter((s) => Number(s.shares) > 0);
+  const portfolioTotalValue = activeStockHoldings.reduce((sum, s) => sum + Number(s.shares) * Number(s.current_price), 0);
+  const portfolioTotalCost = activeStockHoldings.reduce((sum, s) => sum + Number(s.shares) * Number(s.buy_price), 0);
+  const portfolioUnrealized = portfolioTotalValue - portfolioTotalCost;
+  const portfolioRealized = stocks.reduce((sum, s) => sum + Number(s.realized_gain), 0);
+  const portfolioTotalDividends = stocks.reduce((sum, s) => sum + Number(s.total_dividends), 0);
+  const portfolioDividendsCurrentYear = new Date().getFullYear();
+  const portfolioDividendsThisYear = stocks.flatMap((s) => s.dividends)
+    .filter((d) => new Date(d.paid_at).getFullYear() === portfolioDividendsCurrentYear)
+    .reduce((sum, d) => sum + Number(d.total_received), 0);
+  const portfolioDividendsBeforeThisYear = portfolioTotalDividends - portfolioDividendsThisYear;
+  const portfolioAllocationData = activeStockHoldings.map((s) => ({
+    name: s.ticker,
+    value: +(Number(s.shares) * Number(s.current_price)).toFixed(2),
+  }));
+  const _gainValues = activeStockHoldings.map((s) => +(Number(s.shares) * Number(s.current_price) - Number(s.shares) * Number(s.buy_price)).toFixed(2));
+  const totalPositiveGain = _gainValues.filter((g) => g > 0).reduce((s, g) => s + g, 0);
+  const totalAbsLoss = _gainValues.filter((g) => g < 0).reduce((s, g) => s + Math.abs(g), 0);
+  const portfolioGainLossData = activeStockHoldings
+    .map((s) => {
+      const gain = +(Number(s.shares) * Number(s.current_price) - Number(s.shares) * Number(s.buy_price)).toFixed(2);
+      const cost = Number(s.shares) * Number(s.buy_price);
+      const returnPct = +(cost > 0 ? (gain / cost) * 100 : 0).toFixed(1);
+      const base = gain >= 0 ? totalPositiveGain : totalAbsLoss;
+      const sharePct = +(base > 0 ? (Math.abs(gain) / base) * 100 : 0).toFixed(0);
+      return { name: s.ticker, gain, returnPct, sharePct };
+    })
+    .sort((a, b) => b.gain - a.gain);
+  const portfolioDividendData = stocks
+    .filter((s) => Number(s.total_dividends) > 0)
+    .map((s) => {
+      const dividends = +Number(s.total_dividends).toFixed(2);
+      const pct = +(portfolioTotalDividends > 0 ? (dividends / portfolioTotalDividends) * 100 : 0).toFixed(0);
+      return { name: s.ticker, dividends, pct };
+    })
+    .sort((a, b) => b.dividends - a.dividends);
+  const portfolioCostVsValueData = activeStockHoldings.map((s) => ({
+    name: s.ticker,
+    cost: +(Number(s.shares) * Number(s.buy_price)).toFixed(2),
+    value: +(Number(s.shares) * Number(s.current_price)).toFixed(2),
+  }));
+  const dividendByMonth = new Map<string, number>();
+  for (const holding of stocks) {
+    for (const div of holding.dividends) {
+      const month = div.paid_at.substring(0, 7);
+      dividendByMonth.set(month, (dividendByMonth.get(month) ?? 0) + Number(div.total_received));
+    }
+  }
+  const portfolioDividendTimeline = Array.from(dividendByMonth.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, total]) => ({
+      label: new Date(month + "-15").toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      total: +total.toFixed(2),
+    }));
+  const portfolioSlideCount = activeStockHoldings.length === 0 ? 0 : portfolioDividendTimeline.length > 0 ? 4 : 3;
 
   const monthCatIds = new Set(expenses.map((e) => e.category_id));
   const pillCats = [
@@ -1471,7 +1928,7 @@ export default function PaymentsAndExpensesPage() {
           <button
             onClick={() => document.dispatchEvent(new CustomEvent("open-global-search"))}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-            aria-label="Search transactions"
+            aria-label="Search"
           >
             <Search size={16} />
           </button>
@@ -1480,7 +1937,7 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
-        {(["overview", "expenses", "transfers", "loans"] as const).map((tab) => (
+        {(["overview", "expenses", "transfers", "loans", "stocks"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1535,6 +1992,7 @@ export default function PaymentsAndExpensesPage() {
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
               {summarySentCount > 0 && <span><span className="text-rose-500">{summarySentCount} out</span> · −{formatAmount(summarySent)}</span>}
               {summaryReceivedCount > 0 && <span><span className="text-emerald-600">{summaryReceivedCount} in</span> · +{formatAmount(summaryReceived)}</span>}
+              {internalTransfers.length > 0 && <span><span className="text-slate-500">{internalTransfers.length} internal</span> · {formatAmount(summaryInternal)}</span>}
             </div>
           </div>
 
@@ -1549,6 +2007,55 @@ export default function PaymentsAndExpensesPage() {
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
               <span className="text-amber-500">{formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))} interest</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portfolio Summary Cards */}
+      {activeTab === "overview" && stocks.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <BarChart2 size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Portfolio</p>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(portfolioTotalValue)}</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">{activeStockHoldings.length} holding{activeStockHoldings.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingUp size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Unrealized</p>
+            </div>
+            <p className={`text-2xl font-bold leading-none ${portfolioUnrealized >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+              {portfolioUnrealized >= 0 ? "+" : ""}{formatAmount(portfolioUnrealized)}
+            </p>
+            {portfolioTotalCost > 0 && (
+              <p className={`text-[11px] mt-1.5 ${portfolioUnrealized >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
+                {portfolioUnrealized >= 0 ? "+" : ""}{((portfolioUnrealized / portfolioTotalCost) * 100).toFixed(1)}% return
+              </p>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <DollarSign size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Realized</p>
+            </div>
+            <p className={`text-2xl font-bold leading-none ${portfolioRealized >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+              {portfolioRealized >= 0 ? "+" : ""}{formatAmount(portfolioRealized)}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1.5">from sold lots</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <DollarSign size={13} className="text-indigo-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dividends</p>
+            </div>
+            <p className="text-2xl font-bold text-indigo-600 leading-none">{formatAmount(portfolioDividendsThisYear)}</p>
+            <p className="text-[11px] text-slate-300 mt-1">{formatAmount(portfolioTotalDividends)} total</p>
+            {portfolioDividendsBeforeThisYear > 0 && (
+              <p className="text-[11px] text-slate-300">{formatAmount(portfolioDividendsBeforeThisYear)} before {portfolioDividendsCurrentYear}</p>
+            )}
           </div>
         </div>
       )}
@@ -1634,7 +2141,11 @@ export default function PaymentsAndExpensesPage() {
                     g.items.push(e);
                     g.total += e.amount;
                   }
-                  const merchantGroups = [...merchantMap.values()].sort((a, b) => b.total - a.total);
+                  const merchantGroups = [...merchantMap.values()].sort((a, b) => {
+                    const aLatest = a.items.reduce((max, i) => i.date > max ? i.date : max, "");
+                    const bLatest = b.items.reduce((max, i) => i.date > max ? i.date : max, "");
+                    return bLatest.localeCompare(aLatest);
+                  });
                   return (
                     <div key={cat.name}>
                       <div
@@ -1681,7 +2192,7 @@ export default function PaymentsAndExpensesPage() {
                                 </button>
                                 {isGroupExpanded && (
                                   <div className="flex flex-col gap-0.5 mt-0.5">
-                                    {group.items.map((e) => (
+                                    {group.items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => (
                                       <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-white border border-slate-100 rounded-md px-3 py-1.5">
                                         <span />
                                         <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
@@ -1721,19 +2232,88 @@ export default function PaymentsAndExpensesPage() {
                 <CreditCardIcon size={14} className="text-slate-400" />
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spend by Credit Card</h3>
               </div>
-              <div className="flex flex-col gap-3">
-                {(showAllCards ? overviewCardBreakdown : overviewCardBreakdown.slice(0, TOP_N)).map((card) => (
-                  <div key={card.name} className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
+              <div className="flex flex-col gap-2">
+                {(showAllCards ? overviewCardBreakdown : overviewCardBreakdown.slice(0, TOP_N)).map((card) => {
+                  const cardItems = expenses
+                    .filter((e) => card.ids.includes(e.credit_card_id) && Number(e.amount) > 0)
+                    .map((e) => ({ id: e.id, name: e.name, date: e.date, amount: Number(e.amount) }));
+                  const isExpanded = expandedOverviewCards.has(card.name);
+                  const merchantMap = new Map<string, { displayName: string; items: typeof cardItems; total: number }>();
+                  for (const e of cardItems) {
+                    const key = e.name.toLowerCase().trim();
+                    if (!merchantMap.has(key)) merchantMap.set(key, { displayName: e.name, items: [], total: 0 });
+                    const g = merchantMap.get(key)!;
+                    g.items.push(e);
+                    g.total += e.amount;
+                  }
+                  const merchantGroups = [...merchantMap.values()].sort((a, b) => {
+                    const aLatest = a.items.reduce((max, i) => i.date > max ? i.date : max, "");
+                    const bLatest = b.items.reduce((max, i) => i.date > max ? i.date : max, "");
+                    return bLatest.localeCompare(aLatest);
+                  });
+                  return (
+                    <div key={card.name}>
+                      <div
+                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-slate-50 transition-colors"
+                        onClick={() => setExpandedOverviewCards((prev) => { const n = new Set(prev); n.has(card.name) ? n.delete(card.name) : n.add(card.name); return n; })}
+                      >
+                        <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
+                          <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
+                          <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
+                        </div>
+                        <ChevronDown size={12} className={`shrink-0 text-slate-300 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+                      </div>
+                      {isExpanded && merchantGroups.length > 0 && (
+                        <div className="mt-1.5 mb-1 flex flex-col gap-0.5">
+                          {merchantGroups.map((group) => {
+                            const mKey = `${card.name}:${group.displayName.toLowerCase()}`;
+                            const isGroupExpanded = expandedOverviewCardMerchants.has(mKey);
+                            if (group.items.length === 1) {
+                              const e = group.items[0];
+                              return (
+                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 rounded-lg px-3 py-2">
+                                  <span className="text-slate-700 font-medium truncate pr-2">{e.name}</span>
+                                  <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
+                                  <span className="font-semibold text-right text-rose-500">−{formatAmount(e.amount)}</span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={mKey}>
+                                <button
+                                  onClick={() => setExpandedOverviewCardMerchants((prev) => { const n = new Set(prev); n.has(mKey) ? n.delete(mKey) : n.add(mKey); return n; })}
+                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-2 transition-colors"
+                                >
+                                  <span className="font-medium text-slate-700 text-left truncate pr-2">
+                                    {group.displayName}
+                                    <span className="text-slate-400 ml-1.5">×{group.items.length}</span>
+                                  </span>
+                                  <span />
+                                  <span className="font-semibold text-right text-rose-500">−{formatAmount(group.total)}</span>
+                                </button>
+                                {isGroupExpanded && (
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    {group.items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => (
+                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-white border border-slate-100 rounded-md px-3 py-1.5">
+                                        <span />
+                                        <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
+                                        <span className="font-medium text-right text-rose-500">−{formatAmount(e.amount)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
-                      <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
-                      <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {overviewCardBreakdown.length > TOP_N && (
                 <button
@@ -1745,6 +2325,144 @@ export default function PaymentsAndExpensesPage() {
                 </button>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Stock Portfolio Overview */}
+      {stocks.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={14} className="text-slate-400" />
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Portfolio Overview</h3>
+            </div>
+            {portfolioSlideCount > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-slate-400 mr-1">{portfolioSlide + 1} / {portfolioSlideCount}</span>
+                <button
+                  onClick={() => setPortfolioSlide((s) => (s - 1 + portfolioSlideCount) % portfolioSlideCount)}
+                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setPortfolioSlide((s) => (s + 1) % portfolioSlideCount)}
+                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Slideshow */}
+          {activeStockHoldings.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
+                {(["Allocation", "Unrealized Gain / Loss", "Cost Basis vs. Market Value", "Dividend Income Timeline"] as const)[portfolioSlide]}
+              </p>
+
+              {/* Slide 0: Allocation donut */}
+              {portfolioSlide === 0 && (
+                <ResponsiveContainer width="100%" height={340}>
+                  <PieChart>
+                    <Pie
+                      data={portfolioAllocationData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={75}
+                      outerRadius={150}
+                      dataKey="value"
+                      stroke="none"
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+                        if (percent < 0.05) return null;
+                        const RADIAN = Math.PI / 180;
+                        const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+                        const x = cx + r * Math.cos(-midAngle * RADIAN);
+                        const y = cy + r * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <g>
+                            <text x={x} y={y - 7} fill="white" textAnchor="middle" fontSize={13} fontWeight={700}>{name}</text>
+                            <text x={x} y={y + 9} fill="white" textAnchor="middle" fontSize={11}>{(percent * 100).toFixed(0)}%</text>
+                          </g>
+                        );
+                      }}
+                      labelLine={false}
+                    >
+                      {portfolioAllocationData.map((_, i) => (
+                        <Cell key={i} fill={PORTFOLIO_COLORS[i % PORTFOLIO_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v) => formatAmount(Number(v))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+
+              {/* Slide 1: Unrealized Gain / Loss progress bars */}
+              {portfolioSlide === 1 && (
+                <div className="flex flex-col gap-2">
+                  {portfolioGainLossData.map((d) => (
+                    <div key={d.name} className="flex items-center gap-3 rounded-lg -mx-2 px-2 py-1">
+                      <span className="text-sm font-medium text-slate-700 w-16 shrink-0 truncate">{d.name}</span>
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${d.sharePct}%`, backgroundColor: d.gain >= 0 ? "#10b981" : "#f43f5e" }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 w-36 justify-end">
+                        <span className={`text-xs font-medium ${d.gain >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
+                          {d.sharePct}%
+                        </span>
+                        <span className={`text-sm font-semibold ${d.gain >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                          {d.gain >= 0 ? "+" : ""}{formatAmount(d.gain)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Slide 2: Cost Basis vs. Market Value grouped bar */}
+              {portfolioSlide === 2 && (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={portfolioCostVsValueData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={48} />
+                      <Tooltip formatter={(v) => formatAmount(Number(v))} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                      <Bar dataKey="cost" name="Cost Basis" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="value" name="Market Value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-4 mt-3">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <div className="w-3 h-3 rounded-sm bg-slate-400" />
+                      Cost Basis
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <div className="w-3 h-3 rounded-sm bg-indigo-500" />
+                      Market Value
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Slide 3: Dividend Income Timeline */}
+              {portfolioSlide === 3 && portfolioDividendTimeline.length > 0 && (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={portfolioDividendTimeline} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={48} />
+                    <Tooltip formatter={(v) => [formatAmount(Number(v)), "Dividends"]} contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                    <Bar dataKey="total" name="Dividends" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </>
           )}
         </div>
       )}
@@ -2074,6 +2792,132 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Transfers Tab */}
       {activeTab === "transfers" && <>
+
+      {/* Checking Accounts */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+            <Landmark size={16} className="text-blue-500" />
+            Checking Accounts
+          </div>
+          <button onClick={() => openAddBankAccount("checking")} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded-md transition-colors" aria-label="Add checking account">
+            <Plus size={18} />
+          </button>
+        </div>
+        {checkingBanks.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-400">
+            No checking accounts yet. <button onClick={() => openAddBankAccount("checking")} className="text-blue-500 hover:underline">Add one</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {checkingBanks.map((bank) => {
+              const balance = bankCurrentBalance(bank);
+              const totalIn = bankTotalIn(bank);
+              const totalOut = bankTotalOut(bank);
+              return (
+                <div key={bank.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{bank.name}</p>
+                      {bank.starting_balance_as_of && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">Starting {formatDate(bank.starting_balance_as_of)}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEditBankAccount(bank)} className="p-1 text-slate-300 hover:text-blue-500 transition-colors rounded"><Pencil size={13} /></button>
+                      <button onClick={() => setDeleteTarget({ type: "bank", id: bank.id })} className="p-1 text-slate-300 hover:text-red-400 transition-colors rounded"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {bank.starting_balance != null && (
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>Starting balance</span>
+                        <span className="font-medium">{formatAmount(Number(bank.starting_balance))}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-emerald-600">
+                      <span>+ Money in</span>
+                      <span className="font-medium">{formatAmount(totalIn)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-rose-500">
+                      <span>− Money out</span>
+                      <span className="font-medium">{formatAmount(totalOut)}</span>
+                    </div>
+                    <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
+                      <span className="font-semibold text-slate-700">Current balance</span>
+                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Savings Accounts */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+            <PiggyBank size={16} className="text-emerald-500" />
+            Savings Accounts
+          </div>
+          <button onClick={() => openAddBankAccount("savings")} className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1 rounded-md transition-colors" aria-label="Add savings account">
+            <Plus size={18} />
+          </button>
+        </div>
+        {savingsBanks.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-400">
+            No savings accounts yet. <button onClick={() => openAddBankAccount("savings")} className="text-emerald-500 hover:underline">Add one</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {savingsBanks.map((bank) => {
+              const balance = bankCurrentBalance(bank);
+              const totalIn = bankTotalIn(bank);
+              const totalOut = bankTotalOut(bank);
+              return (
+                <div key={bank.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{bank.name}</p>
+                      {bank.starting_balance_as_of && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">Starting {formatDate(bank.starting_balance_as_of)}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEditBankAccount(bank)} className="p-1 text-slate-300 hover:text-emerald-500 transition-colors rounded"><Pencil size={13} /></button>
+                      <button onClick={() => setDeleteTarget({ type: "bank", id: bank.id })} className="p-1 text-slate-300 hover:text-red-400 transition-colors rounded"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {bank.starting_balance != null && (
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>Starting balance</span>
+                        <span className="font-medium">{formatAmount(Number(bank.starting_balance))}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-emerald-600">
+                      <span>+ Money in</span>
+                      <span className="font-medium">{formatAmount(totalIn)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-rose-500">
+                      <span>− Money out</span>
+                      <span className="font-medium">{formatAmount(totalOut)}</span>
+                    </div>
+                    <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
+                      <span className="font-semibold text-slate-700">Current balance</span>
+                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Transfer list */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
@@ -2153,25 +2997,32 @@ export default function PaymentsAndExpensesPage() {
                   {group.items.map((t) => {
                     const isSent = t.direction === "sent";
                     const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
+                    const isHighlighted = highlightId === t.id && highlightKind === "transfer";
+                    const fromBankName = t.from_bank_id != null ? banks.find(b => b.id === t.from_bank_id)?.name : null;
+                    const toBankName = t.to_bank_id != null ? banks.find(b => b.id === t.to_bank_id)?.name : null;
+                    const isInternal = isInternalTransfer(t);
                     return (
-                      <div key={t.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
-                          {isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
+                      <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-slate-100" : isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                          {isInternal ? <ArrowLeftRight size={13} className="text-slate-500" /> : isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium text-slate-800">
-                            {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                            {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                           </span>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {isInternal && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
                             {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
-                            {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
-                            {t.person && t.name && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
+                            {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
+                            {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
+                            {!fromBankName && !toBankName && t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                            {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                             {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-sm font-bold tabular-nums ${isSent ? "text-rose-600" : "text-emerald-600"}`}>
-                            {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
+                          <span className={`text-sm font-bold tabular-nums ${isInternal ? "text-slate-500" : isSent ? "text-rose-600" : "text-emerald-600"}`}>
+                            {isInternal ? "" : isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
                           </span>
                           <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
                         </div>
@@ -2186,26 +3037,33 @@ export default function PaymentsAndExpensesPage() {
               {sortedTransfers.map((t) => {
                 const isSent = t.direction === "sent";
                 const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
+                const isHighlighted = highlightId === t.id && highlightKind === "transfer";
+                const fromBankName = t.from_bank_id != null ? banks.find(b => b.id === t.from_bank_id)?.name : null;
+                const toBankName = t.to_bank_id != null ? banks.find(b => b.id === t.to_bank_id)?.name : null;
+                const isInternal = isInternalTransfer(t);
                 return (
-                  <div key={t.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSent ? "bg-red-50" : "bg-emerald-50"}`}>
-                      {isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
+                  <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-slate-100" : isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                      {isInternal ? <ArrowLeftRight size={13} className="text-slate-500" /> : isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-slate-800">
-                        {t.name || (isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                        {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                       </span>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(t.date)}</span>
+                        {isInternal && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
                         {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
-                        {t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
-                        {t.person && t.name && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
+                        {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
+                        {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
+                        {!fromBankName && !toBankName && t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                        {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                         {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-sm font-bold tabular-nums ${isSent ? "text-rose-600" : "text-emerald-600"}`}>
-                        {isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
+                      <span className={`text-sm font-bold tabular-nums ${isInternal ? "text-slate-500" : isSent ? "text-rose-600" : "text-emerald-600"}`}>
+                        {isInternal ? "" : isSent ? "−" : "+"}{formatAmount(Number(t.amount))}
                       </span>
                       <RowMenu onEdit={() => openEditTransfer(t)} onDelete={() => setDeleteTarget({ type: "transfer", id: t.id })} />
                     </div>
@@ -2341,6 +3199,663 @@ export default function PaymentsAndExpensesPage() {
           </div>
       </section>
       </>}
+
+      {/* Stocks Tab */}
+      {activeTab === "stocks" && (() => {
+        const totalInvested = stocks.reduce((s, h) => s + Number(h.shares) * Number(h.buy_price), 0);
+        const currentValue = stocks.reduce((s, h) => s + Number(h.shares) * Number(h.current_price), 0);
+        const unrealizedGain = currentValue - totalInvested;
+        const unrealizedGainPct = totalInvested > 0 ? (unrealizedGain / totalInvested) * 100 : 0;
+        const totalRealizedGain = stocks.reduce((s, h) => s + Number(h.realized_gain), 0);
+        const totalDividends = stocks.reduce((s, h) => s + Number(h.total_dividends), 0);
+        const totalReturn = unrealizedGain + totalRealizedGain + totalDividends;
+        return (
+          <>
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {/* Card 1: Portfolio */}
+              <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Wallet size={13} className="text-indigo-400" />
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Portfolio</p>
+                </div>
+                <p className="text-3xl font-bold text-slate-900 leading-none">{formatAmount(currentValue)}</p>
+                <p className="text-[11px] text-slate-400 mt-1">current value</p>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Invested</p>
+                    <p className="text-sm font-bold text-slate-700 mt-0.5">{formatAmount(totalInvested)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Holdings</p>
+                    <p className="text-sm font-bold text-slate-700 mt-0.5">{stocks.filter((h) => Number(h.shares) > 0).length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Total Return */}
+              <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  {totalReturn >= 0 ? <TrendingUp size={13} className="text-emerald-500" /> : <TrendingDown size={13} className="text-rose-500" />}
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total Return</p>
+                </div>
+                <p className={`text-3xl font-bold leading-none ${totalReturn >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                  {totalReturn >= 0 ? "+" : ""}{formatAmount(totalReturn)}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">unrealized + realized + dividends</p>
+                <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Unrealized</p>
+                    <p className={`text-sm font-bold mt-0.5 ${unrealizedGain >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {unrealizedGain >= 0 ? "+" : ""}{formatAmount(unrealizedGain)}
+                    </p>
+                    <p className={`text-[10px] ${unrealizedGain >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{unrealizedGain >= 0 ? "+" : ""}{unrealizedGainPct.toFixed(2)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Realized</p>
+                    <p className={`text-sm font-bold mt-0.5 ${totalRealizedGain >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {totalRealizedGain >= 0 ? "+" : ""}{formatAmount(totalRealizedGain)}
+                    </p>
+                    <p className="text-[10px] text-slate-400">from sold</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Dividends</p>
+                    <p className="text-sm font-bold text-amber-600 mt-0.5">{formatAmount(totalDividends)}</p>
+                    <p className="text-[10px] text-slate-400">{stocks.reduce((n, h) => n + h.dividends.length, 0)} payments</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Dividend Income */}
+              {(() => {
+                const allDividends = stocks.flatMap((h) => h.dividends);
+                const currentYear = new Date().getFullYear();
+                const thisYearTotal = allDividends
+                  .filter((d) => new Date(d.paid_at).getFullYear() === currentYear)
+                  .reduce((s, d) => s + Number(d.total_received), 0);
+                const beforeThisYear = totalDividends - thisYearTotal;
+                const cashTotal = allDividends.filter((d) => !d.reinvested).reduce((s, d) => s + Number(d.total_received), 0);
+                const drip = allDividends.filter((d) => d.reinvested).reduce((s, d) => s + Number(d.total_received), 0);
+                const topEarner = stocks
+                  .filter((h) => h.dividends.length > 0)
+                  .map((h) => ({ ticker: h.ticker, total: h.dividends.reduce((s, d) => s + Number(d.total_received), 0) }))
+                  .sort((a, b) => b.total - a.total)[0] ?? null;
+                return (
+                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Zap size={13} className="text-amber-400" />
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dividend Income</p>
+                  </div>
+                  <p className="text-3xl font-bold text-amber-600 leading-none">{formatAmount(thisYearTotal)}</p>
+                  <p className="text-[11px] text-slate-300 mt-1">
+                    {formatAmount(totalDividends)} total
+                  </p>
+                  {beforeThisYear > 0 && (
+                    <p className="text-[11px] text-slate-300">
+                      {formatAmount(beforeThisYear)} before {currentYear}
+                    </p>
+                  )}
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Top Earner</p>
+                      {topEarner ? (
+                        <>
+                          <p className="text-sm font-bold text-slate-700 mt-0.5">{topEarner.ticker}</p>
+                          <p className="text-[10px] text-amber-600 font-semibold">{formatAmount(topEarner.total)}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-300 mt-0.5">—</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Cash vs DRIP</p>
+                      <p className="text-sm font-bold text-slate-700 mt-0.5">{formatAmount(cashTotal)}</p>
+                      <p className="text-[10px] text-emerald-600 font-semibold">{formatAmount(drip)} reinvested</p>
+                    </div>
+                  </div>
+                </div>
+                );
+              })()}
+            </div>
+
+            {/* Holdings table */}
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  <BarChart2 size={16} className="text-indigo-500" />
+                  Holdings
+                  <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
+                    {stocks.length} position{stocks.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {stocks.length > 0 && (
+                    <button
+                      onClick={refreshAllPrices}
+                      disabled={refreshingAll}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <RefreshCw size={14} className={refreshingAll ? "animate-spin" : ""} />
+                      Refresh All
+                    </button>
+                  )}
+                  <button
+                    onClick={openAddStock}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                  >
+                    <Plus size={14} /> Add Stock
+                  </button>
+                </div>
+              </div>
+
+              {stocks.length === 0 ? (
+                <div className="text-center py-16 text-slate-400 text-sm">
+                  No holdings yet. Add your first stock to get started.
+                </div>
+              ) : (() => {
+                const filterQ = stockFilter.trim().toLowerCase();
+                const matches = (h: StockHolding) =>
+                  !filterQ ||
+                  h.ticker.toLowerCase().includes(filterQ) ||
+                  (h.company_name ?? "").toLowerCase().includes(filterQ);
+                const sortHoldings = (list: StockHolding[]) => {
+                  if (!stockSortCol) return list;
+                  return [...list].sort((a, b) => {
+                    let av: number | string, bv: number | string;
+                    const aVal = Number(a.shares) * Number(a.current_price);
+                    const bVal = Number(b.shares) * Number(b.current_price);
+                    switch (stockSortCol) {
+                      case "ticker":     av = a.ticker; bv = b.ticker; break;
+                      case "shares":     av = Number(a.shares); bv = Number(b.shares); break;
+                      case "buy_price":  av = Number(a.buy_price); bv = Number(b.buy_price); break;
+                      case "cur_price":  av = Number(a.current_price); bv = Number(b.current_price); break;
+                      case "invested":   av = Number(a.shares) * Number(a.buy_price); bv = Number(b.shares) * Number(b.buy_price); break;
+                      case "value":      av = aVal; bv = bVal; break;
+                      case "gain":       av = aVal - Number(a.shares) * Number(a.buy_price); bv = bVal - Number(b.shares) * Number(b.buy_price); break;
+                      case "alloc":      av = aVal; bv = bVal; break;
+                      default:           return 0;
+                    }
+                    const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+                    return stockSortDir === "asc" ? cmp : -cmp;
+                  });
+                };
+                const toggleSort = (col: string) => {
+                  if (stockSortCol === col) setStockSortDir((d) => d === "asc" ? "desc" : "asc");
+                  else { setStockSortCol(col); setStockSortDir("asc"); }
+                };
+                const SortTh = ({ col, children, className }: { col: string; children: React.ReactNode; className?: string }) => (
+                  <th
+                    onClick={() => toggleSort(col)}
+                    className={`cursor-pointer select-none px-5 py-3 hover:bg-slate-100 transition-colors ${className ?? "text-right"}`}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      {children}
+                      {stockSortCol === col
+                        ? stockSortDir === "asc"
+                          ? <ChevronRight size={11} className="rotate-90 text-indigo-500" />
+                          : <ChevronRight size={11} className="-rotate-90 text-indigo-500" />
+                        : <ChevronRight size={11} className="rotate-90 opacity-20" />}
+                    </span>
+                  </th>
+                );
+                const activeHoldings = sortHoldings(stocks.filter((h) => Number(h.shares) > 0 && matches(h)));
+                const soldHoldings = stocks.filter((h) => h.lots.some((l) => l.sold_price != null) && matches(h));
+                const netRealizedGain = soldHoldings.reduce((s, h) => s + Number(h.realized_gain), 0);
+                const netSoldCost = soldHoldings.reduce((s, h) => s + h.lots.filter((l) => l.sold_price != null).reduce((a, l) => a + Number(l.shares) * Number(l.buy_price), 0), 0);
+                return (
+                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="w-8" />
+                        <th className="text-right px-2 py-3 text-slate-300 font-medium w-6">#</th>
+                        <SortTh col="ticker" className="text-left px-5 py-3">Ticker</SortTh>
+                        <SortTh col="shares">Shares</SortTh>
+                        <SortTh col="buy_price">Avg Buy Price</SortTh>
+                        <SortTh col="cur_price">Current Price</SortTh>
+                        <SortTh col="invested">Invested Value</SortTh>
+                        <SortTh col="value">Current Value</SortTh>
+                        <SortTh col="gain">Gain / Loss</SortTh>
+                        <SortTh col="alloc">Allocation</SortTh>
+                        <th className="w-16" />
+                      </tr>
+                    </thead>
+                    {(activeHoldings.length === 0 && soldHoldings.length === 0) ? (
+                      <tbody><tr><td colSpan={11} className="text-center py-10 text-slate-400 text-xs">No holdings match your filter.</td></tr></tbody>
+                    ) : null}
+                    {activeHoldings.map((h, idx) => {
+                        const isExpanded = expandedStockIds.has(h.id);
+                        const costBasis = Number(h.shares) * Number(h.buy_price);
+                        const value = Number(h.shares) * Number(h.current_price);
+                        const gain = value - costBasis;
+                        const gainPct = costBasis > 0 ? (gain / costBasis) * 100 : 0;
+                        const isUp = gain >= 0;
+                        const allocPct = currentValue > 0 ? (value / currentValue) * 100 : 0;
+                        return (
+                          <tbody key={h.id} className="divide-y divide-slate-100">
+                            <tr id={`stock-row-${h.id}`} className={`group hover:bg-slate-50 transition-colors${highlightId === h.id && highlightKind === "stock" ? " highlight-row" : ""}`}>
+                              <td className="pl-3 py-3">
+                                <button
+                                  onClick={() => toggleStockExpand(h.id)}
+                                  className="p-0.5 text-slate-300 hover:text-slate-600 transition-colors"
+                                >
+                                  <ChevronRight size={14} className={`transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
+                                </button>
+                              </td>
+                              <td className="px-2 py-3 text-right text-[11px] text-slate-300 font-medium tabular-nums">{idx + 1}</td>
+                              <td className="px-5 py-3">
+                                <div className="font-bold text-slate-900">{h.ticker}</div>
+                                {h.company_name && <div className="text-xs text-slate-400 mt-0.5">{h.company_name}</div>}
+                                {h.lots.length > 1 && <div className="text-[10px] text-indigo-400 mt-0.5">{h.lots.length} lots</div>}
+                              </td>
+                              <td className="px-5 py-3 text-right text-slate-700">{Number(h.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                              <td className="px-5 py-3 text-right text-slate-700">{formatAmount(Number(h.buy_price))}</td>
+                              <td className="px-5 py-3 text-right text-slate-700">{formatAmount(Number(h.current_price))}</td>
+                              <td className="px-5 py-3 text-right text-slate-600">{formatAmount(costBasis)}</td>
+                              <td className="px-5 py-3 text-right font-semibold text-slate-900">{formatAmount(value)}</td>
+                              <td className="px-5 py-3 text-right">
+                                <div className={`font-semibold ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
+                                  {isUp ? "+" : ""}{formatAmount(gain)}
+                                </div>
+                                <div className={`text-xs mt-0.5 ${isUp ? "text-emerald-500" : "text-rose-500"}`}>
+                                  {isUp ? "+" : ""}{gainPct.toFixed(2)}%
+                                </div>
+                              </td>
+                              <td className="px-5 py-3 text-right">
+                                <div className="text-slate-700 font-medium">{allocPct.toFixed(1)}%</div>
+                                <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${Math.min(allocPct, 100)}%` }} />
+                                </div>
+                              </td>
+                              <td className="pr-3 py-3">
+                                <div className="flex items-center justify-end gap-0.5">
+                                  <button
+                                    onClick={() => refreshStockPrice(h.id)}
+                                    disabled={refreshingIds.has(h.id)}
+                                    title="Refresh price"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md disabled:cursor-not-allowed"
+                                  >
+                                    <RefreshCw size={14} className={refreshingIds.has(h.id) ? "animate-spin" : ""} />
+                                  </button>
+                                  <RowMenu
+                                    onEdit={() => openEditStock(h)}
+                                    onDelete={() => setDeleteTarget({ type: "stock", id: h.id })}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && (() => {
+                                      const activeLots = h.lots.filter((l) => l.sold_price == null);
+                                      const selectedInHolding = h.lots.filter((l) => selectedLotIds.has(l.id));
+                                      return (
+                              <tr>
+                                <td colSpan={11} className="pb-3 pt-0 bg-slate-50/40">
+                                  <div className="mx-4 ml-10 border border-slate-100 rounded-xl overflow-hidden">
+                                    <table className="w-full text-xs">
+                                      <colgroup>
+                                        <col className="w-8" />
+                                        <col />
+                                        <col className="w-24" />
+                                        <col className="w-24" />
+                                        <col className="w-24" />
+                                        <col className="w-24" />
+                                        <col className="w-16" />
+                                      </colgroup>
+
+                                      {/* ── LOTS section ── */}
+                                      <tbody>
+                                        <tr className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                          <td className="px-2 py-2 text-center">
+                                            {activeLots.length > 0 && (
+                                              <input
+                                                type="checkbox"
+                                                checked={activeLots.every((l) => selectedLotIds.has(l.id))}
+                                                onChange={(e) => setSelectedLotIds((prev) => {
+                                                  const next = new Set(prev);
+                                                  activeLots.forEach((l) => e.target.checked ? next.add(l.id) : next.delete(l.id));
+                                                  return next;
+                                                })}
+                                                className="accent-indigo-600 cursor-pointer"
+                                              />
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2">
+                                            <span className="flex items-center gap-1.5">
+                                              <BarChart2 size={10} className="text-indigo-400" /> Purchase Date
+                                              <span className="text-indigo-500 font-semibold normal-case tracking-normal ml-1">
+                                                · {h.lots.length} lot{h.lots.length !== 1 ? "s" : ""}
+                                              </span>
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-2 text-right">Shares</td>
+                                          <td className="px-4 py-2 text-right">Buy Price</td>
+                                          <td className="px-4 py-2 text-right">Cost Basis</td>
+                                          <td className="px-4 py-2 text-right">Status</td>
+                                          <td />
+                                        </tr>
+                                      </tbody>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {[...h.lots].sort((a, b) => {
+                                          if (!a.purchased_at && !b.purchased_at) return 0;
+                                          if (!a.purchased_at) return 1;
+                                          if (!b.purchased_at) return -1;
+                                          return b.purchased_at.localeCompare(a.purchased_at);
+                                        }).map((lot) => {
+                                          const isSold = lot.sold_price != null;
+                                          const profit = isSold ? (Number(lot.sold_price) - Number(lot.buy_price)) * Number(lot.shares) : null;
+                                          return (
+                                            <tr key={lot.id} className={`group/lot transition-colors ${isSold ? "opacity-50" : "hover:bg-white"}`}>
+                                              <td className="px-2 py-2 text-center">
+                                                {!isSold && (
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={selectedLotIds.has(lot.id)}
+                                                    onChange={(e) => setSelectedLotIds((prev) => {
+                                                      const next = new Set(prev);
+                                                      e.target.checked ? next.add(lot.id) : next.delete(lot.id);
+                                                      return next;
+                                                    })}
+                                                    className="accent-indigo-600 cursor-pointer"
+                                                  />
+                                                )}
+                                              </td>
+                                              <td className="px-4 py-2 text-slate-500">
+                                                {lot.purchased_at
+                                                  ? new Date(lot.purchased_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                                  : <span className="text-slate-300">—</span>}
+                                              </td>
+                                              <td className="px-4 py-2 text-right text-slate-700">{Number(lot.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                              <td className="px-4 py-2 text-right text-slate-700">{formatAmount(Number(lot.buy_price))}</td>
+                                              <td className="px-4 py-2 text-right text-slate-600">{formatAmount(Number(lot.shares) * Number(lot.buy_price))}</td>
+                                              <td className="px-4 py-2 text-right">
+                                                {isSold ? (
+                                                  <div>
+                                                    <span className="text-slate-400">Sold @ {formatAmount(Number(lot.sold_price))}</span>
+                                                    {profit != null && (
+                                                      <div className={`text-[10px] font-semibold mt-0.5 ${profit >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                                        {profit >= 0 ? "+" : ""}{formatAmount(profit)}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-emerald-500 font-medium">Active</span>
+                                                )}
+                                              </td>
+                                              <td className="pr-2 py-2 text-right">
+                                                <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/lot:opacity-100 transition-opacity">
+                                                  {isSold && (
+                                                    <button onClick={() => unsellLot(lot)} title="Undo sell" className="p-1 text-slate-300 hover:text-indigo-500 rounded">
+                                                      <RotateCcw size={12} />
+                                                    </button>
+                                                  )}
+                                                  {!isSold && activeLots.length > 1 && (
+                                                    <button onClick={() => deleteLot(lot)} className="p-1 text-slate-300 hover:text-red-500 rounded">
+                                                      <Trash2 size={12} />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                      {selectedInHolding.length > 0 && (
+                                        <tbody>
+                                          <tr>
+                                            <td colSpan={7} className="px-4 py-2 bg-indigo-50 border-t border-indigo-100">
+                                              <div className="flex items-center justify-between">
+                                                <span className="text-xs text-indigo-700 font-medium">{selectedInHolding.length} lot{selectedInHolding.length !== 1 ? "s" : ""} selected</span>
+                                                <button onClick={() => { setSellForm({ sold_price: "", sold_at: "" }); setSellSaveError(null); setShowSellModal(true); }} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-md text-xs font-semibold hover:bg-indigo-700 transition-colors">
+                                                  <DollarSign size={11} /> Sell selected
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      )}
+                                      <tbody>
+                                        <tr>
+                                          <td colSpan={7} className="border-t border-slate-100">
+                                            {addingLotForId === h.id ? (
+                                              <div className="p-3 bg-white flex flex-wrap items-end gap-2">
+                                                <div>
+                                                  <label className="block text-[10px] font-medium text-slate-500 mb-1">Shares *</label>
+                                                  <input type="number" step="0.000001" min="0" required value={lotForm.shares} onChange={(e) => setLotForm((f) => ({ ...f, shares: e.target.value }))} placeholder="e.g. 10" className="w-24 border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                </div>
+                                                <div>
+                                                  <label className="block text-[10px] font-medium text-slate-500 mb-1">Buy Price *</label>
+                                                  <input type="number" step="0.0001" min="0" required value={lotForm.buy_price} onChange={(e) => setLotForm((f) => ({ ...f, buy_price: e.target.value }))} placeholder="0.00" className="w-24 border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                </div>
+                                                <div>
+                                                  <label className="block text-[10px] font-medium text-slate-500 mb-1">Date (optional)</label>
+                                                  <input type="date" value={lotForm.purchased_at} onChange={(e) => setLotForm((f) => ({ ...f, purchased_at: e.target.value }))} className="border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                </div>
+                                                {lotSaveError && <p className="w-full text-xs text-red-500">{lotSaveError}</p>}
+                                                <button onClick={() => addLot(h.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors">Add</button>
+                                                <button onClick={() => { setAddingLotForId(null); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 text-xs transition-colors">Cancel</button>
+                                              </div>
+                                            ) : (
+                                              <div className="p-2">
+                                                <button onClick={() => { setAddingLotForId(h.id); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 hover:bg-indigo-50 rounded-md transition-colors">
+                                                  <Plus size={12} /> Add lot
+                                                </button>
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      </tbody>
+
+                                      {/* ── DIVIDENDS section ── */}
+                                      <tbody>
+                                        <tr className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t-2 border-slate-200">
+                                          <td className="px-2 py-2 text-center">
+                                            <Zap size={10} className="text-amber-400 mx-auto" />
+                                          </td>
+                                          <td className="px-4 py-2">
+                                            <span className="flex items-center gap-1.5">
+                                              Pay Date
+                                              {h.dividends.length > 0 && (
+                                                <span className="text-amber-600 font-semibold normal-case tracking-normal ml-1">
+                                                  · {formatAmount(Number(h.total_dividends))} total
+                                                </span>
+                                              )}
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-2 text-right">$/Share</td>
+                                          <td className="px-4 py-2 text-right">Shares Held</td>
+                                          <td className="px-4 py-2 text-right">Total</td>
+                                          <td className="px-4 py-2 text-center">Type</td>
+                                          <td />
+                                        </tr>
+                                      </tbody>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {[...h.dividends].sort((a, b) => b.paid_at.localeCompare(a.paid_at)).map((div) => (
+                                          <tr key={div.id} className="group/div hover:bg-white transition-colors">
+                                            <td className="px-2 py-2" />
+                                            <td className="px-4 py-2 text-slate-500">
+                                              {new Date(div.paid_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                            </td>
+                                            <td className="px-4 py-2 text-right text-slate-700">{formatAmount(Number(div.dividend_per_share))}</td>
+                                            <td className="px-4 py-2 text-right text-slate-700">{Number(div.shares_held).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                            <td className="px-4 py-2 text-right font-semibold text-amber-600">{formatAmount(Number(div.total_received))}</td>
+                                            <td className="px-4 py-2 text-center">
+                                              {div.reinvested
+                                                ? <span className="inline-block px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-medium">DRIP</span>
+                                                : <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px]">Cash</span>}
+                                            </td>
+                                            <td className="pr-2 py-2">
+                                              <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/div:opacity-100 transition-opacity">
+                                                <button onClick={() => { setEditingDividend(div); setDividendModalHoldingId(div.stock_holding_id); setDividendModalForm({ paid_at: div.paid_at, dividend_per_share: String(div.dividend_per_share), shares_held: String(div.shares_held), reinvested: div.reinvested, notes: div.notes ?? "" }); setDividendModalError(null); setShowDividendModal(true); }} className="p-1 text-slate-300 hover:text-indigo-500 rounded">
+                                                  <Pencil size={12} />
+                                                </button>
+                                                <button onClick={() => deleteDividend(div)} className="p-1 text-slate-300 hover:text-red-500 rounded">
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tbody>
+                                        <tr>
+                                          <td colSpan={7} className="border-t border-slate-100 p-2">
+                                            <button onClick={() => { setEditingDividend(null); setDividendModalHoldingId(h.id); setDividendModalForm({ paid_at: "", dividend_per_share: "", shares_held: String(Number(h.shares)), reinvested: false, notes: "" }); setDividendModalError(null); setShowDividendModal(true); }} className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 font-medium px-2 py-1 hover:bg-amber-50 rounded-md transition-colors">
+                                              <Plus size={12} /> Log dividend
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                                      );
+                                    })()}
+                          </tbody>
+                        );
+                      })}
+                    {soldHoldings.length > 0 && (
+                      <>
+                        <tbody>
+                          <tr>
+                            <td colSpan={11} className="px-5 py-2 bg-slate-50 border-t border-b border-slate-200">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Sold</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="text-xs text-slate-400">{formatAmount(netSoldCost)} invested</span>
+                                  <span className={`text-xs font-semibold ${netRealizedGain >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                    {netRealizedGain >= 0 ? "+" : ""}{formatAmount(netRealizedGain)} realized
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                        {soldHoldings.map((h, idx) => {
+                          const isExpanded = expandedStockIds.has(h.id);
+                          const soldLots = h.lots.filter((l) => l.sold_price != null);
+                          const totalSoldShares = soldLots.reduce((s, l) => s + Number(l.shares), 0);
+                          const totalCost = soldLots.reduce((s, l) => s + Number(l.shares) * Number(l.buy_price), 0);
+                          const totalProceeds = soldLots.reduce((s, l) => s + Number(l.shares) * Number(l.sold_price!), 0);
+                          const avgBuyPrice = totalSoldShares > 0 ? totalCost / totalSoldShares : 0;
+                          const avgSellPrice = totalSoldShares > 0 ? totalProceeds / totalSoldShares : 0;
+                          const realizedGain = Number(h.realized_gain);
+                          const gainPct = totalCost > 0 ? (realizedGain / totalCost) * 100 : 0;
+                          const isUp = realizedGain >= 0;
+                          const soldAllocPct = netRealizedGain !== 0 ? (realizedGain / Math.abs(netRealizedGain)) * 100 : 0;
+                          return (
+                            <tbody key={h.id} className="divide-y divide-slate-100">
+                              <tr className="group bg-slate-50/40 hover:bg-slate-50 transition-colors">
+                                <td className="pl-3 py-3">
+                                  <button
+                                    onClick={() => toggleStockExpand(h.id)}
+                                    className="p-0.5 text-slate-300 hover:text-slate-500 transition-colors"
+                                  >
+                                    <ChevronRight size={14} className={`transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
+                                  </button>
+                                </td>
+                                <td className="px-2 py-3 text-right text-[11px] text-slate-300 font-medium tabular-nums">{idx + 1}</td>
+                                <td className="px-5 py-3">
+                                  <div className="font-bold text-slate-500">{h.ticker}</div>
+                                  {h.company_name && <div className="text-xs text-slate-400 mt-0.5">{h.company_name}</div>}
+                                  <div className="text-[10px] text-slate-400 mt-0.5">{soldLots.length} lot{soldLots.length !== 1 ? "s" : ""} closed</div>
+                                </td>
+                                <td className="px-5 py-3 text-right text-slate-400">{totalSoldShares.toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                <td className="px-5 py-3 text-right text-slate-400">{formatAmount(avgBuyPrice)}</td>
+                                <td className="px-5 py-3 text-right text-slate-500 font-medium">{formatAmount(avgSellPrice)}</td>
+                                <td className="px-5 py-3 text-right text-slate-400">{formatAmount(totalCost)}</td>
+                                <td className="px-5 py-3 text-right text-slate-500 font-medium">{formatAmount(totalProceeds)}</td>
+                                <td className="px-5 py-3 text-right">
+                                  <div className={`font-semibold ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
+                                    {isUp ? "+" : ""}{formatAmount(realizedGain)}
+                                  </div>
+                                  <div className={`text-xs mt-0.5 ${isUp ? "text-emerald-500" : "text-rose-500"}`}>
+                                    {isUp ? "+" : ""}{gainPct.toFixed(2)}%
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3 text-right">
+                                  <div className={`font-medium text-sm ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
+                                    {soldAllocPct >= 0 ? "+" : ""}{soldAllocPct.toFixed(1)}%
+                                  </div>
+                                  <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${isUp ? "bg-emerald-400" : "bg-rose-400"}`}
+                                      style={{ width: `${Math.min(Math.abs(soldAllocPct), 100)}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="pr-3 py-3">
+                                  <RowMenu
+                                    onEdit={() => openEditStock(h)}
+                                    onDelete={() => setDeleteTarget({ type: "stock", id: h.id })}
+                                  />
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr>
+                                  <td colSpan={11} className="pb-3 pt-0 bg-slate-50/20">
+                                    <div className="mx-4 ml-10 border border-slate-100 rounded-xl overflow-hidden">
+                                      <table className="w-full text-xs">
+                                        <thead className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                          <tr>
+                                            <th className="text-left px-4 py-2">Buy Date</th>
+                                            <th className="text-left px-4 py-2">Sell Date</th>
+                                            <th className="text-right px-4 py-2">Shares</th>
+                                            <th className="text-right px-4 py-2">Buy Price</th>
+                                            <th className="text-right px-4 py-2">Sell Price</th>
+                                            <th className="text-right px-4 py-2">Cost Basis</th>
+                                            <th className="text-right px-4 py-2">Proceeds</th>
+                                            <th className="text-right px-4 py-2">Gain / Loss</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                          {soldLots.map((lot) => {
+                                            const lotProfit = (Number(lot.sold_price!) - Number(lot.buy_price)) * Number(lot.shares);
+                                            const lotProceed = Number(lot.sold_price!) * Number(lot.shares);
+                                            const lotCost = Number(lot.buy_price) * Number(lot.shares);
+                                            const isLotUp = lotProfit >= 0;
+                                            return (
+                                              <tr key={lot.id} className="hover:bg-white transition-colors">
+                                                <td className="px-4 py-2 text-slate-500">
+                                                  {lot.purchased_at
+                                                    ? new Date(lot.purchased_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                                    : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                <td className="px-4 py-2 text-slate-500">
+                                                  {lot.sold_at
+                                                    ? new Date(lot.sold_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                                    : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                <td className="px-4 py-2 text-right text-slate-600">{Number(lot.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                                <td className="px-4 py-2 text-right text-slate-600">{formatAmount(Number(lot.buy_price))}</td>
+                                                <td className="px-4 py-2 text-right text-slate-700 font-medium">{formatAmount(Number(lot.sold_price))}</td>
+                                                <td className="px-4 py-2 text-right text-slate-500">{formatAmount(lotCost)}</td>
+                                                <td className="px-4 py-2 text-right text-slate-700">{formatAmount(lotProceed)}</td>
+                                                <td className="px-4 py-2 text-right">
+                                                  <div className={`font-semibold ${isLotUp ? "text-emerald-600" : "text-rose-600"}`}>{isLotUp ? "+" : ""}{formatAmount(lotProfit)}</div>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          );
+                        })}
+                      </>
+                    )}
+                  </table>
+                </div>
+                );
+              })()}
+            </section>
+          </>
+        );
+      })()}
 
       {/* Expenses Section */}
       {activeTab === "expenses" && <>
@@ -2520,8 +4035,9 @@ export default function PaymentsAndExpensesPage() {
                     const catName = getCatName(expense.category_id, expenseCategories);
                     const cardName = getCardDisplayName(expense.credit_card_id);
                     const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
+                    const isHighlighted = highlightId === expense.id && highlightKind === "expense";
                     return (
-                      <div key={expense.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0">
+                      <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
                           <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
                         </div>
@@ -2572,8 +4088,9 @@ export default function PaymentsAndExpensesPage() {
                 const catName = getCatName(expense.category_id, expenseCategories);
                 const cardName = getCardDisplayName(expense.credit_card_id);
                 const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
+                const isHighlighted = highlightId === expense.id && highlightKind === "expense";
                 return (
-                  <div key={expense.id} className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0">
+                  <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
                       <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
                     </div>
@@ -3008,7 +4525,7 @@ export default function PaymentsAndExpensesPage() {
               <h2 className="text-lg font-semibold text-slate-900">
                 {editTransfer ? "Edit Transfer" : "New Transfer"}
               </h2>
-              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -3213,57 +4730,102 @@ export default function PaymentsAndExpensesPage() {
                 )}
               </div>
 
-              {/* Platform */}
+              {/* From Bank */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Platform</label>
-                  {!addingBank && (
-                    <button type="button" onClick={() => { setBankDropOpen(false); setAddingBank(true); setNewBankName(""); }}
+                  <label className="block text-sm font-medium text-slate-700">From Bank</label>
+                  {!addingFromBank && (
+                    <button type="button" onClick={() => { setFromBankDropOpen(false); setAddingFromBank(true); setNewFromBankName(""); }}
                       className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
                       <Plus size={12} /> New
                     </button>
                   )}
                 </div>
-                {addingBank ? (
+                {addingFromBank ? (
                   <div className="flex gap-2">
-                    <input type="text" autoFocus value={newBankName} onChange={(e) => setNewBankName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInline(); } if (e.key === "Escape") { setAddingBank(false); setNewBankName(""); } }}
-                      placeholder="e.g. Zelle, Venmo, Cash App"
+                    <input type="text" autoFocus value={newFromBankName} onChange={(e) => setNewFromBankName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineFrom(); } if (e.key === "Escape") { setAddingFromBank(false); setNewFromBankName(""); } }}
+                      placeholder="Bank name"
                       className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                    <button type="button" onClick={addBankInline} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                    <button type="button" onClick={() => { setAddingBank(false); setNewBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                    <button type="button" onClick={addBankInlineFrom} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                    <button type="button" onClick={() => { setAddingFromBank(false); setNewFromBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
                   </div>
                 ) : (
-                  <div className="relative" ref={bankDropRef}>
+                  <div className="relative" ref={fromBankDropRef}>
                     <button type="button"
-                      onClick={() => setBankDropOpen((o) => !o)}
+                      onClick={() => setFromBankDropOpen((o) => !o)}
                       className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                      <span className={transferForm.bank_id ? "text-slate-800" : "text-slate-400"}>
-                        {transferForm.bank_id
-                          ? (banks.find((b) => b.id === parseInt(transferForm.bank_id))?.name ?? "None")
-                          : "None"}
+                      <span className={transferForm.from_bank_id ? "text-slate-800" : "text-slate-400"}>
+                        {transferForm.from_bank_id ? (banks.find((b) => b.id === parseInt(transferForm.from_bank_id))?.name ?? "None") : "None"}
                       </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${bankDropOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${fromBankDropOpen ? "rotate-180" : ""}`} />
                     </button>
-                    {bankDropOpen && (
+                    {fromBankDropOpen && (
                       <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                         <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, bank_id: "", platform: "" })); setBankDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
-                          None
-                        </button>
+                          onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: "" })); setFromBankDropOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
                         {banks.map((b) => (
                           <div key={b.id} className="flex items-center group/opt">
                             <button type="button"
-                              onClick={() => { setTransferForm((f) => ({ ...f, bank_id: String(b.id), platform: b.name })); setBankDropOpen(false); }}
-                              className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              {b.name}
+                              onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: String(b.id) })); setFromBankDropOpen(false); }}
+                              className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.from_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                              {b.name}{b.account_type && <span className="ml-1.5 text-[10px] text-slate-400 uppercase">{b.account_type}</span>}
                             </button>
+                            <button type="button" onClick={() => deleteBank(b.id)}
+                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* To Bank */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-slate-700">To Bank</label>
+                  {!addingToBank && (
+                    <button type="button" onClick={() => { setToBankDropOpen(false); setAddingToBank(true); setNewToBankName(""); }}
+                      className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
+                      <Plus size={12} /> New
+                    </button>
+                  )}
+                </div>
+                {addingToBank ? (
+                  <div className="flex gap-2">
+                    <input type="text" autoFocus value={newToBankName} onChange={(e) => setNewToBankName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineTo(); } if (e.key === "Escape") { setAddingToBank(false); setNewToBankName(""); } }}
+                      placeholder="Bank name"
+                      className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                    <button type="button" onClick={addBankInlineTo} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                    <button type="button" onClick={() => { setAddingToBank(false); setNewToBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="relative" ref={toBankDropRef}>
+                    <button type="button"
+                      onClick={() => setToBankDropOpen((o) => !o)}
+                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                      <span className={transferForm.to_bank_id ? "text-slate-800" : "text-slate-400"}>
+                        {transferForm.to_bank_id ? (banks.find((b) => b.id === parseInt(transferForm.to_bank_id))?.name ?? "None") : "None"}
+                      </span>
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${toBankDropOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {toBankDropOpen && (
+                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                        <button type="button"
+                          onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: "" })); setToBankDropOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                        {banks.map((b) => (
+                          <div key={b.id} className="flex items-center group/opt">
                             <button type="button"
-                              onClick={() => deleteBank(b.id)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
+                              onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: String(b.id) })); setToBankDropOpen(false); }}
+                              className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.to_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                              {b.name}{b.account_type && <span className="ml-1.5 text-[10px] text-slate-400 uppercase">{b.account_type}</span>}
                             </button>
+                            <button type="button" onClick={() => deleteBank(b.id)}
+                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
                           </div>
                         ))}
                       </div>
@@ -3300,7 +4862,7 @@ export default function PaymentsAndExpensesPage() {
               </div>
 
               <div className="flex gap-2 justify-end pt-1">
-                <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setAddingBank(false); setNewBankName(""); setBankDropOpen(false); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
+                <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
                   className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
                 {!editTransfer && (
                   <button type="button" onClick={saveTransferAndAddAnother}
@@ -3527,6 +5089,293 @@ export default function PaymentsAndExpensesPage() {
         </div>
       )}
 
+      {/* Stock Modal */}
+      {showStockModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 pb-0">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editStock ? "Edit Holding" : "Add Stock"}
+              </h2>
+              <button onClick={() => { setShowStockModal(false); setEditStock(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={saveStock} className="p-6 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Ticker Symbol *</label>
+                  <input
+                    type="text"
+                    required
+                    value={stockForm.ticker}
+                    onChange={(e) => setStockForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
+                    placeholder="e.g. AAPL"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (optional)</label>
+                  <input
+                    type="text"
+                    value={stockForm.company_name}
+                    onChange={(e) => setStockForm((f) => ({ ...f, company_name: e.target.value }))}
+                    placeholder="e.g. Apple Inc."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {!editStock ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Shares *</label>
+                      <input
+                        type="number" step="0.000001" min="0" required
+                        value={stockForm.shares}
+                        onChange={(e) => setStockForm((f) => ({ ...f, shares: e.target.value }))}
+                        placeholder="e.g. 10"
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Buy Price (per share) *</label>
+                      <input
+                        type="number" step="0.0001" min="0" required
+                        value={stockForm.buy_price}
+                        onChange={(e) => setStockForm((f) => ({ ...f, buy_price: e.target.value }))}
+                        placeholder="0.00"
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Purchase Date (optional)</label>
+                    <input
+                      type="date"
+                      value={stockForm.purchased_at}
+                      onChange={(e) => setStockForm((f) => ({ ...f, purchased_at: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              ) : (() => {
+                const activeLots = editStock.lots.filter((l) => l.sold_price == null);
+                if (activeLots.length === 1) {
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Shares</label>
+                          <input
+                            type="number" step="0.000001" min="0"
+                            value={stockForm.shares}
+                            onChange={(e) => setStockForm((f) => ({ ...f, shares: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Buy Price (per share)</label>
+                          <input
+                            type="number" step="0.0001" min="0"
+                            value={stockForm.buy_price}
+                            onChange={(e) => setStockForm((f) => ({ ...f, buy_price: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Purchase Date (optional)</label>
+                        <input
+                          type="date"
+                          value={stockForm.purchased_at}
+                          onChange={(e) => setStockForm((f) => ({ ...f, purchased_at: e.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                    This holding has {activeLots.length} active lots. Expand the row in the table to edit shares and buy price per lot.
+                  </p>
+                );
+              })()}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                <textarea
+                  rows={2}
+                  value={stockForm.notes}
+                  onChange={(e) => setStockForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Any additional notes..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+              </div>
+
+              {stockSaveError && <p className="text-sm text-red-500">{stockSaveError}</p>}
+
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => { setShowStockModal(false); setEditStock(null); setStockForm({ ticker: "", company_name: "", shares: "", buy_price: "", purchased_at: "", notes: "" }); }}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                  {editStock ? "Save changes" : "Add stock"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Lots Modal */}
+      {showSellModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-6 pb-0">
+              <h2 className="text-lg font-semibold text-slate-900">Record Sale</h2>
+              <button onClick={() => setShowSellModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <p className="text-sm text-slate-500">
+                Selling {selectedLotIds.size} lot{selectedLotIds.size !== 1 ? "s" : ""}. Enter the price you sold at (per share).
+              </p>
+              {sellSaveError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{sellSaveError}</div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Sell Price (per share) *</label>
+                <input
+                  type="number" step="0.0001" min="0" required autoFocus
+                  value={sellForm.sold_price}
+                  onChange={(e) => setSellForm((f) => ({ ...f, sold_price: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Sale Date (optional)</label>
+                <input
+                  type="date"
+                  value={sellForm.sold_at}
+                  onChange={(e) => setSellForm((f) => ({ ...f, sold_at: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => setShowSellModal(false)}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button
+                  type="button"
+                  disabled={!sellForm.sold_price}
+                  onClick={sellSelectedLots}
+                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Confirm Sale
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dividend Modal */}
+      {showDividendModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 pb-0">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editingDividend ? "Edit Dividend" : "Log Dividend"}
+              </h2>
+              <button onClick={() => { setShowDividendModal(false); setEditingDividend(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              {dividendModalError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{dividendModalError}</div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Shares Held *</label>
+                  <input
+                    type="number" step="0.000001" min="0" required autoFocus
+                    value={dividendModalForm.shares_held}
+                    onChange={(e) => setDividendModalForm((f) => ({ ...f, shares_held: e.target.value }))}
+                    placeholder="0"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">$/Share *</label>
+                  <input
+                    type="number" step="0.000001" min="0" required
+                    value={dividendModalForm.dividend_per_share}
+                    onChange={(e) => setDividendModalForm((f) => ({ ...f, dividend_per_share: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Pay Date *</label>
+                  <input
+                    type="date" required
+                    value={dividendModalForm.paid_at}
+                    onChange={(e) => setDividendModalForm((f) => ({ ...f, paid_at: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Total</label>
+                  <div className="w-full border border-slate-100 bg-slate-50 rounded-lg px-3 py-2 text-sm text-amber-600 font-semibold">
+                    {dividendModalForm.dividend_per_share && dividendModalForm.shares_held
+                      ? formatAmount(parseFloat(dividendModalForm.dividend_per_share) * parseFloat(dividendModalForm.shares_held))
+                      : <span className="text-slate-300">—</span>}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                <input
+                  type="text"
+                  value={dividendModalForm.notes}
+                  onChange={(e) => setDividendModalForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="e.g. Q3 2025 dividend"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="dividend-reinvested"
+                  checked={dividendModalForm.reinvested}
+                  onChange={(e) => setDividendModalForm((f) => ({ ...f, reinvested: e.target.checked }))}
+                  className="accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-sm text-slate-700">Reinvested (DRIP)</span>
+              </label>
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => { setShowDividendModal(false); setEditingDividend(null); }}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button
+                  type="button"
+                  disabled={!dividendModalForm.paid_at || !dividendModalForm.dividend_per_share || !dividendModalForm.shares_held}
+                  onClick={saveDividendModal}
+                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {editingDividend ? "Save changes" : "Log dividend"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loan Modal */}
       {showLoanModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -3656,6 +5505,81 @@ export default function PaymentsAndExpensesPage() {
                   className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                   {editLoan ? "Save changes" : "Add loan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Account Modal */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-6 pb-0">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editingBank ? "Edit Account" : `New ${bankModalForm.account_type === "savings" ? "Savings" : "Checking"} Account`}
+              </h2>
+              <button onClick={() => { setShowBankModal(false); setEditingBank(null); }} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+            </div>
+            <form onSubmit={saveBankAccount} className="flex flex-col gap-4 p-6">
+              {bankModalError && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{bankModalError}</div>}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={bankModalForm.name}
+                  onChange={(e) => setBankModalForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Chase, Wells Fargo, Marcus"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Account Type</label>
+                <div className="flex gap-2">
+                  {(["checking", "savings"] as const).map((type) => (
+                    <button key={type} type="button"
+                      onClick={() => setBankModalForm((f) => ({ ...f, account_type: type }))}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors capitalize ${bankModalForm.account_type === type ? "bg-violet-50 border-violet-300 text-violet-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={bankModalForm.starting_balance}
+                  onChange={(e) => setBankModalForm((f) => ({ ...f, starting_balance: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Balance As Of</label>
+                <input
+                  type="date"
+                  value={bankModalForm.starting_balance_as_of}
+                  onChange={(e) => setBankModalForm((f) => ({ ...f, starting_balance_as_of: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">All transfers from this date onward will update the balance.</p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => { setShowBankModal(false); setEditingBank(null); }}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
+                  {editingBank ? "Save changes" : "Add account"}
                 </button>
               </div>
             </form>

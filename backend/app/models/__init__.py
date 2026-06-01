@@ -13,3 +13,4 @@ from app.models.people import Person
 from app.models.utility_bills import UtilityBill, UtilityBillPriceHistory, UtilityReimbursement
 from app.models.loans import Loan
 from app.models.credit_card_reminders import CreditCardReminder
+from app.models.stocks import StockHolding, StockLot

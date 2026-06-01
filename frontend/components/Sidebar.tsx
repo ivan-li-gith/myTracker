@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   CheckSquare, CreditCard, Briefcase,
   Menu, X, LayoutDashboard, User, Activity,
-  PanelLeftClose, PanelLeftOpen, Search,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -34,7 +34,6 @@ const PRIMARY_NAV: NavItem[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
-  onSearchOpen: () => void;
 }
 
 function todayStr() {
@@ -50,7 +49,7 @@ function getWeekStart() {
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
 }
 
-export default function Sidebar({ collapsed, onToggle, onSearchOpen }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
@@ -246,16 +245,6 @@ export default function Sidebar({ collapsed, onToggle, onSearchOpen }: SidebarPr
 
         <nav className="flex flex-col gap-0.5 mt-4 flex-1 overflow-y-auto">
           {PRIMARY_NAV.map((item) => renderNavItem(item))}
-          <button
-            onClick={onSearchOpen}
-            title="Search"
-            className={`relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-slate-50 hover:text-slate-900 ${
-              collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2"
-            }`}
-          >
-            <Search size={18} className="flex-shrink-0 text-slate-400" />
-            {!collapsed && <span className="truncate flex-1">Search</span>}
-          </button>
         </nav>
         {userProfile}
       </aside>
@@ -269,13 +258,6 @@ export default function Sidebar({ collapsed, onToggle, onSearchOpen }: SidebarPr
           <span className="text-lg font-bold text-slate-900 tracking-tight">myTracker</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onSearchOpen}
-            className="text-slate-500 hover:text-slate-900 transition-colors p-1"
-            aria-label="Search"
-          >
-            <Search size={20} />
-          </button>
           <button
             onClick={() => setMobileOpen(true)}
             className="text-slate-500 hover:text-slate-900 transition-colors"
