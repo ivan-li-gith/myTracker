@@ -14,6 +14,7 @@ class MoneyTransferCreate(BaseModel):
     from_bank_id: Optional[int] = None
     to_bank_id: Optional[int] = None
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     amount: Decimal
     notes: Optional[str] = None
     split_with: Optional[str] = None
@@ -29,6 +30,7 @@ class MoneyTransferUpdate(BaseModel):
     from_bank_id: Optional[int] = None
     to_bank_id: Optional[int] = None
     category_id: Optional[int] = None
+    credit_card_id: Optional[int] = None
     amount: Optional[Decimal] = None
     notes: Optional[str] = None
     split_with: Optional[str] = None

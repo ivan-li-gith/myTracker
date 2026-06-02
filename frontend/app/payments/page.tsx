@@ -482,7 +482,7 @@ function ScanModal({
 
 const EMPTY_EXPENSE = { name: "", amount: "", date: "", category_id: "", credit_card_id: "", notes: "", service_period_start: "", service_period_end: "" };
 const EMPTY_CC_FORM = { name: "", color: "blue" };
-const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", from_bank_id: "", to_bank_id: "", category_id: "", amount: "", notes: "" };
+const EMPTY_TRANSFER = { name: "", date: "", direction: "sent", person: "", platform: "", bank_id: "", from_bank_id: "", to_bank_id: "", category_id: "", credit_card_id: "", amount: "", notes: "" };
 const EMPTY_BANK_FORM = { name: "", account_type: "checking" as "checking" | "savings", starting_balance: "", starting_balance_as_of: "" };
 const UTILITY_NAMES = ["Electric", "Water", "Internet", "Gas", "Trash"];
 const EMPTY_BILL = { utility: "", is_recurring: false, service_period_start: "", service_period_end: "", charge_date: "", charge_day: "", billing_start: "", amount: "", split_with: "", notes: "" };
@@ -549,6 +549,7 @@ export default function PaymentsAndExpensesPage() {
   const ccFilterDropRef = useRef<HTMLDivElement>(null);
   const [catFilterId, setCatFilterId] = useState<number | null | "all">("all");
   const [transferCatFilterId, setTransferCatFilterId] = useState<number | null | "all">("all");
+  const [transferTypeFilter, setTransferTypeFilter] = useState<"all" | "in" | "out" | "cc" | "internal">("all");
   const [merchantBreakdownOpen, setMerchantBreakdownOpen] = useState(false);
   const merchantBreakdownRef = useRef<HTMLDivElement>(null);
 
@@ -578,6 +579,7 @@ export default function PaymentsAndExpensesPage() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [editTransfer, setEditTransfer] = useState<MoneyTransfer | null>(null);
   const [transferForm, setTransferForm] = useState(EMPTY_TRANSFER);
+  const [transferType, setTransferType] = useState<"bank" | "in" | "out" | "cc" | "">("");
   const [transferSaveError, setTransferSaveError] = useState<string | null>(null);
 
   // Banks
@@ -747,14 +749,24 @@ export default function PaymentsAndExpensesPage() {
     return b.date.localeCompare(a.date);
   });
 
+  const isInternalTransfer = (t: MoneyTransfer) => t.from_bank_id != null && t.to_bank_id != null;
   const transferMonthCatIds = new Set(moneyTransfers.map((t) => t.category_id));
   const transferPillCats = [
     ...(transferMonthCatIds.has(null) ? [{ id: null as number | null, name: "Uncategorized" }] : []),
     ...expenseCategories.filter((c) => transferMonthCatIds.has(c.id)),
   ];
+  const typeFilteredTransfers = (() => {
+    switch (transferTypeFilter) {
+      case "in":       return moneyTransfers.filter(t => t.direction === "received" && !isInternalTransfer(t));
+      case "out":      return moneyTransfers.filter(t => t.direction === "sent" && !isInternalTransfer(t) && t.credit_card_id == null);
+      case "cc":       return moneyTransfers.filter(t => t.credit_card_id != null);
+      case "internal": return moneyTransfers.filter(isInternalTransfer);
+      default:         return moneyTransfers;
+    }
+  })();
   const filteredTransfers = transferCatFilterId === "all"
-    ? moneyTransfers
-    : moneyTransfers.filter((t) => t.category_id === transferCatFilterId);
+    ? typeFilteredTransfers
+    : typeFilteredTransfers.filter((t) => t.category_id === transferCatFilterId);
   const sortedTransfers = [...filteredTransfers].sort((a, b) => {
     if (transferSort === "date-asc") return a.date.localeCompare(b.date);
     if (transferSort === "amount-desc") return Number(b.amount) - Number(a.amount);
@@ -852,6 +864,7 @@ export default function PaymentsAndExpensesPage() {
     });
     setCreditCards((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setExpenseForm((f) => ({ ...f, credit_card_id: String(created.id) }));
+    setTransferForm((f) => ({ ...f, credit_card_id: String(created.id) }));
     resetInlineCard();
   }
 
@@ -859,6 +872,7 @@ export default function PaymentsAndExpensesPage() {
     await apiFetch(`/credit-cards/${id}`, { method: "DELETE" });
     setCreditCards((prev) => prev.filter((c) => c.id !== id));
     if (expenseForm.credit_card_id === String(id)) setExpenseForm((f) => ({ ...f, credit_card_id: "" }));
+    if (transferForm.credit_card_id === String(id)) setTransferForm((f) => ({ ...f, credit_card_id: "" }));
   }
 
   // ---- Year search ----
@@ -960,7 +974,8 @@ export default function PaymentsAndExpensesPage() {
 
   function openAddTransfer() {
     setEditTransfer(null);
-    setTransferForm(EMPTY_TRANSFER);
+    setTransferForm({ ...EMPTY_TRANSFER, date: toLocalDate(new Date()) });
+    setTransferType("");
     setTransferSaveError(null);
     resetTransferBankDropState();
     setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
@@ -969,9 +984,13 @@ export default function PaymentsAndExpensesPage() {
 
   function openEditTransfer(t: MoneyTransfer) {
     setEditTransfer(t);
-    // Migrate legacy bank_id → from/to based on direction for old records
     const legacyFromBank = t.from_bank_id != null ? String(t.from_bank_id) : (t.direction === "sent" && t.bank_id != null ? String(t.bank_id) : "");
     const legacyToBank = t.to_bank_id != null ? String(t.to_bank_id) : (t.direction === "received" && t.bank_id != null ? String(t.bank_id) : "");
+    const derivedType: "bank" | "in" | "out" | "cc" =
+      (t.credit_card_id != null) ? "cc" :
+      (legacyFromBank !== "" && legacyToBank !== "") ? "bank" :
+      t.direction === "received" ? "in" : "out";
+    setTransferType(derivedType);
     setTransferForm({
       name: t.name ?? "",
       date: t.date,
@@ -982,6 +1001,7 @@ export default function PaymentsAndExpensesPage() {
       from_bank_id: legacyFromBank,
       to_bank_id: legacyToBank,
       category_id: t.category_id != null ? String(t.category_id) : "",
+      credit_card_id: t.credit_card_id != null ? String(t.credit_card_id) : "",
       amount: String(t.amount),
       notes: t.notes ?? "",
     });
@@ -992,16 +1012,18 @@ export default function PaymentsAndExpensesPage() {
   }
 
   async function persistTransfer(): Promise<void> {
+    const direction = transferType === "in" ? "received" : "sent";
     const body = {
       name: transferForm.name.trim() || null,
       date: transferForm.date,
-      direction: transferForm.direction,
-      person: transferForm.person.trim(),
-      platform: transferForm.platform.trim() || null,
-      bank_id: transferForm.bank_id ? parseInt(transferForm.bank_id) : null,
-      from_bank_id: transferForm.from_bank_id ? parseInt(transferForm.from_bank_id) : null,
-      to_bank_id: transferForm.to_bank_id ? parseInt(transferForm.to_bank_id) : null,
+      direction,
+      person: (transferType === "bank" || transferType === "cc") ? "" : transferForm.person.trim(),
+      platform: (transferType === "bank" || transferType === "cc") ? null : (transferForm.platform.trim() || null),
+      bank_id: null,
+      from_bank_id: (transferType === "bank" || transferType === "out" || transferType === "cc") && transferForm.from_bank_id ? parseInt(transferForm.from_bank_id) : null,
+      to_bank_id: (transferType === "bank" || transferType === "in") && transferForm.to_bank_id ? parseInt(transferForm.to_bank_id) : null,
       category_id: transferForm.category_id ? parseInt(transferForm.category_id) : null,
+      credit_card_id: transferType === "cc" && transferForm.credit_card_id ? parseInt(transferForm.credit_card_id) : null,
       amount: parseFloat(transferForm.amount),
       notes: transferForm.notes.trim() || null,
     };
@@ -1045,7 +1067,7 @@ export default function PaymentsAndExpensesPage() {
     setTransferSaveError(null);
     try {
       await persistTransfer();
-      setTransferForm((f) => ({ ...EMPTY_TRANSFER, date: f.date, direction: f.direction }));
+      setTransferForm((f) => ({ ...EMPTY_TRANSFER, date: f.date }));
       resetTransferBankDropState();
       setPersonDropOpen(false); setAddingPerson(false); setNewPersonName("");
     } catch (err) {
@@ -1748,29 +1770,58 @@ export default function PaymentsAndExpensesPage() {
   const summaryNetSpend = summaryGrossSpend - summaryRefunds;
   const summaryPositiveCount = expenses.filter((e) => Number(e.amount) > 0).length;
   const summaryRefundCount = expenses.filter((e) => Number(e.amount) < 0).length;
-  // Bank balance: starting_balance + all inflows (to_bank_id) - all outflows (from_bank_id) since starting_balance_as_of
+  // Last day of the selected month as a YYYY-MM-DD string for balance cutoff
+  const selectedMonthEnd = (() => {
+    const [y, m] = selectedMonth.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+  })();
+
+  // Bank balance: starting_balance + all inflows/outflows from asOf through end of selected month
   function bankCurrentBalance(bank: Bank): number {
     if (bank.starting_balance == null) return 0;
     const asOf = bank.starting_balance_as_of ?? "1900-01-01";
     const base = Number(bank.starting_balance);
-    const inflow = allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
-    const outflow = allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+    const inflow = allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf && t.date <= selectedMonthEnd).reduce((s, t) => s + Number(t.amount), 0);
+    const outflow = allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf && t.date <= selectedMonthEnd).reduce((s, t) => s + Number(t.amount), 0);
     return base + inflow - outflow;
   }
   function bankTotalIn(bank: Bank): number {
     const asOf = bank.starting_balance_as_of ?? "1900-01-01";
-    return allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+    return allTransfers.filter(t => t.to_bank_id === bank.id && t.date >= asOf && t.date <= selectedMonthEnd).reduce((s, t) => s + Number(t.amount), 0);
   }
   function bankTotalOut(bank: Bank): number {
     const asOf = bank.starting_balance_as_of ?? "1900-01-01";
-    return allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf).reduce((s, t) => s + Number(t.amount), 0);
+    return allTransfers.filter(t => t.from_bank_id === bank.id && t.date >= asOf && t.date <= selectedMonthEnd).reduce((s, t) => s + Number(t.amount), 0);
   }
   const checkingBanks = banks.filter(b => b.account_type === "checking");
   const savingsBanks = banks.filter(b => b.account_type === "savings");
 
-  // Internal = both from_bank_id and to_bank_id are set (money stays in your accounts)
-  // External = only one side set (real money in/out)
-  const isInternalTransfer = (t: MoneyTransfer) => t.from_bank_id != null && t.to_bank_id != null;
+  function bankDisplayName(id: number): string {
+    const bank = banks.find(b => b.id === id);
+    if (!bank) return "?";
+    const hasDuplicate = banks.some(b => b.id !== bank.id && b.name === bank.name);
+    if (hasDuplicate && bank.account_type) return `${bank.name} (${bank.account_type})`;
+    return bank.name;
+  }
+
+  const isCashTransfer = (t: MoneyTransfer) => t.platform === "Cash";
+
+  // Transfer tab stats
+  const statCcPaidThisMonth = moneyTransfers.filter(t => t.credit_card_id != null).reduce((s, t) => s + Number(t.amount), 0);
+  const overviewCcByCard: { id: number; name: string; total: number }[] = (() => {
+    const map = new Map<number, number>();
+    for (const t of moneyTransfers) {
+      if (t.credit_card_id != null) map.set(t.credit_card_id, (map.get(t.credit_card_id) ?? 0) + Number(t.amount));
+    }
+    return Array.from(map.entries()).map(([id, total]) => {
+      const card = creditCards.find(c => c.id === id);
+      return { id, name: card ? (card.name + (card.last_four ? ` ····${card.last_four}` : "")) : "Unknown", total };
+    }).sort((a, b) => b.total - a.total);
+  })();
+  const statMoneyIn = moneyTransfers.filter(t => t.direction === "received" && !isInternalTransfer(t)).reduce((s, t) => s + Number(t.amount), 0);
+  const statMoneyOut = moneyTransfers.filter(t => t.direction === "sent" && !isInternalTransfer(t) && t.credit_card_id == null).reduce((s, t) => s + Number(t.amount), 0);
+
   const sentTransfers = moneyTransfers.filter((t) => t.direction === "sent" && !isInternalTransfer(t));
   const receivedTransfers = moneyTransfers.filter((t) => t.direction === "received" && !isInternalTransfer(t));
   const internalTransfers = moneyTransfers.filter(isInternalTransfer);
@@ -1953,6 +2004,7 @@ export default function PaymentsAndExpensesPage() {
       </div>
 
       {/* Summary Cards */}
+      {/* Overview Row 1: Total | Transactions | Transfers | CC Paid */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
@@ -1998,6 +2050,27 @@ export default function PaymentsAndExpensesPage() {
 
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
+              <CreditCardIcon size={13} className="text-blue-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">CC Paid</p>
+            </div>
+            <p className="text-2xl font-bold text-blue-600 leading-none">{formatAmount(statCcPaidThisMonth)}</p>
+            <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
+              {overviewCcByCard.length === 0
+                ? <span>no payments this month</span>
+                : overviewCcByCard.map(({ id, name, total }) => (
+                  <span key={id}>{name} · {formatAmount(total)}</span>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overview Row 2: Loans | Portfolio | Unrealized+Realized | Dividends */}
+      {activeTab === "overview" && (stocks.length > 0 || loans.length > 0) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
               <GraduationCap size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Loans</p>
             </div>
@@ -2008,12 +2081,7 @@ export default function PaymentsAndExpensesPage() {
               <span className="text-amber-500">{formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))} interest</span>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Portfolio Summary Cards */}
-      {activeTab === "overview" && stocks.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <BarChart2 size={13} className="text-indigo-400" />
@@ -2022,6 +2090,7 @@ export default function PaymentsAndExpensesPage() {
             <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(portfolioTotalValue)}</p>
             <p className="text-[11px] text-slate-400 mt-1.5">{activeStockHoldings.length} holding{activeStockHoldings.length !== 1 ? "s" : ""}</p>
           </div>
+
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <TrendingUp size={13} className="text-indigo-400" />
@@ -2031,21 +2100,15 @@ export default function PaymentsAndExpensesPage() {
               {portfolioUnrealized >= 0 ? "+" : ""}{formatAmount(portfolioUnrealized)}
             </p>
             {portfolioTotalCost > 0 && (
-              <p className={`text-[11px] mt-1.5 ${portfolioUnrealized >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
+              <p className={`text-[11px] mt-1 ${portfolioUnrealized >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
                 {portfolioUnrealized >= 0 ? "+" : ""}{((portfolioUnrealized / portfolioTotalCost) * 100).toFixed(1)}% return
               </p>
             )}
-          </div>
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <DollarSign size={13} className="text-indigo-400" />
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Realized</p>
-            </div>
-            <p className={`text-2xl font-bold leading-none ${portfolioRealized >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-              {portfolioRealized >= 0 ? "+" : ""}{formatAmount(portfolioRealized)}
+            <p className={`text-[11px] mt-0.5 ${portfolioRealized >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
+              realized · {portfolioRealized >= 0 ? "+" : ""}{formatAmount(portfolioRealized)}
             </p>
-            <p className="text-[11px] text-slate-400 mt-1.5">from sold lots</p>
           </div>
+
           <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <DollarSign size={13} className="text-indigo-400" />
@@ -2793,6 +2856,42 @@ export default function PaymentsAndExpensesPage() {
       {/* Transfers Tab */}
       {activeTab === "transfers" && <>
 
+      {/* Transfer overview stats */}
+      <section className="mb-6">
+        <div className="grid grid-cols-3 gap-3">
+          {/* CC Paid this month */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <CreditCardIcon size={13} className="text-blue-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">CC Paid</p>
+            </div>
+            <p className="text-lg font-bold text-blue-600 tabular-nums">{formatAmount(statCcPaidThisMonth)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{formatMonthLabel(selectedMonth)}</p>
+          </div>
+
+          {/* Money In this month */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <ArrowDownLeft size={13} className="text-emerald-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Money In</p>
+            </div>
+            <p className="text-lg font-bold text-emerald-600 tabular-nums">{formatAmount(statMoneyIn)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{formatMonthLabel(selectedMonth)}</p>
+          </div>
+
+          {/* Money Out this month */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <ArrowUpRight size={13} className="text-rose-400" />
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Money Out</p>
+            </div>
+            <p className="text-lg font-bold text-rose-500 tabular-nums">{formatAmount(statMoneyOut)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{formatMonthLabel(selectedMonth)}</p>
+          </div>
+
+        </div>
+      </section>
+
       {/* Checking Accounts */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
@@ -2844,7 +2943,7 @@ export default function PaymentsAndExpensesPage() {
                       <span className="font-medium">{formatAmount(totalOut)}</span>
                     </div>
                     <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
-                      <span className="font-semibold text-slate-700">Current balance</span>
+                      <span className="font-semibold text-slate-700">Balance end of {formatMonthLabel(selectedMonth)}</span>
                       <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
                     </div>
                   </div>
@@ -2906,7 +3005,7 @@ export default function PaymentsAndExpensesPage() {
                       <span className="font-medium">{formatAmount(totalOut)}</span>
                     </div>
                     <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
-                      <span className="font-semibold text-slate-700">Current balance</span>
+                      <span className="font-semibold text-slate-700">Balance end of {formatMonthLabel(selectedMonth)}</span>
                       <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
                     </div>
                   </div>
@@ -2948,26 +3047,38 @@ export default function PaymentsAndExpensesPage() {
           </div>
         </div>
 
-        {/* Category filter pills */}
-        {transferPillCats.length > 1 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
+        {/* Filters — type + category in one row */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {([
+            { value: "all", label: "All" },
+            { value: "in", label: "Money In" },
+            { value: "out", label: "Money Out" },
+            { value: "cc", label: "CC Payments" },
+            { value: "internal", label: "Internal" },
+          ] as const).map(({ value, label }) => (
             <button
-              onClick={() => setTransferCatFilterId("all")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === "all" ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              key={value}
+              onClick={() => setTransferTypeFilter(value)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferTypeFilter === value ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
             >
-              All
+              {label}
             </button>
-            {transferPillCats.map((cat) => (
-              <button
-                key={cat.id ?? "uncat"}
-                onClick={() => setTransferCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === cat.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+          {transferPillCats.length > 1 && (
+            <>
+              <span className="w-px bg-slate-200 self-stretch mx-1" />
+              {transferPillCats.map((cat) => (
+                <button
+                  key={cat.id ?? "uncat"}
+                  onClick={() => setTransferCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === cat.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {moneyTransfers.length === 0 ? (
@@ -2998,8 +3109,8 @@ export default function PaymentsAndExpensesPage() {
                     const isSent = t.direction === "sent";
                     const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
                     const isHighlighted = highlightId === t.id && highlightKind === "transfer";
-                    const fromBankName = t.from_bank_id != null ? banks.find(b => b.id === t.from_bank_id)?.name : null;
-                    const toBankName = t.to_bank_id != null ? banks.find(b => b.id === t.to_bank_id)?.name : null;
+                    const fromBankName = t.from_bank_id != null ? bankDisplayName(t.from_bank_id) : null;
+                    const toBankName = t.to_bank_id != null ? bankDisplayName(t.to_bank_id) : null;
                     const isInternal = isInternalTransfer(t);
                     return (
                       <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
@@ -3008,14 +3119,14 @@ export default function PaymentsAndExpensesPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium text-slate-800">
-                            {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                            {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isCashTransfer(t) && isSent ? (toBankName ? `Cash → ${toBankName}` : "Cash Deposit") : isCashTransfer(t) && !isSent ? `Cash from ${t.person}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                           </span>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {isInternal && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
                             {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
                             {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
                             {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
-                            {!fromBankName && !toBankName && t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                            {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-600"}`}>{t.platform}</span>}
                             {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                             {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                           </div>
@@ -3038,8 +3149,8 @@ export default function PaymentsAndExpensesPage() {
                 const isSent = t.direction === "sent";
                 const catName = t.category_id != null ? (expenseCategories.find((c) => c.id === t.category_id)?.name ?? null) : null;
                 const isHighlighted = highlightId === t.id && highlightKind === "transfer";
-                const fromBankName = t.from_bank_id != null ? banks.find(b => b.id === t.from_bank_id)?.name : null;
-                const toBankName = t.to_bank_id != null ? banks.find(b => b.id === t.to_bank_id)?.name : null;
+                const fromBankName = t.from_bank_id != null ? bankDisplayName(t.from_bank_id) : null;
+                const toBankName = t.to_bank_id != null ? bankDisplayName(t.to_bank_id) : null;
                 const isInternal = isInternalTransfer(t);
                 return (
                   <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
@@ -3048,7 +3159,7 @@ export default function PaymentsAndExpensesPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-slate-800">
-                        {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
+                        {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isCashTransfer(t) && isSent ? (toBankName ? `Cash → ${toBankName}` : "Cash Deposit") : isCashTransfer(t) && !isSent ? `Cash from ${t.person}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                       </span>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(t.date)}</span>
@@ -3056,7 +3167,7 @@ export default function PaymentsAndExpensesPage() {
                         {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
                         {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
                         {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
-                        {!fromBankName && !toBankName && t.platform && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">{t.platform}</span>}
+                        {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-600"}`}>{t.platform}</span>}
                         {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                         {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                       </div>
@@ -3116,7 +3227,7 @@ export default function PaymentsAndExpensesPage() {
             College Loans
           </div>
           <button
-            onClick={() => { setEditLoan(null); setLoanForm(EMPTY_LOAN); setLoanSaveError(null); setShowLoanModal(true); }}
+            onClick={() => { setEditLoan(null); setLoanForm({ ...EMPTY_LOAN, disbursement_date: toLocalDate(new Date()) }); setLoanSaveError(null); setShowLoanModal(true); }}
             className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
             aria-label="Add loan"
           >
@@ -4521,360 +4632,472 @@ export default function PaymentsAndExpensesPage() {
       {showTransferModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 pb-0">
+            <div className="flex items-center justify-between p-6 pb-4">
               <h2 className="text-lg font-semibold text-slate-900">
                 {editTransfer ? "Edit Transfer" : "New Transfer"}
               </h2>
-              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferType(""); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={saveTransfer} className="flex flex-col gap-4 p-6">
-              {transferSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{transferSaveError}</div>
-              )}
 
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  autoFocus
-                  value={transferForm.name}
-                  onChange={(e) => setTransferForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Rent split, Dinner, Loan repayment"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-
-              {/* Direction */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Direction</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: "sent", label: "Sent To", icon: <ArrowUpRight size={14} /> },
-                    { value: "received", label: "Received From", icon: <ArrowDownLeft size={14} /> },
-                  ].map(({ value, label, icon }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setTransferForm((f) => ({ ...f, direction: value }))}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                        transferForm.direction === value
-                          ? value === "sent"
-                            ? "bg-red-50 border-red-300 text-red-600"
-                            : "bg-emerald-50 border-emerald-300 text-emerald-600"
-                          : "border-slate-200 text-slate-500 hover:border-slate-300"
-                      }`}
-                    >
-                      {icon}{label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  required
-                  value={transferForm.date}
-                  onChange={(e) => setTransferForm((f) => ({ ...f, date: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-
-              {/* Person */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {transferForm.direction === "sent" ? "Sent To" : "Received From"}
-                </label>
-                <div className="relative" ref={personDropRef}>
-                  <button type="button"
-                    onClick={() => { setPersonDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                    <span className={transferForm.person ? "text-slate-800" : "text-slate-400"}>
-                      {transferForm.person || "Select person…"}
-                    </span>
-                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${personDropOpen ? "rotate-180" : ""}`} />
+            {/* Type selector */}
+            <div className="px-6 pb-4">
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { t: "bank" as const, label: "Bank Transfer", icon: <ArrowLeftRight size={15} />, desc: "Move between accounts", active: "border-slate-400 bg-slate-50 text-slate-700" },
+                  { t: "in" as const, label: "Money In", icon: <ArrowDownLeft size={15} />, desc: "Received from someone", active: "border-emerald-400 bg-emerald-50 text-emerald-700" },
+                  { t: "out" as const, label: "Money Out", icon: <ArrowUpRight size={15} />, desc: "Sent to someone", active: "border-red-400 bg-red-50 text-red-600" },
+                  { t: "cc" as const, label: "CC Payment", icon: <CreditCardIcon size={15} />, desc: "Pay a credit card", active: "border-blue-400 bg-blue-50 text-blue-700" },
+                ]).map(({ t, label, icon, desc, active }) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setTransferType(t);
+                      setTransferSaveError(null);
+                      setTransferForm((f) => ({
+                        ...f,
+                        from_bank_id: t === "in" ? "" : f.from_bank_id,
+                        to_bank_id: (t === "out" || t === "cc") ? "" : f.to_bank_id,
+                        platform: (t === "bank" || t === "cc") ? "" : f.platform,
+                        person: (t === "bank" || t === "cc") ? "" : f.person,
+                        credit_card_id: t !== "cc" ? "" : f.credit_card_id,
+                      }));
+                    }}
+                    className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 text-center transition-colors ${
+                      transferType === t ? active : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+                    }`}
+                  >
+                    {icon}
+                    <span className="text-xs font-semibold leading-tight">{label}</span>
+                    <span className="text-[10px] leading-tight opacity-70">{desc}</span>
                   </button>
-                  {personDropOpen && (
-                    <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                      {transferForm.person && (
-                        <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, person: "" })); setPersonDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
-                          None
+                ))}
+              </div>
+            </div>
+
+            {transferType !== "" && (
+              <form onSubmit={saveTransfer} className="flex flex-col gap-4 px-6 pb-6">
+                {transferSaveError && (
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{transferSaveError}</div>
+                )}
+
+                {/* Amount + Date row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+                    <input
+                      type="number"
+                      required
+                      autoFocus
+                      min="0.01"
+                      step="0.01"
+                      value={transferForm.amount}
+                      onChange={(e) => setTransferForm((f) => ({ ...f, amount: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={transferForm.date}
+                      onChange={(e) => setTransferForm((f) => ({ ...f, date: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Platform — Money In / Out only */}
+                {(transferType === "in" || transferType === "out") && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Platform</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Zelle", "Venmo", "Cash"].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setTransferForm((f) => ({ ...f, platform: f.platform === p ? "" : p }))}
+                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                            transferForm.platform === p
+                              ? p === "Cash" ? "bg-amber-50 border-amber-300 text-amber-700"
+                                : "bg-violet-50 border-violet-300 text-violet-600"
+                              : "border-slate-200 text-slate-500 hover:border-slate-300"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      <input
+                        type="text"
+                        value={["Zelle", "Venmo", "Cash"].includes(transferForm.platform) ? "" : transferForm.platform}
+                        onChange={(e) => setTransferForm((f) => ({ ...f, platform: e.target.value }))}
+                        placeholder="Other…"
+                        className="flex-1 min-w-[80px] border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Person — Money In / Out only */}
+                {(transferType === "in" || transferType === "out") && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      {transferType === "in" ? "Received From" : transferType === "out" ? "Sent To" : <>Paid by <span className="text-xs font-normal text-slate-400">(leave blank if you paid)</span></>}
+                    </label>
+                    <div className="relative" ref={personDropRef}>
+                      <button type="button"
+                        onClick={() => { setPersonDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
+                        className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                        <span className={transferForm.person ? "text-slate-800" : "text-slate-400"}>
+                          {transferForm.person || "Select person…"}
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${personDropOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {personDropOpen && (
+                        <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                          {transferForm.person && (
+                            <button type="button"
+                              onClick={() => { setTransferForm((f) => ({ ...f, person: "" })); setPersonDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                          )}
+                          {knownPeople.length === 0 && !addingPerson && (
+                            <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
+                          )}
+                          {knownPeople.map((p) => (
+                            <div key={p.id} className="flex items-center group/opt">
+                              <button type="button"
+                                onClick={() => { setTransferForm((f) => ({ ...f, person: p.name })); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
+                                className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.person === p.name ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                {p.name}
+                              </button>
+                              <button type="button"
+                                onClick={() => { removePerson(p.name); if (transferForm.person === p.name) setTransferForm((f) => ({ ...f, person: "" })); }}
+                                className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ))}
+                          <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
+                            {addingPerson ? (
+                              <div className="flex gap-1.5 px-2 py-1.5">
+                                <input type="text" autoFocus value={newPersonName}
+                                  onChange={(e) => setNewPersonName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      const name = newPersonName.trim();
+                                      if (name) { addNewPerson().then(() => { setTransferForm((f) => ({ ...f, person: name })); setPersonDropOpen(false); }); }
+                                    }
+                                    if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); }
+                                  }}
+                                  placeholder="Person name"
+                                  className="flex-1 border border-violet-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                                <button type="button"
+                                  onClick={() => { const name = newPersonName.trim(); if (name) { addNewPerson().then(() => { setTransferForm((f) => ({ ...f, person: name })); setPersonDropOpen(false); }); } }}
+                                  className="px-2.5 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                                <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => setAddingPerson(true)}
+                                className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors">
+                                <Plus size={13} /> New person
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* From Bank — Bank Transfer + Money Out + CC Payment */}
+                {(transferType === "bank" || transferType === "out" || transferType === "cc") && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        {transferType === "bank" ? "From Account" : "From Account"}
+                        {transferType === "out" && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
+                      </label>
+                      {!addingFromBank && (
+                        <button type="button" onClick={() => { setFromBankDropOpen(false); setAddingFromBank(true); setNewFromBankName(""); }}
+                          className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
+                          <Plus size={12} /> New
                         </button>
                       )}
-                      {knownPeople.length === 0 && !addingPerson && (
-                        <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
-                      )}
-                      {knownPeople.map((p) => (
-                        <div key={p.id} className="flex items-center group/opt">
-                          <button type="button"
-                            onClick={() => { setTransferForm((f) => ({ ...f, person: p.name })); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
-                            className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.person === p.name ? "bg-violet-50 text-violet-700 font-medium hover:bg-violet-50" : "text-slate-700 hover:bg-slate-50"}`}>
-                            {p.name}
-                          </button>
-                          <button type="button"
-                            onClick={() => { removePerson(p.name); if (transferForm.person === p.name) setTransferForm((f) => ({ ...f, person: "" })); }}
-                            className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ))}
-                      <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
-                        {addingPerson ? (
-                          <div className="flex gap-1.5 px-2 py-1.5">
-                            <input type="text" autoFocus value={newPersonName}
-                              onChange={(e) => setNewPersonName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  const name = newPersonName.trim();
-                                  if (name) {
-                                    addNewPerson().then(() => {
-                                      setTransferForm((f) => ({ ...f, person: name }));
-                                      setPersonDropOpen(false);
-                                    });
-                                  }
-                                }
-                                if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); }
-                              }}
-                              placeholder="Person name"
-                              className="flex-1 border border-violet-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                    </div>
+                    {addingFromBank ? (
+                      <div className="flex gap-2">
+                        <input type="text" autoFocus value={newFromBankName} onChange={(e) => setNewFromBankName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineFrom(); } if (e.key === "Escape") { setAddingFromBank(false); setNewFromBankName(""); } }}
+                          placeholder="Account name"
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                        <button type="button" onClick={addBankInlineFrom} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                        <button type="button" onClick={() => { setAddingFromBank(false); setNewFromBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                      </div>
+                    ) : (
+                      <div className="relative" ref={fromBankDropRef}>
+                        <button type="button"
+                          onClick={() => setFromBankDropOpen((o) => !o)}
+                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                          <span className={transferForm.from_bank_id ? "text-slate-800" : "text-slate-400"}>
+                            {transferForm.from_bank_id ? bankDisplayName(parseInt(transferForm.from_bank_id)) : "None"}
+                          </span>
+                          <ChevronDown size={14} className={`text-slate-400 transition-transform ${fromBankDropOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {fromBankDropOpen && (
+                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
-                              onClick={() => {
-                                const name = newPersonName.trim();
-                                if (name) {
-                                  addNewPerson().then(() => {
-                                    setTransferForm((f) => ({ ...f, person: name }));
-                                    setPersonDropOpen(false);
-                                  });
-                                }
-                              }}
-                              className="px-2.5 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                            <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
+                              onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: "" })); setFromBankDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                            {banks.map((b) => (
+                              <div key={b.id} className="flex items-center group/opt">
+                                <button type="button"
+                                  onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: String(b.id) })); setFromBankDropOpen(false); }}
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.from_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  {bankDisplayName(b.id)}
+                                </button>
+                                <button type="button" onClick={() => deleteBank(b.id)}
+                                  className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
+                              </div>
+                            ))}
                           </div>
-                        ) : (
-                          <button type="button"
-                            onClick={() => setAddingPerson(true)}
-                            className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors">
-                            <Plus size={13} /> New person
-                          </button>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Category */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Category</label>
-                  {!addingCat && (
-                    <button type="button" onClick={() => { setAddingCat(true); setNewCatName(""); setCatDropOpen(false); }}
-                      className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New
-                    </button>
-                  )}
-                </div>
-                {addingCat ? (
-                  <div className="flex gap-2">
-                    <input type="text" autoFocus value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTransferCategory(); } if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
-                      placeholder="Category name"
-                      className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                    <button type="button" onClick={addTransferCategory} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                    <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                    )}
                   </div>
-                ) : (
-                  <div className="relative" ref={catDropRef}>
-                    <button type="button"
-                      onClick={() => setCatDropOpen((o) => !o)}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                      <span className={transferForm.category_id ? "text-slate-800" : "text-slate-400"}>
-                        {transferForm.category_id
-                          ? (expenseCategories.find((c) => c.id === parseInt(transferForm.category_id))?.name ?? "None")
-                          : "None"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${catDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {catDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, category_id: "" })); setCatDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
-                          None
+                )}
+
+                {/* To Bank — Bank Transfer + Money In */}
+                {(transferType === "bank" || transferType === "in") && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-slate-700">
+                        {transferType === "bank" ? "To Account" : "To Account"}
+                        {transferType === "in" && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
+                      </label>
+                      {!addingToBank && (
+                        <button type="button" onClick={() => { setToBankDropOpen(false); setAddingToBank(true); setNewToBankName(""); }}
+                          className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
+                          <Plus size={12} /> New
                         </button>
-                        {expenseCategories.map((c) => (
-                          <div key={c.id} className="flex items-center group/opt">
+                      )}
+                    </div>
+                    {addingToBank ? (
+                      <div className="flex gap-2">
+                        <input type="text" autoFocus value={newToBankName} onChange={(e) => setNewToBankName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineTo(); } if (e.key === "Escape") { setAddingToBank(false); setNewToBankName(""); } }}
+                          placeholder="Account name"
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                        <button type="button" onClick={addBankInlineTo} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                        <button type="button" onClick={() => { setAddingToBank(false); setNewToBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                      </div>
+                    ) : (
+                      <div className="relative" ref={toBankDropRef}>
+                        <button type="button"
+                          onClick={() => setToBankDropOpen((o) => !o)}
+                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                          <span className={transferForm.to_bank_id ? "text-slate-800" : "text-slate-400"}>
+                            {transferForm.to_bank_id ? bankDisplayName(parseInt(transferForm.to_bank_id)) : "None"}
+                          </span>
+                          <ChevronDown size={14} className={`text-slate-400 transition-transform ${toBankDropOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {toBankDropOpen && (
+                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
-                              onClick={() => { setTransferForm((f) => ({ ...f, category_id: String(c.id) })); setCatDropOpen(false); }}
-                              className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                              {c.name}
-                            </button>
-                            <button type="button"
-                              onClick={() => deleteCategory(c.id)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors">
-                              <X size={13} />
-                            </button>
+                              onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: "" })); setToBankDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                            {banks.map((b) => (
+                              <div key={b.id} className="flex items-center group/opt">
+                                <button type="button"
+                                  onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: String(b.id) })); setToBankDropOpen(false); }}
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.to_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  {bankDisplayName(b.id)}
+                                </button>
+                                <button type="button" onClick={() => deleteBank(b.id)}
+                                  className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
 
-              {/* From Bank */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">From Bank</label>
-                  {!addingFromBank && (
-                    <button type="button" onClick={() => { setFromBankDropOpen(false); setAddingFromBank(true); setNewFromBankName(""); }}
-                      className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New
+                {/* Credit Card — CC Payment only */}
+                {transferType === "cc" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-slate-700">Credit Card <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                      {!addingCard && (
+                        <button type="button"
+                          onClick={() => { setCardDropOpen(false); setAddingCard(true); setNewCardName(""); setNewCardColor("blue"); }}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5 transition-colors">
+                          <Plus size={12} /> New
+                        </button>
+                      )}
+                    </div>
+                    {addingCard ? (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={newCardName}
+                          onChange={(e) => setNewCardName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); addCardInline(); }
+                            if (e.key === "Escape") resetInlineCard();
+                          }}
+                          placeholder="e.g. Discover it"
+                          className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {Object.entries(CARD_COLOR_MAP).map(([key, hex]) => (
+                              <button key={key} type="button" onClick={() => setNewCardColor(key)}
+                                className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-slate-700 scale-110" : "border-transparent"}`}
+                                style={{ backgroundColor: hex }} />
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => addCardInline()}
+                              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add</button>
+                            <button type="button" onClick={resetInlineCard}
+                              className="px-2 py-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative" ref={cardDropRef}>
+                        <button type="button"
+                          onClick={() => setCardDropOpen((o) => !o)}
+                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          <span className={transferForm.credit_card_id ? "text-slate-800" : "text-slate-400"}>
+                            {transferForm.credit_card_id
+                              ? (() => { const c = creditCards.find((c) => c.id === parseInt(transferForm.credit_card_id)); return c ? `${c.name}${c.last_four ? ` ····${c.last_four}` : ""}` : "None"; })()
+                              : "None"}
+                          </span>
+                          <ChevronDown size={14} className={`text-slate-400 transition-transform ${cardDropOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {cardDropOpen && (
+                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                            <button type="button"
+                              onClick={() => { setTransferForm((f) => ({ ...f, credit_card_id: "" })); setCardDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                            {creditCards.map((c) => (
+                              <div key={c.id} className="flex items-center group/opt">
+                                <button type="button"
+                                  onClick={() => { setTransferForm((f) => ({ ...f, credit_card_id: String(c.id) })); setCardDropOpen(false); }}
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.credit_card_id === String(c.id) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  {c.name}{c.last_four ? ` ····${c.last_four}` : ""}
+                                </button>
+                                <button type="button"
+                                  onClick={() => deleteCreditCard(c.id)}
+                                  className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Category — Money In / Out only */}
+                {(transferType === "in" || transferType === "out") && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-slate-700">Category <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                      {!addingCat && (
+                        <button type="button" onClick={() => { setAddingCat(true); setNewCatName(""); setCatDropOpen(false); }}
+                          className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
+                          <Plus size={12} /> New
+                        </button>
+                      )}
+                    </div>
+                    {addingCat ? (
+                      <div className="flex gap-2">
+                        <input type="text" autoFocus value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTransferCategory(); } if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
+                          placeholder="Category name"
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                        <button type="button" onClick={addTransferCategory} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
+                        <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                      </div>
+                    ) : (
+                      <div className="relative" ref={catDropRef}>
+                        <button type="button"
+                          onClick={() => setCatDropOpen((o) => !o)}
+                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
+                          <span className={transferForm.category_id ? "text-slate-800" : "text-slate-400"}>
+                            {transferForm.category_id ? (expenseCategories.find((c) => c.id === parseInt(transferForm.category_id))?.name ?? "None") : "None"}
+                          </span>
+                          <ChevronDown size={14} className={`text-slate-400 transition-transform ${catDropOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {catDropOpen && (
+                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                            <button type="button"
+                              onClick={() => { setTransferForm((f) => ({ ...f, category_id: "" })); setCatDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                            {expenseCategories.map((c) => (
+                              <div key={c.id} className="flex items-center group/opt">
+                                <button type="button"
+                                  onClick={() => { setTransferForm((f) => ({ ...f, category_id: String(c.id) })); setCatDropOpen(false); }}
+                                  className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{c.name}</button>
+                                <button type="button" onClick={() => deleteCategory(c.id)}
+                                  className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Name / label — optional, collapsed */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Label <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={transferForm.name}
+                    onChange={(e) => setTransferForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder={transferType === "bank" ? "e.g. Savings top-up" : "e.g. Rent split, Utilities"}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Notes <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                  <textarea
+                    rows={2}
+                    value={transferForm.notes}
+                    onChange={(e) => setTransferForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder="Any extra details…"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferType(""); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
+                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  {!editTransfer && (
+                    <button type="button" onClick={saveTransferAndAddAnother}
+                      className="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                      Save & add another
                     </button>
                   )}
-                </div>
-                {addingFromBank ? (
-                  <div className="flex gap-2">
-                    <input type="text" autoFocus value={newFromBankName} onChange={(e) => setNewFromBankName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineFrom(); } if (e.key === "Escape") { setAddingFromBank(false); setNewFromBankName(""); } }}
-                      placeholder="Bank name"
-                      className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                    <button type="button" onClick={addBankInlineFrom} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                    <button type="button" onClick={() => { setAddingFromBank(false); setNewFromBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="relative" ref={fromBankDropRef}>
-                    <button type="button"
-                      onClick={() => setFromBankDropOpen((o) => !o)}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                      <span className={transferForm.from_bank_id ? "text-slate-800" : "text-slate-400"}>
-                        {transferForm.from_bank_id ? (banks.find((b) => b.id === parseInt(transferForm.from_bank_id))?.name ?? "None") : "None"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${fromBankDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {fromBankDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: "" })); setFromBankDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
-                        {banks.map((b) => (
-                          <div key={b.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: String(b.id) })); setFromBankDropOpen(false); }}
-                              className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.from_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
-                              {b.name}{b.account_type && <span className="ml-1.5 text-[10px] text-slate-400 uppercase">{b.account_type}</span>}
-                            </button>
-                            <button type="button" onClick={() => deleteBank(b.id)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* To Bank */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">To Bank</label>
-                  {!addingToBank && (
-                    <button type="button" onClick={() => { setToBankDropOpen(false); setAddingToBank(true); setNewToBankName(""); }}
-                      className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
-                      <Plus size={12} /> New
-                    </button>
-                  )}
-                </div>
-                {addingToBank ? (
-                  <div className="flex gap-2">
-                    <input type="text" autoFocus value={newToBankName} onChange={(e) => setNewToBankName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineTo(); } if (e.key === "Escape") { setAddingToBank(false); setNewToBankName(""); } }}
-                      placeholder="Bank name"
-                      className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                    <button type="button" onClick={addBankInlineTo} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                    <button type="button" onClick={() => { setAddingToBank(false); setNewToBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="relative" ref={toBankDropRef}>
-                    <button type="button"
-                      onClick={() => setToBankDropOpen((o) => !o)}
-                      className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                      <span className={transferForm.to_bank_id ? "text-slate-800" : "text-slate-400"}>
-                        {transferForm.to_bank_id ? (banks.find((b) => b.id === parseInt(transferForm.to_bank_id))?.name ?? "None") : "None"}
-                      </span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${toBankDropOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {toBankDropOpen && (
-                      <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
-                        <button type="button"
-                          onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: "" })); setToBankDropOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
-                        {banks.map((b) => (
-                          <div key={b.id} className="flex items-center group/opt">
-                            <button type="button"
-                              onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: String(b.id) })); setToBankDropOpen(false); }}
-                              className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.to_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
-                              {b.name}{b.account_type && <span className="ml-1.5 text-[10px] text-slate-400 uppercase">{b.account_type}</span>}
-                            </button>
-                            <button type="button" onClick={() => deleteBank(b.id)}
-                              className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
-                <input
-                  type="number"
-                  required
-                  min="0.01"
-                  step="0.01"
-                  value={transferForm.amount}
-                  onChange={(e) => setTransferForm((f) => ({ ...f, amount: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                <textarea
-                  rows={2}
-                  value={transferForm.notes}
-                  onChange={(e) => setTransferForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="Optional note…"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-1">
-                <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
-                {!editTransfer && (
-                  <button type="button" onClick={saveTransferAndAddAnother}
-                    className="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
-                    Save & add another
+                  <button type="submit" className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
+                    {editTransfer ? "Save changes" : "Add transfer"}
                   </button>
-                )}
-                <button type="submit" className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
-                  {editTransfer ? "Save changes" : "Add transfer"}
-                </button>
-              </div>
-            </form>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

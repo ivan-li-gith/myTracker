@@ -178,6 +178,7 @@ export interface MoneyTransfer {
   from_bank_id: number | null;
   to_bank_id: number | null;
   category_id: number | null;
+  credit_card_id: number | null;
   amount: number;
   notes: string | null;
   split_with: string | null;
