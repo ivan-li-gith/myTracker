@@ -284,6 +284,16 @@ export interface StockHolding {
   dividends: StockDividend[];
 }
 
+export interface WorkLogEntry {
+  id: number;
+  date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM
+  end_time: string; // HH:MM
+  category: string;
+  description: string | null;
+  created_at: string;
+}
+
 export interface Payment {
   id: number;
   name: string;

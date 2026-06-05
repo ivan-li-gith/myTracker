@@ -14,3 +14,4 @@ from app.models.utility_bills import UtilityBill, UtilityBillPriceHistory, Utili
 from app.models.loans import Loan
 from app.models.credit_card_reminders import CreditCardReminder
 from app.models.stocks import StockHolding, StockLot
+from app.models.work_log import WorkLogEntry

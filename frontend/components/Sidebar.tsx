@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CheckSquare, CreditCard, Briefcase,
+  CheckSquare, CreditCard, Briefcase, ClipboardList,
   Menu, X, LayoutDashboard, User, Activity,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
@@ -28,6 +28,7 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/tasks", label: "Reminders", icon: CheckSquare },
   { href: "/payments", label: "Finance", icon: CreditCard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/work-log", label: "Work Log", icon: ClipboardList },
 ];
 
 
