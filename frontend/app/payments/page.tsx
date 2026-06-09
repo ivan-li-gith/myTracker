@@ -134,26 +134,26 @@ function RowMenu({ onEdit, onDelete, onLogPrice, onReturn }: {
       <button
         ref={btnRef}
         onClick={handleOpen}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-slate-300 hover:bg-white/[0.1] rounded-md"
       >
         <MoreHorizontal size={18} />
       </button>
       {open && createPortal(
         <div
           ref={dropRef}
-          className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-32 text-sm"
+          className="fixed z-50 bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg py-1 w-32 text-sm"
           style={{ top: pos.top, right: pos.right }}
         >
           <button
             onClick={() => { setOpen(false); onEdit(); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-slate-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] transition-colors"
           >
             <Pencil size={14} /> Edit
           </button>
           {onReturn && (
             <button
               onClick={() => { setOpen(false); onReturn(); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-emerald-600 hover:bg-emerald-500/10 transition-colors"
             >
               <RotateCcw size={14} /> Return
             </button>
@@ -161,14 +161,14 @@ function RowMenu({ onEdit, onDelete, onLogPrice, onReturn }: {
           {onLogPrice && (
             <button
               onClick={() => { setOpen(false); onLogPrice(); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-violet-600 hover:bg-violet-50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-violet-600 hover:bg-violet-500/10 transition-colors"
             >
               <DollarSign size={14} /> Inc price
             </button>
           )}
           <button
             onClick={() => { setOpen(false); onDelete(); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-red-500 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-red-500 hover:bg-red-500/10 transition-colors"
           >
             <Trash2 size={14} /> Delete
           </button>
@@ -282,14 +282,14 @@ function ScanModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-white/[0.07]">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <ScanLine size={18} className="text-indigo-500" />
             Scan Receipt or Bill
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-300 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -303,19 +303,19 @@ function ScanModal({
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
-                  dragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                  dragging ? "border-indigo-400 bg-indigo-500/20" : "border-white/[0.1] hover:border-indigo-300 hover:bg-white/[0.05]"
                 }`}
               >
                 <Upload size={28} className="text-slate-400" />
                 <div className="text-center">
                   {files.length === 0 ? (
                     <>
-                      <p className="text-sm font-medium text-slate-700">Drop files here or click to browse</p>
+                      <p className="text-sm font-medium text-slate-300">Drop files here or click to browse</p>
                       <p className="text-xs text-slate-400 mt-1">JPEG, PNG, or PDF — multiple files supported</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-sm font-medium text-slate-700">{files.length} file{files.length !== 1 ? "s" : ""} selected</p>
+                      <p className="text-sm font-medium text-slate-300">{files.length} file{files.length !== 1 ? "s" : ""} selected</p>
                       <p className="text-xs text-slate-400 mt-1">{files.map((f) => f.name).join(", ")}</p>
                     </>
                   )}
@@ -337,7 +337,7 @@ function ScanModal({
               {files.length > 0 && (
                 <button
                   onClick={() => setFiles([])}
-                  className="text-xs text-slate-400 hover:text-slate-600 self-start transition-colors"
+                  className="text-xs text-slate-400 hover:text-slate-300 self-start transition-colors"
                 >
                   Clear selection
                 </button>
@@ -362,11 +362,11 @@ function ScanModal({
               </p>
 
               <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-slate-700 shrink-0">Credit card for all</label>
+                <label className="text-sm font-medium text-slate-300 shrink-0">Credit card for all</label>
                 <select
                   value={creditCardId}
                   onChange={(e) => setCreditCardId(e.target.value)}
-                  className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="flex-1 border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 >
                   <option value="">None</option>
                   {creditCards.map((c) => (
@@ -375,9 +375,9 @@ function ScanModal({
                 </select>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="border border-white/[0.1] rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <thead className="bg-[#14162e] text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     <tr>
                       <th className="text-left px-4 py-2.5">Description</th>
                       <th className="text-left px-4 py-2.5 w-28">Amount</th>
@@ -387,14 +387,14 @@ function ScanModal({
                       <th className="w-8" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-white/[0.07]">
                     {rows.map((row, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2">
                           <input
                             value={row.name}
                             onChange={(e) => updateRow(i, "name", e.target.value)}
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full border border-white/[0.1] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-[#14162e] text-slate-200"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -404,7 +404,7 @@ function ScanModal({
                             step="0.01"
                             value={row.amount}
                             onChange={(e) => updateRow(i, "amount", e.target.value)}
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full border border-white/[0.1] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-[#14162e] text-slate-200"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -412,14 +412,14 @@ function ScanModal({
                             type="date"
                             value={row.date}
                             onChange={(e) => updateRow(i, "date", e.target.value)}
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full border border-white/[0.1] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-[#14162e] text-slate-200"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <select
                             value={row.category_id}
                             onChange={(e) => updateRow(i, "category_id", e.target.value)}
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                            className="w-full border border-white/[0.1] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-[#1e2245]"
                           >
                             <option value="">None</option>
                             {expenseCategories.map((c) => (
@@ -432,7 +432,7 @@ function ScanModal({
                             value={row.notes}
                             onChange={(e) => updateRow(i, "notes", e.target.value)}
                             placeholder="Optional"
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full border border-white/[0.1] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-[#14162e] text-slate-200"
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -451,7 +451,7 @@ function ScanModal({
 
               <button
                 onClick={() => { setRows(null); setFiles([]); setError(null); }}
-                className="text-sm text-slate-500 hover:text-slate-700 transition-colors self-start"
+                className="text-sm text-slate-500 hover:text-slate-300 transition-colors self-start"
               >
                 ← Scan different files
               </button>
@@ -460,8 +460,8 @@ function ScanModal({
         </div>
 
         {rows && (
-          <div className="flex gap-3 justify-end p-6 border-t border-slate-100">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">
+          <div className="flex gap-3 justify-end p-6 border-t border-white/[0.07]">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">
               Cancel
             </button>
             <button
@@ -1954,23 +1954,23 @@ export default function PaymentsAndExpensesPage() {
     <div className="p-6 md:p-8 max-w-6xl mx-auto min-h-[calc(100vh-2rem)] relative pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Finances</h1>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Finances</h1>
         <div className="flex items-center gap-2 self-start md:self-auto">
           {/* Month selector */}
-          <div className="flex items-center gap-1 border border-slate-200 rounded-lg px-1 py-1">
+          <div className="flex items-center gap-1 border border-white/[0.1] rounded-lg px-1 py-1">
             <button
               onClick={() => setSelectedMonth((m) => shiftMonth(m, -1))}
               disabled={selectedMonth <= "2026-01"}
-              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-white/[0.07] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={15} />
             </button>
-            <span className="text-sm font-medium text-slate-700 min-w-[130px] text-center">
+            <span className="text-sm font-medium text-slate-300 min-w-[130px] text-center">
               {formatMonthLabel(selectedMonth)}
             </span>
             <button
               onClick={() => setSelectedMonth((m) => shiftMonth(m, 1))}
-              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-500 hover:bg-white/[0.07] transition-colors"
             >
               <ChevronRight size={15} />
             </button>
@@ -1978,7 +1978,7 @@ export default function PaymentsAndExpensesPage() {
           {/* Search trigger */}
           <button
             onClick={() => document.dispatchEvent(new CustomEvent("open-global-search"))}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.1] text-slate-500 hover:bg-white/[0.07] hover:text-slate-300 transition-colors"
             aria-label="Search"
           >
             <Search size={16} />
@@ -1987,15 +1987,15 @@ export default function PaymentsAndExpensesPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 mb-6 bg-[#1e2245]/[0.07] p-1 rounded-xl w-fit">
         {(["overview", "expenses", "transfers", "loans", "stocks"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-all duration-150 ${
               activeTab === tab
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "bg-[#1e2245] text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-300"
             }`}
           >
             {tab}
@@ -2007,12 +2007,12 @@ export default function PaymentsAndExpensesPage() {
       {/* Overview Row 1: Total | Transactions | Transfers | CC Paid */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <Wallet size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryGrandTotal)}</p>
+            <p className="text-2xl font-bold text-white leading-none">{formatAmount(summaryGrandTotal)}</p>
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
               <span>transactions · {formatAmount(summaryNetSpend)}</span>
               {moneyTransfers.length > 0 && (
@@ -2021,24 +2021,24 @@ export default function PaymentsAndExpensesPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <Receipt size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transactions</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(summaryNetSpend)}</p>
+            <p className="text-2xl font-bold text-white leading-none">{formatAmount(summaryNetSpend)}</p>
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
               <span>{summaryPositiveCount} expense{summaryPositiveCount !== 1 ? "s" : ""} · {formatAmount(summaryGrossSpend)}</span>
               {summaryRefundCount > 0 && <span>{summaryRefundCount} refund{summaryRefundCount !== 1 ? "s" : ""} · −{formatAmount(summaryRefunds)}</span>}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <Send size={13} className="text-violet-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Transfers</p>
             </div>
-            <p className={`text-2xl font-bold leading-none ${transferNet > 0 ? "text-emerald-600" : transferNet < 0 ? "text-rose-600" : "text-slate-900"}`}>
+            <p className={`text-2xl font-bold leading-none ${transferNet > 0 ? "text-emerald-600" : transferNet < 0 ? "text-rose-600" : "text-white"}`}>
               {transferNet > 0 ? "+" : transferNet < 0 ? "−" : ""}{formatAmount(Math.abs(transferNet))}
             </p>
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
@@ -2048,7 +2048,7 @@ export default function PaymentsAndExpensesPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <CreditCardIcon size={13} className="text-blue-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">CC Paid</p>
@@ -2069,12 +2069,12 @@ export default function PaymentsAndExpensesPage() {
       {/* Overview Row 2: Loans | Portfolio | Unrealized+Realized | Dividends */}
       {activeTab === "overview" && (stocks.length > 0 || loans.length > 0) && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <GraduationCap size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Loans</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">
+            <p className="text-2xl font-bold text-white leading-none">
               {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
             </p>
             <div className="text-[11px] text-slate-400 mt-1.5 flex flex-col gap-0.5">
@@ -2082,16 +2082,16 @@ export default function PaymentsAndExpensesPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <BarChart2 size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Portfolio</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">{formatAmount(portfolioTotalValue)}</p>
+            <p className="text-2xl font-bold text-white leading-none">{formatAmount(portfolioTotalValue)}</p>
             <p className="text-[11px] text-slate-400 mt-1.5">{activeStockHoldings.length} holding{activeStockHoldings.length !== 1 ? "s" : ""}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <TrendingUp size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Unrealized</p>
@@ -2109,7 +2109,7 @@ export default function PaymentsAndExpensesPage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <div className="flex items-center gap-1.5 mb-2">
               <DollarSign size={13} className="text-indigo-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dividends</p>
@@ -2125,20 +2125,20 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Spend Trend Chart */}
       {activeTab === "overview" && (
-        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 pt-4 pb-3 mb-6">
+        <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 pt-4 pb-3 mb-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">6-Month Spend Trend</p>
             {showHalfToggle && (
-              <div className="flex gap-0.5 bg-slate-100 rounded-md p-0.5">
+              <div className="flex gap-0.5 bg-[#1e2245]/[0.07] rounded-md p-0.5">
                 <button
                   onClick={() => setTrendHalf("H1")}
-                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H1" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H1" ? "bg-[#1e2245] text-slate-200 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
                 >
                   Jan–Jun
                 </button>
                 <button
                   onClick={() => setTrendHalf("H2")}
-                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H2" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-all ${trendHalf === "H2" ? "bg-[#1e2245] text-slate-200 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
                 >
                   Jul–Dec
                 </button>
@@ -2154,7 +2154,7 @@ export default function PaymentsAndExpensesPage() {
                   </span>
                 )}
                 <div
-                  className={`w-full rounded-sm transition-all ${month === selectedMonth ? "bg-indigo-500" : "bg-indigo-100"}`}
+                  className={`w-full rounded-sm transition-all ${month === selectedMonth ? "bg-indigo-500" : "bg-indigo-500/20"}`}
                   style={{ height: `${Math.max((total / trendMax) * 44, total > 0 ? 3 : 0)}px` }}
                 />
                 <span className={`text-[10px] font-semibold leading-none ${month === selectedMonth ? "text-indigo-600" : "text-slate-400"}`}>
@@ -2172,7 +2172,7 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Spend by Category + Credit Card */}
       {(overviewCatBreakdown.length > 0 || overviewCardBreakdown.length > 0) && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-6">
+        <div className="bg-[#1e2245] border border-white/[0.1] rounded-xl p-5 shadow-sm mb-6">
           {overviewCatBreakdown.length > 0 && (
             <div className={overviewCardBreakdown.length > 0 ? "mb-5" : ""}>
               <div className="flex items-center gap-2 mb-4">
@@ -2212,16 +2212,16 @@ export default function PaymentsAndExpensesPage() {
                   return (
                     <div key={cat.name}>
                       <div
-                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-white/[0.05] transition-colors"
                         onClick={() => setExpandedOverviewCats((prev) => { const n = new Set(prev); n.has(cat.name) ? n.delete(cat.name) : n.add(cat.name); return n; })}
                       >
-                        <span className="text-sm font-medium text-slate-700 w-32 shrink-0 truncate">{cat.name}</span>
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <span className="text-sm font-medium text-slate-300 w-32 shrink-0 truncate">{cat.name}</span>
+                        <div className="flex-1 h-2 bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                           <div className={`h-full rounded-full transition-all duration-500 ${cat.color}`} style={{ width: `${cat.pct}%` }} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
                           <span className="text-xs text-slate-400 font-medium">{cat.pct.toFixed(0)}%</span>
-                          <span className="text-sm font-semibold text-slate-800">{formatAmount(cat.total)}</span>
+                          <span className="text-sm font-semibold text-slate-200">{formatAmount(cat.total)}</span>
                         </div>
                         <ChevronDown size={12} className={`shrink-0 text-slate-300 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
                       </div>
@@ -2233,8 +2233,8 @@ export default function PaymentsAndExpensesPage() {
                             if (group.items.length === 1) {
                               const e = group.items[0];
                               return (
-                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 rounded-lg px-3 py-2">
-                                  <span className="text-slate-700 font-medium truncate pr-2">{e.name}</span>
+                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#14162e] rounded-lg px-3 py-2">
+                                  <span className="text-slate-300 font-medium truncate pr-2">{e.name}</span>
                                   <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
                                   <span className={`font-semibold text-right ${e.amount < 0 ? "text-emerald-600" : "text-rose-500"}`}>{e.amount < 0 ? "+" : "−"}{formatAmount(Math.abs(e.amount))}</span>
                                 </div>
@@ -2244,9 +2244,9 @@ export default function PaymentsAndExpensesPage() {
                               <div key={mKey}>
                                 <button
                                   onClick={() => setExpandedOverviewCatMerchants((prev) => { const n = new Set(prev); n.has(mKey) ? n.delete(mKey) : n.add(mKey); return n; })}
-                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-2 transition-colors"
+                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#14162e] hover:bg-white/[0.07] rounded-lg px-3 py-2 transition-colors"
                                 >
-                                  <span className="font-medium text-slate-700 text-left truncate pr-2">
+                                  <span className="font-medium text-slate-300 text-left truncate pr-2">
                                     {group.displayName}
                                     <span className="text-slate-400 ml-1.5">×{group.items.length}</span>
                                   </span>
@@ -2256,7 +2256,7 @@ export default function PaymentsAndExpensesPage() {
                                 {isGroupExpanded && (
                                   <div className="flex flex-col gap-0.5 mt-0.5">
                                     {group.items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => (
-                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-white border border-slate-100 rounded-md px-3 py-1.5">
+                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#1e2245] border border-white/[0.07] rounded-md px-3 py-1.5">
                                         <span />
                                         <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
                                         <span className={`font-medium text-right ${e.amount < 0 ? "text-emerald-600" : "text-rose-500"}`}>{e.amount < 0 ? "+" : "−"}{formatAmount(Math.abs(e.amount))}</span>
@@ -2276,7 +2276,7 @@ export default function PaymentsAndExpensesPage() {
               {overviewCatBreakdown.length > TOP_N && (
                 <button
                   onClick={() => setShowAllCats((v) => !v)}
-                  className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+                  className="mt-4 text-xs text-slate-400 hover:text-slate-300 font-medium flex items-center gap-1 transition-colors"
                 >
                   <ChevronDown size={13} className={`transition-transform ${showAllCats ? "rotate-180" : ""}`} />
                   {showAllCats ? "Show less" : `${overviewCatBreakdown.length - TOP_N} more`}
@@ -2286,7 +2286,7 @@ export default function PaymentsAndExpensesPage() {
           )}
 
           {overviewCatBreakdown.length > 0 && overviewCardBreakdown.length > 0 && (
-            <div className="border-t border-slate-100 my-5" />
+            <div className="border-t border-white/[0.07] my-5" />
           )}
 
           {overviewCardBreakdown.length > 0 && (
@@ -2317,16 +2317,16 @@ export default function PaymentsAndExpensesPage() {
                   return (
                     <div key={card.name}>
                       <div
-                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1 hover:bg-white/[0.05] transition-colors"
                         onClick={() => setExpandedOverviewCards((prev) => { const n = new Set(prev); n.has(card.name) ? n.delete(card.name) : n.add(card.name); return n; })}
                       >
-                        <span className="text-sm font-medium text-slate-700 w-36 shrink-0 truncate">{card.name}</span>
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <span className="text-sm font-medium text-slate-300 w-36 shrink-0 truncate">{card.name}</span>
+                        <div className="flex-1 h-2 bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${card.pct}%`, backgroundColor: card.color }} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0 w-28 justify-end">
                           <span className="text-xs text-slate-400 font-medium">{card.pct.toFixed(0)}%</span>
-                          <span className="text-sm font-semibold text-slate-800">{formatAmount(card.total)}</span>
+                          <span className="text-sm font-semibold text-slate-200">{formatAmount(card.total)}</span>
                         </div>
                         <ChevronDown size={12} className={`shrink-0 text-slate-300 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
                       </div>
@@ -2338,8 +2338,8 @@ export default function PaymentsAndExpensesPage() {
                             if (group.items.length === 1) {
                               const e = group.items[0];
                               return (
-                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 rounded-lg px-3 py-2">
-                                  <span className="text-slate-700 font-medium truncate pr-2">{e.name}</span>
+                                <div key={mKey} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#14162e] rounded-lg px-3 py-2">
+                                  <span className="text-slate-300 font-medium truncate pr-2">{e.name}</span>
                                   <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
                                   <span className="font-semibold text-right text-rose-500">−{formatAmount(e.amount)}</span>
                                 </div>
@@ -2349,9 +2349,9 @@ export default function PaymentsAndExpensesPage() {
                               <div key={mKey}>
                                 <button
                                   onClick={() => setExpandedOverviewCardMerchants((prev) => { const n = new Set(prev); n.has(mKey) ? n.delete(mKey) : n.add(mKey); return n; })}
-                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-2 transition-colors"
+                                  className="w-full grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#14162e] hover:bg-white/[0.07] rounded-lg px-3 py-2 transition-colors"
                                 >
-                                  <span className="font-medium text-slate-700 text-left truncate pr-2">
+                                  <span className="font-medium text-slate-300 text-left truncate pr-2">
                                     {group.displayName}
                                     <span className="text-slate-400 ml-1.5">×{group.items.length}</span>
                                   </span>
@@ -2361,7 +2361,7 @@ export default function PaymentsAndExpensesPage() {
                                 {isGroupExpanded && (
                                   <div className="flex flex-col gap-0.5 mt-0.5">
                                     {group.items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => (
-                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-white border border-slate-100 rounded-md px-3 py-1.5">
+                                      <div key={e.id} className="grid grid-cols-[1fr_4.5rem_5.5rem] items-center text-xs bg-[#1e2245] border border-white/[0.07] rounded-md px-3 py-1.5">
                                         <span />
                                         <span className="text-slate-400 text-right">{formatDate(e.date)}</span>
                                         <span className="font-medium text-right text-rose-500">−{formatAmount(e.amount)}</span>
@@ -2381,7 +2381,7 @@ export default function PaymentsAndExpensesPage() {
               {overviewCardBreakdown.length > TOP_N && (
                 <button
                   onClick={() => setShowAllCards((v) => !v)}
-                  className="mt-4 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors"
+                  className="mt-4 text-xs text-slate-400 hover:text-slate-300 font-medium flex items-center gap-1 transition-colors"
                 >
                   <ChevronDown size={13} className={`transition-transform ${showAllCards ? "rotate-180" : ""}`} />
                   {showAllCards ? "Show less" : `${overviewCardBreakdown.length - TOP_N} more`}
@@ -2394,7 +2394,7 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Stock Portfolio Overview */}
       {stocks.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-6">
+        <div className="bg-[#1e2245] border border-white/[0.1] rounded-xl p-5 shadow-sm mb-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
@@ -2406,13 +2406,13 @@ export default function PaymentsAndExpensesPage() {
                 <span className="text-xs text-slate-400 mr-1">{portfolioSlide + 1} / {portfolioSlideCount}</span>
                 <button
                   onClick={() => setPortfolioSlide((s) => (s - 1 + portfolioSlideCount) % portfolioSlideCount)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="p-1 rounded hover:bg-white/[0.07] text-slate-400 hover:text-slate-300 transition-colors"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={() => setPortfolioSlide((s) => (s + 1) % portfolioSlideCount)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="p-1 rounded hover:bg-white/[0.07] text-slate-400 hover:text-slate-300 transition-colors"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -2469,8 +2469,8 @@ export default function PaymentsAndExpensesPage() {
                 <div className="flex flex-col gap-2">
                   {portfolioGainLossData.map((d) => (
                     <div key={d.name} className="flex items-center gap-3 rounded-lg -mx-2 px-2 py-1">
-                      <span className="text-sm font-medium text-slate-700 w-16 shrink-0 truncate">{d.name}</span>
-                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <span className="text-sm font-medium text-slate-300 w-16 shrink-0 truncate">{d.name}</span>
+                      <div className="flex-1 h-2 bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{ width: `${d.sharePct}%`, backgroundColor: d.gain >= 0 ? "#10b981" : "#f43f5e" }}
@@ -2503,7 +2503,7 @@ export default function PaymentsAndExpensesPage() {
                   </ResponsiveContainer>
                   <div className="flex gap-4 mt-3">
                     <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <div className="w-3 h-3 rounded-sm bg-slate-400" />
+                      <div className="w-3 h-3 rounded-sm bg-slate-500" />
                       Cost Basis
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -2533,10 +2533,10 @@ export default function PaymentsAndExpensesPage() {
       {/* Bitches Who Owe Me Section */}
       {categoryBalances.length > 0 && (
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+          <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
             <button
               onClick={() => setOwedOpen((o) => !o)}
-              className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors"
+              className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider hover:text-slate-300 transition-colors"
             >
               <Users size={16} className="text-rose-500" />
               Bitches Who Owe Me
@@ -2547,14 +2547,14 @@ export default function PaymentsAndExpensesPage() {
           {owedOpen && (
             <div className="space-y-4">
               {categoryBalances.map(({ categoryId, categoryName, people }) => (
-                <div key={`cat-${categoryId}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div key={`cat-${categoryId}`} className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
                   {/* Category header */}
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#14162e] border-b border-white/[0.1]">
                     <Tag size={12} className="text-violet-500 shrink-0" />
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-600">{categoryName}</span>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/[0.07]">
                     {people.map(({ person, totalOwed, totalPaid, outstanding, payments }) => {
                       const personKey = `${categoryId}:${person.id}`;
                       const isExpanded = expandedOwedIds.has(personKey);
@@ -2576,7 +2576,7 @@ export default function PaymentsAndExpensesPage() {
                                 {person.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-slate-900">{person.name}</p>
+                                <p className="text-sm font-medium text-white">{person.name}</p>
                                 <p className="text-xs text-slate-400">
                                   {formatAmount(totalOwed)}{totalPaid > 0 && <> − {formatAmount(totalPaid)} = <span className={settled ? "text-emerald-600" : "text-rose-500"}>{formatAmount(outstanding)}</span></>}
                                 </p>
@@ -2585,7 +2585,7 @@ export default function PaymentsAndExpensesPage() {
                             </button>
                             <div className="flex items-center gap-3 shrink-0">
                               {settled ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">Settled</span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600">Settled</span>
                               ) : (
                                 <span className="text-sm font-semibold text-rose-600">{formatAmount(outstanding)}</span>
                               )}
@@ -2601,7 +2601,7 @@ export default function PaymentsAndExpensesPage() {
                                       setRecordPaymentNotes("");
                                     }
                                   }}
-                                  className="text-xs px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium transition-colors"
+                                  className="text-xs px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 font-medium transition-colors"
                                 >
                                   Record payment
                                 </button>
@@ -2611,29 +2611,29 @@ export default function PaymentsAndExpensesPage() {
 
                           {/* Inline payment form */}
                           {isRecording && (
-                            <div className="px-4 pb-3 pt-1 bg-emerald-50/60 border-t border-emerald-100">
-                              <p className="text-xs font-medium text-emerald-700 mb-2">Recording payment from {person.name}</p>
+                            <div className="px-4 pb-3 pt-1 bg-emerald-500/10/60 border-t border-emerald-100">
+                              <p className="text-xs font-medium text-emerald-400 mb-2">Recording payment from {person.name}</p>
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   placeholder="Amount"
                                   value={recordPaymentAmount}
                                   onChange={(e) => setRecordPaymentAmount(e.target.value)}
-                                  className="w-28 text-sm border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-28 text-sm border border-white/[0.1] rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-[#14162e] text-slate-200"
                                   autoFocus
                                 />
                                 <input
                                   type="date"
                                   value={recordPaymentDate}
                                   onChange={(e) => setRecordPaymentDate(e.target.value)}
-                                  className="text-sm border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="text-sm border border-white/[0.1] rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-[#14162e] text-slate-200"
                                 />
                                 <input
                                   type="text"
                                   placeholder="Notes (optional)"
                                   value={recordPaymentNotes}
                                   onChange={(e) => setRecordPaymentNotes(e.target.value)}
-                                  className="flex-1 text-sm border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="flex-1 text-sm border border-white/[0.1] rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-[#14162e] text-slate-200"
                                 />
                                 <button
                                   onClick={() => recordPayment(person, categoryId)}
@@ -2644,7 +2644,7 @@ export default function PaymentsAndExpensesPage() {
                                 </button>
                                 <button
                                   onClick={() => setRecordPaymentId(null)}
-                                  className="text-slate-400 hover:text-slate-600"
+                                  className="text-slate-400 hover:text-slate-300"
                                 >
                                   <X size={15} />
                                 </button>
@@ -2657,24 +2657,24 @@ export default function PaymentsAndExpensesPage() {
                             const paymentsKey = `${personKey}:payments`;
                             const paymentsExpanded = expandedLedgerGroups.has(paymentsKey);
                             return (
-                              <div className="bg-slate-50/60 border-t border-slate-100 divide-y divide-slate-100">
+                              <div className="bg-[#14162e]/60 border-t border-white/[0.07] divide-y divide-white/[0.07]">
                                 {/* Category-matched payments received */}
                                 {payments.length > 0 && (
                                   <div>
                                     <button
                                       onClick={() => setExpandedLedgerGroups((prev) => { const n = new Set(prev); n.has(paymentsKey) ? n.delete(paymentsKey) : n.add(paymentsKey); return n; })}
-                                      className="w-full flex items-center justify-between px-5 py-2.5 hover:bg-slate-100/60 text-left"
+                                      className="w-full flex items-center justify-between px-5 py-2.5 hover:bg-white/[0.07] text-left"
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
                                         <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-                                        <span className="text-xs text-slate-700">Payments received</span>
+                                        <span className="text-xs text-slate-300">Payments received</span>
                                         {payments.length > 1 && <span className="text-xs text-slate-400 shrink-0">{payments.length}×</span>}
                                         <ChevronDown size={11} className={`text-slate-400 shrink-0 transition-transform ${paymentsExpanded ? "" : "-rotate-90"}`} />
                                       </div>
                                       <span className="text-xs font-medium text-emerald-600 shrink-0 ml-3">−{formatAmount(totalPaid)}</span>
                                     </button>
                                     {paymentsExpanded && payments.map((t) => (
-                                      <div key={t.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-slate-100/50">
+                                      <div key={t.id} className="flex items-center justify-between pl-10 pr-5 py-1.5 bg-[#1e2245]/[0.07]/50">
                                         <span className="text-xs text-slate-400">{formatDate(t.date)} · {t.notes ?? "Payment received"}</span>
                                         <span className="text-xs text-slate-400">−{formatAmount(Number(t.amount))}</span>
                                       </div>
@@ -2699,15 +2699,15 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Utilities Section - hidden until placement is decided */}
       {false && <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+        <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
           <button onClick={() => setUtilitiesOpen((o) => !o)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider hover:text-slate-600 transition-colors">
+            className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider hover:text-slate-300 transition-colors">
             <Zap size={16} className="text-amber-500" />
             Utilities
             <ChevronDown size={14} className={`text-slate-400 transition-transform ${utilitiesOpen ? "" : "-rotate-90"}`} />
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={openAddBill} className="text-slate-400 hover:text-amber-600 hover:bg-amber-50 p-1 rounded-md transition-colors" aria-label="Add utility bill">
+            <button onClick={openAddBill} className="text-slate-400 hover:text-amber-600 hover:bg-amber-500/10 p-1 rounded-md transition-colors" aria-label="Add utility bill">
               <Plus size={20} />
             </button>
           </div>
@@ -2718,29 +2718,29 @@ export default function PaymentsAndExpensesPage() {
 
             {/* Balance summary */}
             {utilityBalances.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
                 <button onClick={() => setUtilBalancesOpen((o) => !o)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-100 text-left hover:bg-amber-100/60 transition-colors">
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-left hover:bg-amber-500/20/60 transition-colors">
                   <Users size={12} className="text-amber-600 shrink-0" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Who Owes Me</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Who Owes Me</span>
                   <ChevronDown size={11} className={`text-amber-500 ml-auto transition-transform ${utilBalancesOpen ? "" : "-rotate-90"}`} />
                 </button>
                 {utilBalancesOpen && (
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/[0.07]">
                     {utilityBalances.map(({ name, owed, outstanding, bills, reimbursements }) => {
                       const settled = outstanding <= 0.005;
                       const isExpanded = expandedUtilPersons.has(name);
                       return (
                         <div key={name}>
-                          <div className="flex items-center hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center hover:bg-white/[0.05] transition-colors">
                             <button
                               onClick={() => setExpandedUtilPersons((prev) => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; })}
                               className="flex-1 flex items-center gap-3 px-4 py-3 text-left">
-                              <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 text-xs font-bold shrink-0">
+                              <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 text-xs font-bold shrink-0">
                                 {name.charAt(0).toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900">{name}</p>
+                                <p className="text-sm font-medium text-white">{name}</p>
                                 <p className="text-xs text-slate-400">{formatAmount(owed)}</p>
                               </div>
                               <ChevronDown size={13} className={`text-slate-400 transition-transform mr-2 ${isExpanded ? "" : "-rotate-90"}`} />
@@ -2749,17 +2749,17 @@ export default function PaymentsAndExpensesPage() {
                               onClick={() => togglePersonPaid(name, settled, owed, reimbursements)}
                               className="pr-4 pl-1 py-3 shrink-0">
                               {settled
-                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium border border-emerald-200">Paid ✓</span>
+                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium border border-emerald-500/30">Paid ✓</span>
                                 : <span className="text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-medium border border-rose-200">Unpaid</span>
                               }
                             </button>
                           </div>
                           {isExpanded && bills.length > 0 && (
-                            <div className="bg-slate-50/60 border-t border-slate-100 divide-y divide-slate-100">
+                            <div className="bg-[#14162e]/60 border-t border-white/[0.07] divide-y divide-white/[0.07]">
                               {bills.map(({ bill, share }) => (
                                 <div key={bill.id} className="flex items-center justify-between px-5 py-2">
                                   <div className="min-w-0">
-                                    <span className="text-xs text-slate-700">{bill.utility}</span>
+                                    <span className="text-xs text-slate-300">{bill.utility}</span>
                                     <span className="text-xs text-slate-400 ml-2">
                                       {bill.service_period_start ? formatDate(bill.service_period_start) : "—"} – {bill.service_period_end ? formatDate(bill.service_period_end) : "—"}
                                     </span>
@@ -2778,9 +2778,9 @@ export default function PaymentsAndExpensesPage() {
             )}
 
             {/* Bills list */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
               <button onClick={() => setUtilBillsOpen((o) => !o)}
-                className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-left hover:bg-slate-100/60 transition-colors">
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-[#14162e] border-b border-white/[0.1] text-left hover:bg-white/[0.07] transition-colors">
                 <Zap size={12} className="text-amber-500 shrink-0" />
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Bills</span>
                 <ChevronDown size={11} className={`text-slate-400 ml-auto transition-transform ${utilBillsOpen ? "" : "-rotate-90"}`} />
@@ -2797,7 +2797,7 @@ export default function PaymentsAndExpensesPage() {
                 );
                 return visibleBills.length === 0
                   ? <p className="px-4 py-6 text-sm text-slate-400 text-center">No utility bills for this month.</p>
-                  : <ul className="divide-y divide-slate-100">
+                  : <ul className="divide-y divide-white/[0.07]">
                     {visibleBills.map((b) => {
                       const monthAmount = b.is_recurring ? getUtilBillPriceForMonth(b, selectedMonth) : Number(b.amount);
                       const names = b.split_with ? b.split_with.split(",") : [];
@@ -2807,13 +2807,13 @@ export default function PaymentsAndExpensesPage() {
                         ? selectedMonth > billsTodayMonth || (selectedMonth === billsTodayMonth && b.charge_day != null && billsTodayDay < b.charge_day)
                         : b.charge_date != null && b.charge_date > billsTodayStr;
                       return (
-                        <li key={b.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                        <li key={b.id} className="group flex items-center justify-between p-4 hover:bg-white/[0.05] transition-colors">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-slate-800">{b.utility}</p>
+                              <p className="text-sm font-medium text-slate-200">{b.utility}</p>
                               {isUpcoming
-                                ? <span className="text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded">Upcoming</span>
-                                : b.is_recurring && <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Recurring</span>
+                                ? <span className="text-[10px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">Upcoming</span>
+                                : b.is_recurring && <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Recurring</span>
                               }
                             </div>
                             {b.is_recurring ? (
@@ -2834,7 +2834,7 @@ export default function PaymentsAndExpensesPage() {
                             {b.notes && <p className="text-xs text-slate-400 mt-0.5">{b.notes}</p>}
                           </div>
                           <div className="flex items-center gap-3 shrink-0 ml-4">
-                            <span className="font-bold text-slate-800">{formatAmount(monthAmount)}</span>
+                            <span className="font-bold text-slate-200">{formatAmount(monthAmount)}</span>
                             <RowMenu
                               onEdit={() => openEditBill(b)}
                               onDelete={() => deleteBill(b.id)}
@@ -2860,7 +2860,7 @@ export default function PaymentsAndExpensesPage() {
       <section className="mb-6">
         <div className="grid grid-cols-3 gap-3">
           {/* CC Paid this month */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm p-4">
             <div className="flex items-center gap-1.5 mb-2">
               <CreditCardIcon size={13} className="text-blue-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">CC Paid</p>
@@ -2870,7 +2870,7 @@ export default function PaymentsAndExpensesPage() {
           </div>
 
           {/* Money In this month */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm p-4">
             <div className="flex items-center gap-1.5 mb-2">
               <ArrowDownLeft size={13} className="text-emerald-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Money In</p>
@@ -2880,7 +2880,7 @@ export default function PaymentsAndExpensesPage() {
           </div>
 
           {/* Money Out this month */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm p-4">
             <div className="flex items-center gap-1.5 mb-2">
               <ArrowUpRight size={13} className="text-rose-400" />
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Money Out</p>
@@ -2894,8 +2894,8 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Checking Accounts */}
       <section className="mb-6">
-        <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-3 border-b border-white/[0.1] pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
             <Landmark size={16} className="text-blue-500" />
             Checking Accounts
           </div>
@@ -2904,7 +2904,7 @@ export default function PaymentsAndExpensesPage() {
           </button>
         </div>
         {checkingBanks.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-400">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] p-6 text-center text-sm text-slate-400">
             No checking accounts yet. <button onClick={() => openAddBankAccount("checking")} className="text-blue-500 hover:underline">Add one</button>
           </div>
         ) : (
@@ -2914,10 +2914,10 @@ export default function PaymentsAndExpensesPage() {
               const totalIn = bankTotalIn(bank);
               const totalOut = bankTotalOut(bank);
               return (
-                <div key={bank.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <div key={bank.id} className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{bank.name}</p>
+                      <p className="text-sm font-bold text-white">{bank.name}</p>
                       {bank.starting_balance_as_of && (
                         <p className="text-[11px] text-slate-400 mt-0.5">Starting {formatDate(bank.starting_balance_as_of)}</p>
                       )}
@@ -2942,9 +2942,9 @@ export default function PaymentsAndExpensesPage() {
                       <span>− Money out</span>
                       <span className="font-medium">{formatAmount(totalOut)}</span>
                     </div>
-                    <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
-                      <span className="font-semibold text-slate-700">Balance end of {formatMonthLabel(selectedMonth)}</span>
-                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
+                    <div className="border-t border-white/[0.07] pt-1.5 flex justify-between text-sm">
+                      <span className="font-semibold text-slate-300">Balance end of {formatMonthLabel(selectedMonth)}</span>
+                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-white" : "text-rose-600"}`}>{formatAmount(balance)}</span>
                     </div>
                   </div>
                 </div>
@@ -2956,17 +2956,17 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Savings Accounts */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-3 border-b border-white/[0.1] pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
             <PiggyBank size={16} className="text-emerald-500" />
             Savings Accounts
           </div>
-          <button onClick={() => openAddBankAccount("savings")} className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1 rounded-md transition-colors" aria-label="Add savings account">
+          <button onClick={() => openAddBankAccount("savings")} className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 p-1 rounded-md transition-colors" aria-label="Add savings account">
             <Plus size={18} />
           </button>
         </div>
         {savingsBanks.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-400">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] p-6 text-center text-sm text-slate-400">
             No savings accounts yet. <button onClick={() => openAddBankAccount("savings")} className="text-emerald-500 hover:underline">Add one</button>
           </div>
         ) : (
@@ -2976,10 +2976,10 @@ export default function PaymentsAndExpensesPage() {
               const totalIn = bankTotalIn(bank);
               const totalOut = bankTotalOut(bank);
               return (
-                <div key={bank.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <div key={bank.id} className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{bank.name}</p>
+                      <p className="text-sm font-bold text-white">{bank.name}</p>
                       {bank.starting_balance_as_of && (
                         <p className="text-[11px] text-slate-400 mt-0.5">Starting {formatDate(bank.starting_balance_as_of)}</p>
                       )}
@@ -3004,9 +3004,9 @@ export default function PaymentsAndExpensesPage() {
                       <span>− Money out</span>
                       <span className="font-medium">{formatAmount(totalOut)}</span>
                     </div>
-                    <div className="border-t border-slate-100 pt-1.5 flex justify-between text-sm">
-                      <span className="font-semibold text-slate-700">Balance end of {formatMonthLabel(selectedMonth)}</span>
-                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-slate-900" : "text-rose-600"}`}>{formatAmount(balance)}</span>
+                    <div className="border-t border-white/[0.07] pt-1.5 flex justify-between text-sm">
+                      <span className="font-semibold text-slate-300">Balance end of {formatMonthLabel(selectedMonth)}</span>
+                      <span className={`font-bold tabular-nums ${balance >= 0 ? "text-white" : "text-rose-600"}`}>{formatAmount(balance)}</span>
                     </div>
                   </div>
                 </div>
@@ -3018,8 +3018,8 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Transfer list */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
             <Send size={16} className="text-violet-500" />
             Money Transfers
             <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
@@ -3030,7 +3030,7 @@ export default function PaymentsAndExpensesPage() {
             <select
               value={transferSort}
               onChange={(e) => setTransferSort(e.target.value as typeof transferSort)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 cursor-pointer"
+              className="text-xs border border-white/[0.1] rounded-md px-2 py-1 text-slate-400 bg-[#14162e] focus:outline-none focus:ring-2 focus:ring-violet-400 cursor-pointer"
             >
               <option value="date-desc">Newest</option>
               <option value="date-asc">Oldest</option>
@@ -3039,7 +3039,7 @@ export default function PaymentsAndExpensesPage() {
             </select>
             <button
               onClick={openAddTransfer}
-              className="text-slate-400 hover:text-violet-600 hover:bg-violet-50 p-1 rounded-md transition-colors"
+              className="text-slate-400 hover:text-violet-600 hover:bg-violet-500/10 p-1 rounded-md transition-colors"
               aria-label="Add transfer"
             >
               <Plus size={20} />
@@ -3059,19 +3059,19 @@ export default function PaymentsAndExpensesPage() {
             <button
               key={value}
               onClick={() => setTransferTypeFilter(value)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferTypeFilter === value ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferTypeFilter === value ? "bg-violet-500 text-white" : "bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]"}`}
             >
               {label}
             </button>
           ))}
           {transferPillCats.length > 1 && (
             <>
-              <span className="w-px bg-slate-200 self-stretch mx-1" />
+              <span className="w-px bg-white/[0.15] self-stretch mx-1" />
               {transferPillCats.map((cat) => (
                 <button
                   key={cat.id ?? "uncat"}
                   onClick={() => setTransferCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === cat.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${transferCatFilterId === cat.id ? "bg-violet-500 text-white" : "bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]"}`}
                 >
                   {cat.name}
                 </button>
@@ -3080,10 +3080,10 @@ export default function PaymentsAndExpensesPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
           {moneyTransfers.length === 0 ? (
             <div className="p-10 text-center flex flex-col items-center">
-              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+              <div className="w-12 h-12 bg-[#14162e] rounded-full flex items-center justify-center mb-3">
                 <Send size={24} className="text-slate-300" />
               </div>
               <p className="text-slate-500 text-sm font-medium">No transfers for this month.</p>
@@ -3099,7 +3099,7 @@ export default function PaymentsAndExpensesPage() {
             <div>
               {transferDateGroups.map((group) => (
                 <div key={group.date}>
-                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                  <div className="flex items-center justify-between px-4 py-2 bg-[#14162e] border-b border-white/[0.07] sticky top-0 z-10">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
                     <span className={`text-xs font-semibold ${group.dayNet > 0 ? "text-emerald-600" : group.dayNet < 0 ? "text-rose-500" : "text-slate-500"}`}>
                       {group.dayNet > 0 ? "+" : group.dayNet < 0 ? "−" : ""}{formatAmount(Math.abs(group.dayNet))}
@@ -3113,20 +3113,20 @@ export default function PaymentsAndExpensesPage() {
                     const toBankName = t.to_bank_id != null ? bankDisplayName(t.to_bank_id) : null;
                     const isInternal = isInternalTransfer(t);
                     return (
-                      <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-slate-100" : isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                      <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.05] transition-colors border-b border-white/[0.05] last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-[#1e2245]/[0.07]" : isSent ? "bg-red-500/10" : "bg-emerald-500/10"}`}>
                           {isInternal ? <ArrowLeftRight size={13} className="text-slate-500" /> : isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-slate-800">
+                          <span className="text-sm font-medium text-slate-200">
                             {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isCashTransfer(t) && isSent ? (toBankName ? `Cash → ${toBankName}` : "Cash Deposit") : isCashTransfer(t) && !isSent ? `Cash from ${t.person}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                           </span>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {isInternal && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
-                            {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
+                            {isInternal && <span className="text-xs bg-[#1e2245]/[0.07] text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
+                            {catName && <span className="text-xs bg-indigo-500/20 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
                             {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
-                            {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
-                            {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-600"}`}>{t.platform}</span>}
+                            {toBankName && !isInternal && <span className="text-xs bg-violet-500/10 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
+                            {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-500/10 text-amber-400" : "bg-violet-500/10 text-violet-600"}`}>{t.platform}</span>}
                             {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                             {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                           </div>
@@ -3153,21 +3153,21 @@ export default function PaymentsAndExpensesPage() {
                 const toBankName = t.to_bank_id != null ? bankDisplayName(t.to_bank_id) : null;
                 const isInternal = isInternalTransfer(t);
                 return (
-                  <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-slate-100" : isSent ? "bg-red-50" : "bg-emerald-50"}`}>
+                  <div key={t.id} id={`transfer-row-${t.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.05] transition-colors border-b border-white/[0.07] last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isInternal ? "bg-[#1e2245]/[0.07]" : isSent ? "bg-red-500/10" : "bg-emerald-500/10"}`}>
                       {isInternal ? <ArrowLeftRight size={13} className="text-slate-500" /> : isSent ? <ArrowUpRight size={13} className="text-red-500" /> : <ArrowDownLeft size={13} className="text-emerald-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-slate-800">
+                      <span className="text-sm font-medium text-slate-200">
                         {t.name || (isInternal ? `${fromBankName ?? "?"} → ${toBankName ?? "?"}` : isCashTransfer(t) && isSent ? (toBankName ? `Cash → ${toBankName}` : "Cash Deposit") : isCashTransfer(t) && !isSent ? `Cash from ${t.person}` : isSent ? "Sent to " + t.person : "Received from " + t.person)}
                       </span>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(t.date)}</span>
-                        {isInternal && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
-                        {catName && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
+                        {isInternal && <span className="text-xs bg-[#1e2245]/[0.07] text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">Internal</span>}
+                        {catName && <span className="text-xs bg-indigo-500/20 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>}
                         {fromBankName && !isInternal && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium shrink-0">{fromBankName} →</span>}
-                        {toBankName && !isInternal && <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
-                        {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-600"}`}>{t.platform}</span>}
+                        {toBankName && !isInternal && <span className="text-xs bg-violet-500/10 text-violet-600 px-2 py-0.5 rounded-full font-medium shrink-0">→ {toBankName}</span>}
+                        {!fromBankName && !toBankName && t.platform && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${t.platform === "Cash" ? "bg-amber-500/10 text-amber-400" : "bg-violet-500/10 text-violet-600"}`}>{t.platform}</span>}
                         {t.person && t.name && !isInternal && <span className="text-xs text-slate-400 shrink-0">{isSent ? "→" : "←"} {t.person}</span>}
                         {t.notes && <span className="text-xs text-slate-400 truncate max-w-[200px]">{t.notes}</span>}
                       </div>
@@ -3192,23 +3192,23 @@ export default function PaymentsAndExpensesPage() {
       {/* Loans KPI Strip */}
       {loans.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Balance</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
+            <p className="text-2xl font-bold text-white mt-1">
               {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal) + Number(l.unpaid_interest), 0))}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">{loans.length} loan{loans.length !== 1 ? "s" : ""}</p>
           </div>
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Unpaid Principal</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
+            <p className="text-2xl font-bold text-white mt-1">
               {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_principal), 0))}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
               {formatAmount(loans.reduce((s, l) => s + Number(l.original_principal), 0))} original
             </p>
           </div>
-          <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4">
+          <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Accrued Interest</p>
             <p className="text-2xl font-bold text-amber-600 mt-1">
               {formatAmount(loans.reduce((s, l) => s + Number(l.unpaid_interest), 0))}
@@ -3221,14 +3221,14 @@ export default function PaymentsAndExpensesPage() {
       )}
 
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
             <GraduationCap size={16} className="text-indigo-500" />
             College Loans
           </div>
           <button
             onClick={() => { setEditLoan(null); setLoanForm({ ...EMPTY_LOAN, disbursement_date: toLocalDate(new Date()) }); setLoanSaveError(null); setShowLoanModal(true); }}
-            className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
+            className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-500/20 p-1 rounded-md transition-colors"
             aria-label="Add loan"
           >
             <Plus size={20} />
@@ -3236,10 +3236,10 @@ export default function PaymentsAndExpensesPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
               {loans.length === 0 ? (
                 <div className="p-10 text-center flex flex-col items-center">
-                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                  <div className="w-12 h-12 bg-[#14162e] rounded-full flex items-center justify-center mb-3">
                     <GraduationCap size={24} className="text-slate-300" />
                   </div>
                   <p className="text-slate-500 text-sm font-medium">No loans added yet.</p>
@@ -3248,7 +3248,7 @@ export default function PaymentsAndExpensesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
+                      <tr className="border-b border-white/[0.07] bg-[#14162e]">
                         <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Loan</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Disbursed</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Orig. Principal</th>
@@ -3256,14 +3256,14 @@ export default function PaymentsAndExpensesPage() {
                         <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unpaid Interest</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Interest Paid</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-indigo-50/60">Current Balance</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-indigo-500/20/60">Current Balance</th>
                         <th className="px-4 py-3" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-white/[0.07]">
                       {loans.map((loan) => (
-                        <tr key={loan.id} className="group hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                        <tr key={loan.id} className="group hover:bg-white/[0.05] transition-colors">
+                          <td className="px-4 py-3 font-medium text-white whitespace-nowrap">
                             {loan.name}
                             {loan.notes && (
                               <span className="block text-xs text-slate-400 font-normal mt-0.5 max-w-[180px] truncate">{loan.notes}</span>
@@ -3272,7 +3272,7 @@ export default function PaymentsAndExpensesPage() {
                               const paidPct = Math.round((1 - Number(loan.unpaid_principal) / Number(loan.original_principal)) * 100);
                               return (
                                 <div className="flex items-center gap-1.5 mt-1.5">
-                                  <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="w-24 h-1.5 bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                                     <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${paidPct}%` }} />
                                   </div>
                                   <span className="text-[10px] text-slate-400">{paidPct}% paid</span>
@@ -3282,11 +3282,11 @@ export default function PaymentsAndExpensesPage() {
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(loan.disbursement_date)}</td>
                           <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{formatAmount(Number(loan.original_principal))}</td>
-                          <td className="px-4 py-3 text-right text-slate-800 font-medium whitespace-nowrap">{formatAmount(Number(loan.unpaid_principal))}</td>
+                          <td className="px-4 py-3 text-right text-slate-200 font-medium whitespace-nowrap">{formatAmount(Number(loan.unpaid_principal))}</td>
                           <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">{Number(loan.interest_rate).toFixed(4).replace(/\.?0+$/, "")}%</td>
                           <td className="px-4 py-3 text-right text-amber-600 font-medium whitespace-nowrap">{formatAmount(Number(loan.unpaid_interest))}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 whitespace-nowrap">{formatAmount(Number(loan.total_interest_paid))}</td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap bg-indigo-50/30">
+                          <td className="px-4 py-3 text-right font-bold text-white whitespace-nowrap bg-indigo-500/20/30">
                             {formatAmount(Number(loan.unpaid_principal) + Number(loan.unpaid_interest))}
                           </td>
                           <td className="px-4 py-3">
@@ -3325,27 +3325,27 @@ export default function PaymentsAndExpensesPage() {
             {/* Summary cards */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               {/* Card 1: Portfolio */}
-              <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+              <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-6 py-5">
                 <div className="flex items-center gap-1.5 mb-3">
                   <Wallet size={13} className="text-indigo-400" />
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Portfolio</p>
                 </div>
-                <p className="text-3xl font-bold text-slate-900 leading-none">{formatAmount(currentValue)}</p>
+                <p className="text-3xl font-bold text-white leading-none">{formatAmount(currentValue)}</p>
                 <p className="text-[11px] text-slate-400 mt-1">current value</p>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-white/[0.07] flex items-center justify-between">
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Invested</p>
-                    <p className="text-sm font-bold text-slate-700 mt-0.5">{formatAmount(totalInvested)}</p>
+                    <p className="text-sm font-bold text-slate-300 mt-0.5">{formatAmount(totalInvested)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Holdings</p>
-                    <p className="text-sm font-bold text-slate-700 mt-0.5">{stocks.filter((h) => Number(h.shares) > 0).length}</p>
+                    <p className="text-sm font-bold text-slate-300 mt-0.5">{stocks.filter((h) => Number(h.shares) > 0).length}</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 2: Total Return */}
-              <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+              <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-6 py-5">
                 <div className="flex items-center gap-1.5 mb-3">
                   {totalReturn >= 0 ? <TrendingUp size={13} className="text-emerald-500" /> : <TrendingDown size={13} className="text-rose-500" />}
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total Return</p>
@@ -3354,7 +3354,7 @@ export default function PaymentsAndExpensesPage() {
                   {totalReturn >= 0 ? "+" : ""}{formatAmount(totalReturn)}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">unrealized + realized + dividends</p>
-                <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2">
+                <div className="mt-4 pt-4 border-t border-white/[0.07] grid grid-cols-3 gap-2">
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Unrealized</p>
                     <p className={`text-sm font-bold mt-0.5 ${unrealizedGain >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
@@ -3392,7 +3392,7 @@ export default function PaymentsAndExpensesPage() {
                   .map((h) => ({ ticker: h.ticker, total: h.dividends.reduce((s, d) => s + Number(d.total_received), 0) }))
                   .sort((a, b) => b.total - a.total)[0] ?? null;
                 return (
-                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-6 py-5">
+                <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-6 py-5">
                   <div className="flex items-center gap-1.5 mb-3">
                     <Zap size={13} className="text-amber-400" />
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Dividend Income</p>
@@ -3406,12 +3406,12 @@ export default function PaymentsAndExpensesPage() {
                       {formatAmount(beforeThisYear)} before {currentYear}
                     </p>
                   )}
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="mt-4 pt-4 border-t border-white/[0.07] flex items-center justify-between">
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Top Earner</p>
                       {topEarner ? (
                         <>
-                          <p className="text-sm font-bold text-slate-700 mt-0.5">{topEarner.ticker}</p>
+                          <p className="text-sm font-bold text-slate-300 mt-0.5">{topEarner.ticker}</p>
                           <p className="text-[10px] text-amber-600 font-semibold">{formatAmount(topEarner.total)}</p>
                         </>
                       ) : (
@@ -3420,7 +3420,7 @@ export default function PaymentsAndExpensesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Cash vs DRIP</p>
-                      <p className="text-sm font-bold text-slate-700 mt-0.5">{formatAmount(cashTotal)}</p>
+                      <p className="text-sm font-bold text-slate-300 mt-0.5">{formatAmount(cashTotal)}</p>
                       <p className="text-[10px] text-emerald-600 font-semibold">{formatAmount(drip)} reinvested</p>
                     </div>
                   </div>
@@ -3431,8 +3431,8 @@ export default function PaymentsAndExpensesPage() {
 
             {/* Holdings table */}
             <section className="mb-8">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+              <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
                   <BarChart2 size={16} className="text-indigo-500" />
                   Holdings
                   <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
@@ -3444,7 +3444,7 @@ export default function PaymentsAndExpensesPage() {
                     <button
                       onClick={refreshAllPrices}
                       disabled={refreshingAll}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-white/[0.1] text-slate-600 rounded-lg text-xs font-semibold hover:bg-white/[0.05] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <RefreshCw size={14} className={refreshingAll ? "animate-spin" : ""} />
                       Refresh All
@@ -3497,7 +3497,7 @@ export default function PaymentsAndExpensesPage() {
                 const SortTh = ({ col, children, className }: { col: string; children: React.ReactNode; className?: string }) => (
                   <th
                     onClick={() => toggleSort(col)}
-                    className={`cursor-pointer select-none px-5 py-3 hover:bg-slate-100 transition-colors ${className ?? "text-right"}`}
+                    className={`cursor-pointer select-none px-5 py-3 hover:bg-white/[0.07] transition-colors ${className ?? "text-right"}`}
                   >
                     <span className="inline-flex items-center gap-1 justify-end">
                       {children}
@@ -3514,9 +3514,9 @@ export default function PaymentsAndExpensesPage() {
                 const netRealizedGain = soldHoldings.reduce((s, h) => s + Number(h.realized_gain), 0);
                 const netSoldCost = soldHoldings.reduce((s, h) => s + h.lots.filter((l) => l.sold_price != null).reduce((a, l) => a + Number(l.shares) * Number(l.buy_price), 0), 0);
                 return (
-                <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] overflow-hidden">
+                <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    <thead className="bg-[#14162e] text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       <tr>
                         <th className="w-8" />
                         <th className="text-right px-2 py-3 text-slate-300 font-medium w-6">#</th>
@@ -3543,27 +3543,27 @@ export default function PaymentsAndExpensesPage() {
                         const isUp = gain >= 0;
                         const allocPct = currentValue > 0 ? (value / currentValue) * 100 : 0;
                         return (
-                          <tbody key={h.id} className="divide-y divide-slate-100">
-                            <tr id={`stock-row-${h.id}`} className={`group hover:bg-slate-50 transition-colors${highlightId === h.id && highlightKind === "stock" ? " highlight-row" : ""}`}>
+                          <tbody key={h.id} className="divide-y divide-white/[0.07]">
+                            <tr id={`stock-row-${h.id}`} className={`group hover:bg-white/[0.05] transition-colors${highlightId === h.id && highlightKind === "stock" ? " highlight-row" : ""}`}>
                               <td className="pl-3 py-3">
                                 <button
                                   onClick={() => toggleStockExpand(h.id)}
-                                  className="p-0.5 text-slate-300 hover:text-slate-600 transition-colors"
+                                  className="p-0.5 text-slate-300 hover:text-slate-300 transition-colors"
                                 >
                                   <ChevronRight size={14} className={`transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
                                 </button>
                               </td>
                               <td className="px-2 py-3 text-right text-[11px] text-slate-300 font-medium tabular-nums">{idx + 1}</td>
                               <td className="px-5 py-3">
-                                <div className="font-bold text-slate-900">{h.ticker}</div>
+                                <div className="font-bold text-white">{h.ticker}</div>
                                 {h.company_name && <div className="text-xs text-slate-400 mt-0.5">{h.company_name}</div>}
                                 {h.lots.length > 1 && <div className="text-[10px] text-indigo-400 mt-0.5">{h.lots.length} lots</div>}
                               </td>
-                              <td className="px-5 py-3 text-right text-slate-700">{Number(h.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
-                              <td className="px-5 py-3 text-right text-slate-700">{formatAmount(Number(h.buy_price))}</td>
-                              <td className="px-5 py-3 text-right text-slate-700">{formatAmount(Number(h.current_price))}</td>
+                              <td className="px-5 py-3 text-right text-slate-300">{Number(h.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                              <td className="px-5 py-3 text-right text-slate-300">{formatAmount(Number(h.buy_price))}</td>
+                              <td className="px-5 py-3 text-right text-slate-300">{formatAmount(Number(h.current_price))}</td>
                               <td className="px-5 py-3 text-right text-slate-600">{formatAmount(costBasis)}</td>
-                              <td className="px-5 py-3 text-right font-semibold text-slate-900">{formatAmount(value)}</td>
+                              <td className="px-5 py-3 text-right font-semibold text-white">{formatAmount(value)}</td>
                               <td className="px-5 py-3 text-right">
                                 <div className={`font-semibold ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
                                   {isUp ? "+" : ""}{formatAmount(gain)}
@@ -3573,8 +3573,8 @@ export default function PaymentsAndExpensesPage() {
                                 </div>
                               </td>
                               <td className="px-5 py-3 text-right">
-                                <div className="text-slate-700 font-medium">{allocPct.toFixed(1)}%</div>
-                                <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="text-slate-300 font-medium">{allocPct.toFixed(1)}%</div>
+                                <div className="mt-1 h-1 w-full bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                                   <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${Math.min(allocPct, 100)}%` }} />
                                 </div>
                               </td>
@@ -3584,7 +3584,7 @@ export default function PaymentsAndExpensesPage() {
                                     onClick={() => refreshStockPrice(h.id)}
                                     disabled={refreshingIds.has(h.id)}
                                     title="Refresh price"
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md disabled:cursor-not-allowed"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-500/20 rounded-md disabled:cursor-not-allowed"
                                   >
                                     <RefreshCw size={14} className={refreshingIds.has(h.id) ? "animate-spin" : ""} />
                                   </button>
@@ -3600,8 +3600,8 @@ export default function PaymentsAndExpensesPage() {
                                       const selectedInHolding = h.lots.filter((l) => selectedLotIds.has(l.id));
                                       return (
                               <tr>
-                                <td colSpan={11} className="pb-3 pt-0 bg-slate-50/40">
-                                  <div className="mx-4 ml-10 border border-slate-100 rounded-xl overflow-hidden">
+                                <td colSpan={11} className="pb-3 pt-0 bg-[#14162e]/40">
+                                  <div className="mx-4 ml-10 border border-white/[0.07] rounded-xl overflow-hidden">
                                     <table className="w-full text-xs">
                                       <colgroup>
                                         <col className="w-8" />
@@ -3615,7 +3615,7 @@ export default function PaymentsAndExpensesPage() {
 
                                       {/* ── LOTS section ── */}
                                       <tbody>
-                                        <tr className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        <tr className="bg-[#14162e] text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                                           <td className="px-2 py-2 text-center">
                                             {activeLots.length > 0 && (
                                               <input
@@ -3645,7 +3645,7 @@ export default function PaymentsAndExpensesPage() {
                                           <td />
                                         </tr>
                                       </tbody>
-                                      <tbody className="divide-y divide-slate-100">
+                                      <tbody className="divide-y divide-white/[0.07]">
                                         {[...h.lots].sort((a, b) => {
                                           if (!a.purchased_at && !b.purchased_at) return 0;
                                           if (!a.purchased_at) return 1;
@@ -3655,7 +3655,7 @@ export default function PaymentsAndExpensesPage() {
                                           const isSold = lot.sold_price != null;
                                           const profit = isSold ? (Number(lot.sold_price) - Number(lot.buy_price)) * Number(lot.shares) : null;
                                           return (
-                                            <tr key={lot.id} className={`group/lot transition-colors ${isSold ? "opacity-50" : "hover:bg-white"}`}>
+                                            <tr key={lot.id} className={`group/lot transition-colors ${isSold ? "opacity-50" : "hover:bg-[#1e2245]"}`}>
                                               <td className="px-2 py-2 text-center">
                                                 {!isSold && (
                                                   <input
@@ -3675,8 +3675,8 @@ export default function PaymentsAndExpensesPage() {
                                                   ? new Date(lot.purchased_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                                                   : <span className="text-slate-300">—</span>}
                                               </td>
-                                              <td className="px-4 py-2 text-right text-slate-700">{Number(lot.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
-                                              <td className="px-4 py-2 text-right text-slate-700">{formatAmount(Number(lot.buy_price))}</td>
+                                              <td className="px-4 py-2 text-right text-slate-300">{Number(lot.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                              <td className="px-4 py-2 text-right text-slate-300">{formatAmount(Number(lot.buy_price))}</td>
                                               <td className="px-4 py-2 text-right text-slate-600">{formatAmount(Number(lot.shares) * Number(lot.buy_price))}</td>
                                               <td className="px-4 py-2 text-right">
                                                 {isSold ? (
@@ -3713,9 +3713,9 @@ export default function PaymentsAndExpensesPage() {
                                       {selectedInHolding.length > 0 && (
                                         <tbody>
                                           <tr>
-                                            <td colSpan={7} className="px-4 py-2 bg-indigo-50 border-t border-indigo-100">
+                                            <td colSpan={7} className="px-4 py-2 bg-indigo-500/20 border-t border-indigo-100">
                                               <div className="flex items-center justify-between">
-                                                <span className="text-xs text-indigo-700 font-medium">{selectedInHolding.length} lot{selectedInHolding.length !== 1 ? "s" : ""} selected</span>
+                                                <span className="text-xs text-indigo-400 font-medium">{selectedInHolding.length} lot{selectedInHolding.length !== 1 ? "s" : ""} selected</span>
                                                 <button onClick={() => { setSellForm({ sold_price: "", sold_at: "" }); setSellSaveError(null); setShowSellModal(true); }} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-md text-xs font-semibold hover:bg-indigo-700 transition-colors">
                                                   <DollarSign size={11} /> Sell selected
                                                 </button>
@@ -3726,28 +3726,28 @@ export default function PaymentsAndExpensesPage() {
                                       )}
                                       <tbody>
                                         <tr>
-                                          <td colSpan={7} className="border-t border-slate-100">
+                                          <td colSpan={7} className="border-t border-white/[0.07]">
                                             {addingLotForId === h.id ? (
-                                              <div className="p-3 bg-white flex flex-wrap items-end gap-2">
+                                              <div className="p-3 bg-[#1e2245] flex flex-wrap items-end gap-2">
                                                 <div>
                                                   <label className="block text-[10px] font-medium text-slate-500 mb-1">Shares *</label>
-                                                  <input type="number" step="0.000001" min="0" required value={lotForm.shares} onChange={(e) => setLotForm((f) => ({ ...f, shares: e.target.value }))} placeholder="e.g. 10" className="w-24 border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                  <input type="number" step="0.000001" min="0" required value={lotForm.shares} onChange={(e) => setLotForm((f) => ({ ...f, shares: e.target.value }))} placeholder="e.g. 10" className="w-24 border border-white/[0.1] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                                                 </div>
                                                 <div>
                                                   <label className="block text-[10px] font-medium text-slate-500 mb-1">Buy Price *</label>
-                                                  <input type="number" step="0.0001" min="0" required value={lotForm.buy_price} onChange={(e) => setLotForm((f) => ({ ...f, buy_price: e.target.value }))} placeholder="0.00" className="w-24 border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                  <input type="number" step="0.0001" min="0" required value={lotForm.buy_price} onChange={(e) => setLotForm((f) => ({ ...f, buy_price: e.target.value }))} placeholder="0.00" className="w-24 border border-white/[0.1] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                                                 </div>
                                                 <div>
                                                   <label className="block text-[10px] font-medium text-slate-500 mb-1">Date (optional)</label>
-                                                  <input type="date" value={lotForm.purchased_at} onChange={(e) => setLotForm((f) => ({ ...f, purchased_at: e.target.value }))} className="border border-slate-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                  <input type="date" value={lotForm.purchased_at} onChange={(e) => setLotForm((f) => ({ ...f, purchased_at: e.target.value }))} className="border border-white/[0.1] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                                                 </div>
                                                 {lotSaveError && <p className="w-full text-xs text-red-500">{lotSaveError}</p>}
                                                 <button onClick={() => addLot(h.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors">Add</button>
-                                                <button onClick={() => { setAddingLotForId(null); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 text-xs transition-colors">Cancel</button>
+                                                <button onClick={() => { setAddingLotForId(null); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="px-3 py-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">Cancel</button>
                                               </div>
                                             ) : (
                                               <div className="p-2">
-                                                <button onClick={() => { setAddingLotForId(h.id); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 hover:bg-indigo-50 rounded-md transition-colors">
+                                                <button onClick={() => { setAddingLotForId(h.id); setLotForm({ shares: "", buy_price: "", purchased_at: "" }); setLotSaveError(null); }} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 hover:bg-indigo-500/20 rounded-md transition-colors">
                                                   <Plus size={12} /> Add lot
                                                 </button>
                                               </div>
@@ -3758,7 +3758,7 @@ export default function PaymentsAndExpensesPage() {
 
                                       {/* ── DIVIDENDS section ── */}
                                       <tbody>
-                                        <tr className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t-2 border-slate-200">
+                                        <tr className="bg-[#14162e] text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t-2 border-white/[0.1]">
                                           <td className="px-2 py-2 text-center">
                                             <Zap size={10} className="text-amber-400 mx-auto" />
                                           </td>
@@ -3779,20 +3779,20 @@ export default function PaymentsAndExpensesPage() {
                                           <td />
                                         </tr>
                                       </tbody>
-                                      <tbody className="divide-y divide-slate-100">
+                                      <tbody className="divide-y divide-white/[0.07]">
                                         {[...h.dividends].sort((a, b) => b.paid_at.localeCompare(a.paid_at)).map((div) => (
-                                          <tr key={div.id} className="group/div hover:bg-white transition-colors">
+                                          <tr key={div.id} className="group/div hover:bg-[#1e2245] transition-colors">
                                             <td className="px-2 py-2" />
                                             <td className="px-4 py-2 text-slate-500">
                                               {new Date(div.paid_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                                             </td>
-                                            <td className="px-4 py-2 text-right text-slate-700">{formatAmount(Number(div.dividend_per_share))}</td>
-                                            <td className="px-4 py-2 text-right text-slate-700">{Number(div.shares_held).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+                                            <td className="px-4 py-2 text-right text-slate-300">{formatAmount(Number(div.dividend_per_share))}</td>
+                                            <td className="px-4 py-2 text-right text-slate-300">{Number(div.shares_held).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
                                             <td className="px-4 py-2 text-right font-semibold text-amber-600">{formatAmount(Number(div.total_received))}</td>
                                             <td className="px-4 py-2 text-center">
                                               {div.reinvested
-                                                ? <span className="inline-block px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-medium">DRIP</span>
-                                                : <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px]">Cash</span>}
+                                                ? <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded text-[10px] font-medium">DRIP</span>
+                                                : <span className="inline-block px-1.5 py-0.5 bg-[#1e2245]/[0.07] text-slate-400 rounded text-[10px]">Cash</span>}
                                             </td>
                                             <td className="pr-2 py-2">
                                               <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/div:opacity-100 transition-opacity">
@@ -3809,8 +3809,8 @@ export default function PaymentsAndExpensesPage() {
                                       </tbody>
                                       <tbody>
                                         <tr>
-                                          <td colSpan={7} className="border-t border-slate-100 p-2">
-                                            <button onClick={() => { setEditingDividend(null); setDividendModalHoldingId(h.id); setDividendModalForm({ paid_at: "", dividend_per_share: "", shares_held: String(Number(h.shares)), reinvested: false, notes: "" }); setDividendModalError(null); setShowDividendModal(true); }} className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 font-medium px-2 py-1 hover:bg-amber-50 rounded-md transition-colors">
+                                          <td colSpan={7} className="border-t border-white/[0.07] p-2">
+                                            <button onClick={() => { setEditingDividend(null); setDividendModalHoldingId(h.id); setDividendModalForm({ paid_at: "", dividend_per_share: "", shares_held: String(Number(h.shares)), reinvested: false, notes: "" }); setDividendModalError(null); setShowDividendModal(true); }} className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-300 font-medium px-2 py-1 hover:bg-amber-500/10 rounded-md transition-colors">
                                               <Plus size={12} /> Log dividend
                                             </button>
                                           </td>
@@ -3829,7 +3829,7 @@ export default function PaymentsAndExpensesPage() {
                       <>
                         <tbody>
                           <tr>
-                            <td colSpan={11} className="px-5 py-2 bg-slate-50 border-t border-b border-slate-200">
+                            <td colSpan={11} className="px-5 py-2 bg-[#14162e] border-t border-b border-white/[0.1]">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Sold</span>
                                 <div className="flex items-center gap-4">
@@ -3855,8 +3855,8 @@ export default function PaymentsAndExpensesPage() {
                           const isUp = realizedGain >= 0;
                           const soldAllocPct = netRealizedGain !== 0 ? (realizedGain / Math.abs(netRealizedGain)) * 100 : 0;
                           return (
-                            <tbody key={h.id} className="divide-y divide-slate-100">
-                              <tr className="group bg-slate-50/40 hover:bg-slate-50 transition-colors">
+                            <tbody key={h.id} className="divide-y divide-white/[0.07]">
+                              <tr className="group bg-[#14162e]/40 hover:bg-white/[0.05] transition-colors">
                                 <td className="pl-3 py-3">
                                   <button
                                     onClick={() => toggleStockExpand(h.id)}
@@ -3888,7 +3888,7 @@ export default function PaymentsAndExpensesPage() {
                                   <div className={`font-medium text-sm ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
                                     {soldAllocPct >= 0 ? "+" : ""}{soldAllocPct.toFixed(1)}%
                                   </div>
-                                  <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="mt-1 h-1 w-full bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                                     <div
                                       className={`h-full rounded-full ${isUp ? "bg-emerald-400" : "bg-rose-400"}`}
                                       style={{ width: `${Math.min(Math.abs(soldAllocPct), 100)}%` }}
@@ -3904,10 +3904,10 @@ export default function PaymentsAndExpensesPage() {
                               </tr>
                               {isExpanded && (
                                 <tr>
-                                  <td colSpan={11} className="pb-3 pt-0 bg-slate-50/20">
-                                    <div className="mx-4 ml-10 border border-slate-100 rounded-xl overflow-hidden">
+                                  <td colSpan={11} className="pb-3 pt-0 bg-[#14162e]/20">
+                                    <div className="mx-4 ml-10 border border-white/[0.07] rounded-xl overflow-hidden">
                                       <table className="w-full text-xs">
-                                        <thead className="bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        <thead className="bg-[#14162e] text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                                           <tr>
                                             <th className="text-left px-4 py-2">Buy Date</th>
                                             <th className="text-left px-4 py-2">Sell Date</th>
@@ -3919,14 +3919,14 @@ export default function PaymentsAndExpensesPage() {
                                             <th className="text-right px-4 py-2">Gain / Loss</th>
                                           </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100">
+                                        <tbody className="divide-y divide-white/[0.07]">
                                           {soldLots.map((lot) => {
                                             const lotProfit = (Number(lot.sold_price!) - Number(lot.buy_price)) * Number(lot.shares);
                                             const lotProceed = Number(lot.sold_price!) * Number(lot.shares);
                                             const lotCost = Number(lot.buy_price) * Number(lot.shares);
                                             const isLotUp = lotProfit >= 0;
                                             return (
-                                              <tr key={lot.id} className="hover:bg-white transition-colors">
+                                              <tr key={lot.id} className="hover:bg-[#1e2245] transition-colors">
                                                 <td className="px-4 py-2 text-slate-500">
                                                   {lot.purchased_at
                                                     ? new Date(lot.purchased_at + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -3939,9 +3939,9 @@ export default function PaymentsAndExpensesPage() {
                                                 </td>
                                                 <td className="px-4 py-2 text-right text-slate-600">{Number(lot.shares).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
                                                 <td className="px-4 py-2 text-right text-slate-600">{formatAmount(Number(lot.buy_price))}</td>
-                                                <td className="px-4 py-2 text-right text-slate-700 font-medium">{formatAmount(Number(lot.sold_price))}</td>
+                                                <td className="px-4 py-2 text-right text-slate-300 font-medium">{formatAmount(Number(lot.sold_price))}</td>
                                                 <td className="px-4 py-2 text-right text-slate-500">{formatAmount(lotCost)}</td>
-                                                <td className="px-4 py-2 text-right text-slate-700">{formatAmount(lotProceed)}</td>
+                                                <td className="px-4 py-2 text-right text-slate-300">{formatAmount(lotProceed)}</td>
                                                 <td className="px-4 py-2 text-right">
                                                   <div className={`font-semibold ${isLotUp ? "text-emerald-600" : "text-rose-600"}`}>{isLotUp ? "+" : ""}{formatAmount(lotProfit)}</div>
                                                 </td>
@@ -3971,8 +3971,8 @@ export default function PaymentsAndExpensesPage() {
       {/* Expenses Section */}
       {activeTab === "expenses" && <>
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-4 border-b border-white/[0.1] pb-2">
+          <div className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-wider">
             <Receipt size={16} className="text-indigo-500" />
             Expenses
             <span className="text-xs font-semibold text-slate-400 normal-case tracking-normal ml-1">
@@ -3983,31 +3983,31 @@ export default function PaymentsAndExpensesPage() {
                 <button
                   onClick={() => setMerchantBreakdownOpen((o) => !o)}
                   title="Merchant breakdown"
-                  className={`p-1 rounded-md transition-colors normal-case tracking-normal ${merchantBreakdownOpen ? "bg-indigo-50 text-indigo-600" : "text-slate-300 hover:text-slate-500 hover:bg-slate-100"}`}
+                  className={`p-1 rounded-md transition-colors normal-case tracking-normal ${merchantBreakdownOpen ? "bg-indigo-500/20 text-indigo-600" : "text-slate-300 hover:text-slate-500 hover:bg-white/[0.07]"}`}
                 >
                   <BarChart2 size={14} />
                 </button>
                 {merchantBreakdownOpen && (
-                  <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-30 w-56 py-2">
+                  <div className="absolute left-0 top-full mt-2 bg-[#1e2245] border border-white/[0.1] rounded-xl shadow-lg z-30 w-56 py-2">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 pb-1.5">Merchant breakdown</p>
-                    <div className="border-t border-slate-100 mb-1" />
+                    <div className="border-t border-white/[0.07] mb-1" />
                     {repeatMerchants.map((m) => {
                       const Icon = getMerchantIcon(m.displayName);
                       return (
-                        <div key={m.displayName} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50">
-                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <div key={m.displayName} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/[0.05]">
+                          <div className="w-6 h-6 rounded-full bg-[#1e2245]/[0.07] flex items-center justify-center shrink-0">
                             <Icon size={12} className="text-slate-400" />
                           </div>
-                          <span className="text-xs text-slate-700 flex-1 truncate font-medium">{m.displayName}</span>
-                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5 leading-none shrink-0">{m.count}</span>
+                          <span className="text-xs text-slate-300 flex-1 truncate font-medium">{m.displayName}</span>
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-500/20 rounded-full px-1.5 py-0.5 leading-none shrink-0">{m.count}</span>
                         </div>
                       );
                     })}
                     {oneOffCount > 0 && (
                       <>
-                        {repeatMerchants.length > 0 && <div className="border-t border-slate-100 my-1" />}
+                        {repeatMerchants.length > 0 && <div className="border-t border-white/[0.07] my-1" />}
                         <div className="flex items-center gap-2.5 px-3 py-1.5 text-slate-400">
-                          <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-[#14162e] flex items-center justify-center shrink-0">
                             <Receipt size={12} />
                           </div>
                           <span className="text-xs flex-1">{oneOffCount} one-off{oneOffCount !== 1 ? "s" : ""}</span>
@@ -4023,7 +4023,7 @@ export default function PaymentsAndExpensesPage() {
             <select
               value={expenseSort}
               onChange={(e) => setExpenseSort(e.target.value as typeof expenseSort)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+              className="text-xs border border-white/[0.1] rounded-md px-2 py-1 text-slate-400 bg-[#14162e] focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
             >
               <option value="date-desc">Newest</option>
               <option value="date-asc">Oldest</option>
@@ -4037,8 +4037,8 @@ export default function PaymentsAndExpensesPage() {
                   onClick={() => setCcFilterDropOpen((o) => !o)}
                   className={`flex items-center gap-1 text-xs border rounded-md px-2 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
                     cardFilterIds.size > 0
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      ? "border-indigo-400 bg-indigo-500/20 text-indigo-400"
+                      : "border-white/[0.1] bg-[#1e2245] text-slate-600 hover:border-white/[0.2]"
                   }`}
                 >
                   <CreditCardIcon size={12} />
@@ -4046,14 +4046,14 @@ export default function PaymentsAndExpensesPage() {
                   <ChevronDown size={12} />
                 </button>
                 {ccFilterDropOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 min-w-[160px] py-1">
+                  <div className="absolute right-0 top-full mt-1 bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg z-20 min-w-[160px] py-1">
                     <button
                       onClick={() => setCardFilterIds(new Set())}
-                      className="w-full text-left px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 font-medium"
+                      className="w-full text-left px-3 py-1.5 text-xs text-slate-500 hover:bg-white/[0.05] font-medium"
                     >
                       Clear filter
                     </button>
-                    <div className="border-t border-slate-100 my-1" />
+                    <div className="border-t border-white/[0.07] my-1" />
                     {[{ id: null as null | number, name: "No card" }, ...creditCards].map((card) => {
                       const isSelected = cardFilterIds.has(card.id);
                       return (
@@ -4064,9 +4064,9 @@ export default function PaymentsAndExpensesPage() {
                             if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
                             return next;
                           })}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05]"
                         >
-                          <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-slate-300"}`}>
+                          <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-white/[0.2]"}`}>
                             {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
                           </span>
                           {card.name}
@@ -4080,7 +4080,7 @@ export default function PaymentsAndExpensesPage() {
 
             <button
               onClick={() => setShowScanModal(true)}
-              className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
+              className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-500/20 p-1 rounded-md transition-colors"
               aria-label="Scan receipt"
               title="Scan receipt or bill"
             >
@@ -4088,7 +4088,7 @@ export default function PaymentsAndExpensesPage() {
             </button>
             <button
               onClick={openAddExpense}
-              className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors"
+              className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-500/20 p-1 rounded-md transition-colors"
               aria-label="Add expense"
             >
               <Plus size={20} />
@@ -4101,7 +4101,7 @@ export default function PaymentsAndExpensesPage() {
           <div className="flex flex-wrap gap-1.5 mb-3">
             <button
               onClick={() => setCatFilterId("all")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === "all" ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === "all" ? "bg-indigo-500 text-white" : "bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]"}`}
             >
               All
             </button>
@@ -4109,7 +4109,7 @@ export default function PaymentsAndExpensesPage() {
               <button
                 key={cat.id ?? "uncat"}
                 onClick={() => setCatFilterId((prev) => (prev === cat.id ? "all" : cat.id))}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === cat.id ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${catFilterId === cat.id ? "bg-indigo-500 text-white" : "bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]"}`}
               >
                 {cat.name}
               </button>
@@ -4117,7 +4117,7 @@ export default function PaymentsAndExpensesPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-[#1e2245] rounded-xl border border-white/[0.1] shadow-sm overflow-hidden">
           {sortedExpenses.length === 0 ? (
             <div className="p-10 text-center flex flex-col items-center">
               <p className="text-slate-500 text-sm font-medium">
@@ -4134,7 +4134,7 @@ export default function PaymentsAndExpensesPage() {
               {expenseDateGroups.map((group) => (
                 <div key={group.date}>
                   {/* Day header */}
-                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                  <div className="flex items-center justify-between px-4 py-2 bg-[#14162e] border-b border-white/[0.07] sticky top-0 z-10">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{group.label}</span>
                     <span className={`text-xs font-semibold ${group.dayTotal < 0 ? "text-emerald-600" : "text-slate-500"}`}>
                       {group.dayTotal < 0 ? "+" : ""}{formatAmount(Math.abs(group.dayTotal))}
@@ -4148,17 +4148,17 @@ export default function PaymentsAndExpensesPage() {
                     const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
                     const isHighlighted = highlightId === expense.id && highlightKind === "expense";
                     return (
-                      <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
+                      <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.05] transition-colors border-b border-white/[0.05] last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-500/10" : "bg-[#1e2245]/[0.07]"}`}>
                           <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-slate-800">{expense.name}</span>
+                            <span className="text-sm font-medium text-slate-200">{expense.name}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {catName && (
-                              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
+                              <span className="text-xs bg-indigo-500/20 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
                             )}
                             {cardName && (
                               <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium shrink-0 flex items-center gap-1">
@@ -4201,18 +4201,18 @@ export default function PaymentsAndExpensesPage() {
                 const MerchantIcon = isReturn ? RotateCcw : getMerchantIcon(expense.name);
                 const isHighlighted = highlightId === expense.id && highlightKind === "expense";
                 return (
-                  <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-50" : "bg-slate-100"}`}>
+                  <div key={expense.id} id={`expense-row-${expense.id}`} className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.05] transition-colors border-b border-white/[0.07] last:border-b-0${isHighlighted ? " highlight-row" : ""}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isReturn ? "bg-emerald-500/10" : "bg-[#1e2245]/[0.07]"}`}>
                       <MerchantIcon size={13} className={isReturn ? "text-emerald-500" : "text-slate-400"} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-slate-800">{expense.name}</span>
+                        <span className="text-sm font-medium text-slate-200">{expense.name}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{formatDate(expense.date)}</span>
                         {catName && (
-                          <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
+                          <span className="text-xs bg-indigo-500/20 text-indigo-600 px-2 py-0.5 rounded-full font-medium shrink-0">{catName}</span>
                         )}
                         {cardName && (
                           <span className="text-xs bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-medium shrink-0 flex items-center gap-1">
@@ -4250,23 +4250,23 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Credit Card Modal */}
       {showCreditCardModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editCreditCard ? "Edit Credit Card" : "Add Credit Card"}
               </h2>
-              <button onClick={() => { setShowCreditCardModal(false); setEditCreditCard(null); setCreditCardForm(EMPTY_CC_FORM); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowCreditCardModal(false); setEditCreditCard(null); setCreditCardForm(EMPTY_CC_FORM); }} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={saveCreditCard} className="flex flex-col gap-4 p-6">
               {ccSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{ccSaveError}</div>
+                <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{ccSaveError}</div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Card Name</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Card Name</label>
                 <input
                   type="text"
                   required
@@ -4274,16 +4274,16 @@ export default function PaymentsAndExpensesPage() {
                   value={creditCardForm.name}
                   onChange={(e) => setCreditCardForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Chase Sapphire"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Color</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Color</label>
                 <div className="flex items-center gap-2 flex-wrap">
                   {Object.entries(CARD_COLOR_MAP).map(([key, hex]) => (
                     <button key={key} type="button" onClick={() => setCreditCardForm((f) => ({ ...f, color: key }))}
-                      className={`w-6 h-6 rounded-full border-2 transition-all ${creditCardForm.color === key ? "border-slate-700 scale-110" : "border-transparent"}`}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${creditCardForm.color === key ? "border-white/[0.5] scale-110" : "border-transparent"}`}
                       style={{ backgroundColor: hex }} />
                   ))}
                 </div>
@@ -4291,7 +4291,7 @@ export default function PaymentsAndExpensesPage() {
 
               <div className="flex gap-3 justify-end pt-1">
                 <button type="button" onClick={() => { setShowCreditCardModal(false); setEditCreditCard(null); setCreditCardForm(EMPTY_CC_FORM); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
                   {editCreditCard ? "Save changes" : "Save"}
                 </button>
@@ -4314,49 +4314,49 @@ export default function PaymentsAndExpensesPage() {
         };
 
         return (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 pb-0">
-                <h2 className="text-lg font-semibold text-slate-900">{editExpense ? "Edit Expense" : "New Expense"}</h2>
-                <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <h2 className="text-lg font-semibold text-white">{editExpense ? "Edit Expense" : "New Expense"}</h2>
+                <button onClick={closeModal} className="text-slate-400 hover:text-slate-300 transition-colors">
                   <X size={18} />
                 </button>
               </div>
               <form onSubmit={saveExpense} className="flex flex-col gap-4 p-6">
                 {expenseSaveError && (
-                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">
                     {expenseSaveError}
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
                   <input type="text" required value={expenseForm.name}
                     onChange={(e) => setExpenseForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder="e.g. Groceries, Uber"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
                       Amount
                       <span className="text-slate-400 font-normal ml-1 text-xs">(negative = refund)</span>
                     </label>
                     <input type="number" step="0.01" required value={expenseForm.amount}
                       onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))}
                       placeholder="0.00"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Date</label>
                     <input type="date" required value={expenseForm.date}
                       onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                 </div>
 
                 {/* Service period */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
                     Service period
                     <span className="text-slate-400 font-normal ml-1 text-xs">(optional)</span>
                   </label>
@@ -4365,13 +4365,13 @@ export default function PaymentsAndExpensesPage() {
                       <label className="block text-xs text-slate-500 mb-1">From</label>
                       <input type="date" value={expenseForm.service_period_start}
                         onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_start: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                     </div>
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">To</label>
                       <input type="date" value={expenseForm.service_period_end}
                         onChange={(e) => setExpenseForm((f) => ({ ...f, service_period_end: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                     </div>
                   </div>
                 </div>
@@ -4379,7 +4379,7 @@ export default function PaymentsAndExpensesPage() {
                 {/* Category with inline add */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-slate-700">Category</label>
+                    <label className="block text-sm font-medium text-slate-300">Category</label>
                     {!addingCat && (
                       <button type="button" onClick={() => { setAddingCat(true); setNewCatName(""); setCatDropOpen(false); }}
                         className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 transition-colors">
@@ -4392,16 +4392,16 @@ export default function PaymentsAndExpensesPage() {
                       <input type="text" autoFocus value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExpenseCategory(); } if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
                         placeholder="Category name"
-                        className="flex-1 border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        className="flex-1 border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                       <button type="button" onClick={addExpenseCategory} className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Add</button>
-                      <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                      <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-300 transition-colors"><X size={16} /></button>
                     </div>
                   ) : (
                     <div className="relative" ref={catDropRef}>
                       <button type="button"
                         onClick={() => setCatDropOpen((o) => !o)}
-                        className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <span className={expenseForm.category_id ? "text-slate-800" : "text-slate-400"}>
+                        className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                        <span className={expenseForm.category_id ? "text-slate-200" : "text-slate-400"}>
                           {expenseForm.category_id
                             ? (expenseCategories.find((c) => c.id === parseInt(expenseForm.category_id))?.name ?? "None")
                             : "None"}
@@ -4409,17 +4409,17 @@ export default function PaymentsAndExpensesPage() {
                         <ChevronDown size={14} className={`text-slate-400 transition-transform ${catDropOpen ? "rotate-180" : ""}`} />
                       </button>
                       {catDropOpen && (
-                        <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                        <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                           <button type="button"
                             onClick={() => { setExpenseForm((f) => ({ ...f, category_id: "" })); setCatDropOpen(false); }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
+                            className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">
                             None
                           </button>
                           {expenseCategories.map((c) => (
                             <div key={c.id} className="flex items-center group/opt">
                               <button type="button"
                                 onClick={() => { setExpenseForm((f) => ({ ...f, category_id: String(c.id) })); setCatDropOpen(false); }}
-                                className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                className="flex-1 text-left px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.05]">
                                 {c.name}
                               </button>
                               <button type="button"
@@ -4438,7 +4438,7 @@ export default function PaymentsAndExpensesPage() {
                 {/* Credit card selector */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-slate-700">Credit Card</label>
+                    <label className="block text-sm font-medium text-slate-300">Credit Card</label>
                     {!addingCard && (
                       <button type="button"
                         onClick={() => { setCardDropOpen(false); setAddingCard(true); setNewCardName(""); setNewCardColor("blue"); }}
@@ -4459,13 +4459,13 @@ export default function PaymentsAndExpensesPage() {
                           if (e.key === "Escape") resetInlineCard();
                         }}
                         placeholder="e.g. Chase Sapphire"
-                        className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                       />
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {Object.entries(CARD_COLOR_MAP).map(([key, hex]) => (
                             <button key={key} type="button" onClick={() => setNewCardColor(key)}
-                              className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-slate-700 scale-110" : "border-transparent"}`}
+                              className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-white/[0.5] scale-110" : "border-transparent"}`}
                               style={{ backgroundColor: hex }} />
                           ))}
                         </div>
@@ -4475,7 +4475,7 @@ export default function PaymentsAndExpensesPage() {
                             Add
                           </button>
                           <button type="button" onClick={resetInlineCard}
-                            className="px-2 py-1.5 text-slate-400 hover:text-slate-600 transition-colors">
+                            className="px-2 py-1.5 text-slate-400 hover:text-slate-300 transition-colors">
                             <X size={16} />
                           </button>
                         </div>
@@ -4485,8 +4485,8 @@ export default function PaymentsAndExpensesPage() {
                     <div className="relative" ref={cardDropRef}>
                       <button type="button"
                         onClick={() => setCardDropOpen((o) => !o)}
-                        className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <span className={expenseForm.credit_card_id ? "text-slate-800" : "text-slate-400"}>
+                        className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                        <span className={expenseForm.credit_card_id ? "text-slate-200" : "text-slate-400"}>
                           {expenseForm.credit_card_id
                             ? (() => { const c = creditCards.find((c) => c.id === parseInt(expenseForm.credit_card_id)); return c ? `${c.name}${c.last_four ? ` ····${c.last_four}` : ""}` : "None"; })()
                             : "None"}
@@ -4494,17 +4494,17 @@ export default function PaymentsAndExpensesPage() {
                         <ChevronDown size={14} className={`text-slate-400 transition-transform ${cardDropOpen ? "rotate-180" : ""}`} />
                       </button>
                       {cardDropOpen && (
-                        <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                        <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                           <button type="button"
                             onClick={() => { setExpenseForm((f) => ({ ...f, credit_card_id: "" })); setCardDropOpen(false); }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">
+                            className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">
                             None
                           </button>
                           {creditCards.map((c) => (
                             <div key={c.id} className="flex items-center group/opt">
                               <button type="button"
                                 onClick={() => { setExpenseForm((f) => ({ ...f, credit_card_id: String(c.id) })); setCardDropOpen(false); }}
-                                className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                className="flex-1 text-left px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.05]">
                                 {c.name}{c.last_four ? ` ····${c.last_four}` : ""}
                               </button>
                               <button type="button"
@@ -4521,21 +4521,21 @@ export default function PaymentsAndExpensesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
                   <textarea value={expenseForm.notes}
                     onChange={(e) => setExpenseForm((f) => ({ ...f, notes: e.target.value }))}
                     rows={2} placeholder="Optional notes"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600 resize-none" />
                 </div>
 
                 <div className="flex gap-2 justify-end pt-1">
                   <button type="button" onClick={closeModal}
-                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                    className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                   {!editExpense && (
                     <button
                       type="button"
                       onClick={saveExpenseAndAddAnother}
-                      className="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="px-4 py-2 text-sm border border-white/[0.1] text-slate-300 rounded-lg hover:bg-white/[0.05] transition-colors"
                     >
                       Save & add another
                     </button>
@@ -4553,31 +4553,31 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Utility log price modal */}
       {showUtilLogPriceModal && utilLogPriceTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <DollarSign size={18} className="text-amber-500" />
                 Log price change
               </h2>
               <button
                 onClick={() => { setShowUtilLogPriceModal(false); setUtilLogPriceTarget(null); }}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-slate-300 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
             <p className="text-sm text-slate-500 mb-4">
-              Recording a price change for <span className="font-medium text-slate-700">{utilLogPriceTarget.utility}</span>.
+              Recording a price change for <span className="font-medium text-slate-300">{utilLogPriceTarget.utility}</span>.
             </p>
             <form onSubmit={saveUtilLogPrice} className="flex flex-col gap-4">
               {utilLogPriceSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">
                   {utilLogPriceSaveError}
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">New price</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">New price</label>
                 <input
                   type="number"
                   min="0.01"
@@ -4587,17 +4587,17 @@ export default function PaymentsAndExpensesPage() {
                   value={utilLogPriceForm.amount}
                   onChange={(e) => setUtilLogPriceForm((f) => ({ ...f, amount: e.target.value }))}
                   placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Effective from</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Effective from</label>
                 <input
                   type="month"
                   required
                   value={utilLogPriceForm.effectiveMonth}
                   onChange={(e) => setUtilLogPriceForm((f) => ({ ...f, effectiveMonth: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
                 <p className="text-xs text-slate-400 mt-1">The month from which this new price takes effect.</p>
               </div>
@@ -4605,7 +4605,7 @@ export default function PaymentsAndExpensesPage() {
                 <button
                   type="button"
                   onClick={() => { setShowUtilLogPriceModal(false); setUtilLogPriceTarget(null); setUtilLogPriceSaveError(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
@@ -4630,13 +4630,13 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Transfer Modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-4">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editTransfer ? "Edit Transfer" : "New Transfer"}
               </h2>
-              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferType(""); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferType(""); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -4645,9 +4645,9 @@ export default function PaymentsAndExpensesPage() {
             <div className="px-6 pb-4">
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { t: "bank" as const, label: "Bank Transfer", icon: <ArrowLeftRight size={15} />, desc: "Move between accounts", active: "border-slate-400 bg-slate-50 text-slate-700" },
-                  { t: "in" as const, label: "Money In", icon: <ArrowDownLeft size={15} />, desc: "Received from someone", active: "border-emerald-400 bg-emerald-50 text-emerald-700" },
-                  { t: "out" as const, label: "Money Out", icon: <ArrowUpRight size={15} />, desc: "Sent to someone", active: "border-red-400 bg-red-50 text-red-600" },
+                  { t: "bank" as const, label: "Bank Transfer", icon: <ArrowLeftRight size={15} />, desc: "Move between accounts", active: "border-white/[0.3] bg-[#14162e] text-slate-300" },
+                  { t: "in" as const, label: "Money In", icon: <ArrowDownLeft size={15} />, desc: "Received from someone", active: "border-emerald-400 bg-emerald-500/10 text-emerald-400" },
+                  { t: "out" as const, label: "Money Out", icon: <ArrowUpRight size={15} />, desc: "Sent to someone", active: "border-red-400 bg-red-500/10 text-red-600" },
                   { t: "cc" as const, label: "CC Payment", icon: <CreditCardIcon size={15} />, desc: "Pay a credit card", active: "border-blue-400 bg-blue-50 text-blue-700" },
                 ]).map(({ t, label, icon, desc, active }) => (
                   <button
@@ -4666,7 +4666,7 @@ export default function PaymentsAndExpensesPage() {
                       }));
                     }}
                     className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 text-center transition-colors ${
-                      transferType === t ? active : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+                      transferType === t ? active : "border-white/[0.1] text-slate-400 hover:border-white/[0.2] hover:text-slate-300"
                     }`}
                   >
                     {icon}
@@ -4680,13 +4680,13 @@ export default function PaymentsAndExpensesPage() {
             {transferType !== "" && (
               <form onSubmit={saveTransfer} className="flex flex-col gap-4 px-6 pb-6">
                 {transferSaveError && (
-                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{transferSaveError}</div>
+                  <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{transferSaveError}</div>
                 )}
 
                 {/* Amount + Date row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Amount</label>
                     <input
                       type="number"
                       required
@@ -4696,17 +4696,17 @@ export default function PaymentsAndExpensesPage() {
                       value={transferForm.amount}
                       onChange={(e) => setTransferForm((f) => ({ ...f, amount: e.target.value }))}
                       placeholder="0.00"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Date</label>
                     <input
                       type="date"
                       required
                       value={transferForm.date}
                       onChange={(e) => setTransferForm((f) => ({ ...f, date: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                     />
                   </div>
                 </div>
@@ -4714,7 +4714,7 @@ export default function PaymentsAndExpensesPage() {
                 {/* Platform — Money In / Out only */}
                 {(transferType === "in" || transferType === "out") && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Platform</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Platform</label>
                     <div className="flex flex-wrap gap-2">
                       {["Zelle", "Venmo", "Cash"].map((p) => (
                         <button
@@ -4723,9 +4723,9 @@ export default function PaymentsAndExpensesPage() {
                           onClick={() => setTransferForm((f) => ({ ...f, platform: f.platform === p ? "" : p }))}
                           className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
                             transferForm.platform === p
-                              ? p === "Cash" ? "bg-amber-50 border-amber-300 text-amber-700"
-                                : "bg-violet-50 border-violet-300 text-violet-600"
-                              : "border-slate-200 text-slate-500 hover:border-slate-300"
+                              ? p === "Cash" ? "bg-amber-500/10 border-amber-300 text-amber-400"
+                                : "bg-violet-500/10 border-violet-300 text-violet-600"
+                              : "border-white/[0.1] text-slate-500 hover:border-white/[0.2]"
                           }`}
                         >
                           {p}
@@ -4736,7 +4736,7 @@ export default function PaymentsAndExpensesPage() {
                         value={["Zelle", "Venmo", "Cash"].includes(transferForm.platform) ? "" : transferForm.platform}
                         onChange={(e) => setTransferForm((f) => ({ ...f, platform: e.target.value }))}
                         placeholder="Other…"
-                        className="flex-1 min-w-[80px] border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        className="flex-1 min-w-[80px] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                       />
                     </div>
                   </div>
@@ -4745,24 +4745,24 @@ export default function PaymentsAndExpensesPage() {
                 {/* Person — Money In / Out only */}
                 {(transferType === "in" || transferType === "out") && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
                       {transferType === "in" ? "Received From" : transferType === "out" ? "Sent To" : <>Paid by <span className="text-xs font-normal text-slate-400">(leave blank if you paid)</span></>}
                     </label>
                     <div className="relative" ref={personDropRef}>
                       <button type="button"
                         onClick={() => { setPersonDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                        className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                        <span className={transferForm.person ? "text-slate-800" : "text-slate-400"}>
+                        className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50">
+                        <span className={transferForm.person ? "text-slate-200" : "text-slate-400"}>
                           {transferForm.person || "Select person…"}
                         </span>
                         <ChevronDown size={14} className={`text-slate-400 transition-transform ${personDropOpen ? "rotate-180" : ""}`} />
                       </button>
                       {personDropOpen && (
-                        <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                        <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                           {transferForm.person && (
                             <button type="button"
                               onClick={() => { setTransferForm((f) => ({ ...f, person: "" })); setPersonDropOpen(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">None</button>
                           )}
                           {knownPeople.length === 0 && !addingPerson && (
                             <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
@@ -4771,7 +4771,7 @@ export default function PaymentsAndExpensesPage() {
                             <div key={p.id} className="flex items-center group/opt">
                               <button type="button"
                                 onClick={() => { setTransferForm((f) => ({ ...f, person: p.name })); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
-                                className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.person === p.name ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.person === p.name ? "bg-violet-500/10 text-violet-400 font-medium" : "text-slate-300 hover:bg-white/[0.05]"}`}>
                                 {p.name}
                               </button>
                               <button type="button"
@@ -4781,7 +4781,7 @@ export default function PaymentsAndExpensesPage() {
                               </button>
                             </div>
                           ))}
-                          <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
+                          <div className={knownPeople.length > 0 ? "border-t border-white/[0.07] mt-1 pt-1" : ""}>
                             {addingPerson ? (
                               <div className="flex gap-1.5 px-2 py-1.5">
                                 <input type="text" autoFocus value={newPersonName}
@@ -4795,15 +4795,15 @@ export default function PaymentsAndExpensesPage() {
                                     if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); }
                                   }}
                                   placeholder="Person name"
-                                  className="flex-1 border border-violet-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                                  className="flex-1 border border-violet-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                                 <button type="button"
                                   onClick={() => { const name = newPersonName.trim(); if (name) { addNewPerson().then(() => { setTransferForm((f) => ({ ...f, person: name })); setPersonDropOpen(false); }); } }}
                                   className="px-2.5 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                                <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
+                                <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-300 transition-colors"><X size={14} /></button>
                               </div>
                             ) : (
                               <button type="button" onClick={() => setAddingPerson(true)}
-                                className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors">
+                                className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-violet-600 hover:bg-violet-500/10 transition-colors">
                                 <Plus size={13} /> New person
                               </button>
                             )}
@@ -4818,7 +4818,7 @@ export default function PaymentsAndExpensesPage() {
                 {(transferType === "bank" || transferType === "out" || transferType === "cc") && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">
+                      <label className="block text-sm font-medium text-slate-300">
                         {transferType === "bank" ? "From Account" : "From Account"}
                         {transferType === "out" && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
                       </label>
@@ -4834,30 +4834,30 @@ export default function PaymentsAndExpensesPage() {
                         <input type="text" autoFocus value={newFromBankName} onChange={(e) => setNewFromBankName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineFrom(); } if (e.key === "Escape") { setAddingFromBank(false); setNewFromBankName(""); } }}
                           placeholder="Account name"
-                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                         <button type="button" onClick={addBankInlineFrom} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                        <button type="button" onClick={() => { setAddingFromBank(false); setNewFromBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                        <button type="button" onClick={() => { setAddingFromBank(false); setNewFromBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-300 transition-colors"><X size={16} /></button>
                       </div>
                     ) : (
                       <div className="relative" ref={fromBankDropRef}>
                         <button type="button"
                           onClick={() => setFromBankDropOpen((o) => !o)}
-                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                          <span className={transferForm.from_bank_id ? "text-slate-800" : "text-slate-400"}>
+                          className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50">
+                          <span className={transferForm.from_bank_id ? "text-slate-200" : "text-slate-400"}>
                             {transferForm.from_bank_id ? bankDisplayName(parseInt(transferForm.from_bank_id)) : "None"}
                           </span>
                           <ChevronDown size={14} className={`text-slate-400 transition-transform ${fromBankDropOpen ? "rotate-180" : ""}`} />
                         </button>
                         {fromBankDropOpen && (
-                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
                               onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: "" })); setFromBankDropOpen(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">None</button>
                             {banks.map((b) => (
                               <div key={b.id} className="flex items-center group/opt">
                                 <button type="button"
                                   onClick={() => { setTransferForm((f) => ({ ...f, from_bank_id: String(b.id) })); setFromBankDropOpen(false); }}
-                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.from_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.from_bank_id === String(b.id) ? "bg-violet-500/10 text-violet-400 font-medium" : "text-slate-300 hover:bg-white/[0.05]"}`}>
                                   {bankDisplayName(b.id)}
                                 </button>
                                 <button type="button" onClick={() => deleteBank(b.id)}
@@ -4875,7 +4875,7 @@ export default function PaymentsAndExpensesPage() {
                 {(transferType === "bank" || transferType === "in") && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">
+                      <label className="block text-sm font-medium text-slate-300">
                         {transferType === "bank" ? "To Account" : "To Account"}
                         {transferType === "in" && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
                       </label>
@@ -4891,30 +4891,30 @@ export default function PaymentsAndExpensesPage() {
                         <input type="text" autoFocus value={newToBankName} onChange={(e) => setNewToBankName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBankInlineTo(); } if (e.key === "Escape") { setAddingToBank(false); setNewToBankName(""); } }}
                           placeholder="Account name"
-                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                         <button type="button" onClick={addBankInlineTo} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                        <button type="button" onClick={() => { setAddingToBank(false); setNewToBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                        <button type="button" onClick={() => { setAddingToBank(false); setNewToBankName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-300 transition-colors"><X size={16} /></button>
                       </div>
                     ) : (
                       <div className="relative" ref={toBankDropRef}>
                         <button type="button"
                           onClick={() => setToBankDropOpen((o) => !o)}
-                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                          <span className={transferForm.to_bank_id ? "text-slate-800" : "text-slate-400"}>
+                          className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50">
+                          <span className={transferForm.to_bank_id ? "text-slate-200" : "text-slate-400"}>
                             {transferForm.to_bank_id ? bankDisplayName(parseInt(transferForm.to_bank_id)) : "None"}
                           </span>
                           <ChevronDown size={14} className={`text-slate-400 transition-transform ${toBankDropOpen ? "rotate-180" : ""}`} />
                         </button>
                         {toBankDropOpen && (
-                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
                               onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: "" })); setToBankDropOpen(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">None</button>
                             {banks.map((b) => (
                               <div key={b.id} className="flex items-center group/opt">
                                 <button type="button"
                                   onClick={() => { setTransferForm((f) => ({ ...f, to_bank_id: String(b.id) })); setToBankDropOpen(false); }}
-                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.to_bank_id === String(b.id) ? "bg-violet-50 text-violet-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.to_bank_id === String(b.id) ? "bg-violet-500/10 text-violet-400 font-medium" : "text-slate-300 hover:bg-white/[0.05]"}`}>
                                   {bankDisplayName(b.id)}
                                 </button>
                                 <button type="button" onClick={() => deleteBank(b.id)}
@@ -4932,7 +4932,7 @@ export default function PaymentsAndExpensesPage() {
                 {transferType === "cc" && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">Credit Card <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                      <label className="block text-sm font-medium text-slate-300">Credit Card <span className="text-xs font-normal text-slate-400">(optional)</span></label>
                       {!addingCard && (
                         <button type="button"
                           onClick={() => { setCardDropOpen(false); setAddingCard(true); setNewCardName(""); setNewCardColor("blue"); }}
@@ -4959,7 +4959,7 @@ export default function PaymentsAndExpensesPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {Object.entries(CARD_COLOR_MAP).map(([key, hex]) => (
                               <button key={key} type="button" onClick={() => setNewCardColor(key)}
-                                className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-slate-700 scale-110" : "border-transparent"}`}
+                                className={`w-5 h-5 rounded-full border-2 transition-all ${newCardColor === key ? "border-white/[0.5] scale-110" : "border-transparent"}`}
                                 style={{ backgroundColor: hex }} />
                             ))}
                           </div>
@@ -4967,7 +4967,7 @@ export default function PaymentsAndExpensesPage() {
                             <button type="button" onClick={() => addCardInline()}
                               className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add</button>
                             <button type="button" onClick={resetInlineCard}
-                              className="px-2 py-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                              className="px-2 py-1.5 text-slate-400 hover:text-slate-300 transition-colors"><X size={16} /></button>
                           </div>
                         </div>
                       </div>
@@ -4975,8 +4975,8 @@ export default function PaymentsAndExpensesPage() {
                       <div className="relative" ref={cardDropRef}>
                         <button type="button"
                           onClick={() => setCardDropOpen((o) => !o)}
-                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <span className={transferForm.credit_card_id ? "text-slate-800" : "text-slate-400"}>
+                          className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                          <span className={transferForm.credit_card_id ? "text-slate-200" : "text-slate-400"}>
                             {transferForm.credit_card_id
                               ? (() => { const c = creditCards.find((c) => c.id === parseInt(transferForm.credit_card_id)); return c ? `${c.name}${c.last_four ? ` ····${c.last_four}` : ""}` : "None"; })()
                               : "None"}
@@ -4984,15 +4984,15 @@ export default function PaymentsAndExpensesPage() {
                           <ChevronDown size={14} className={`text-slate-400 transition-transform ${cardDropOpen ? "rotate-180" : ""}`} />
                         </button>
                         {cardDropOpen && (
-                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
                               onClick={() => { setTransferForm((f) => ({ ...f, credit_card_id: "" })); setCardDropOpen(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">None</button>
                             {creditCards.map((c) => (
                               <div key={c.id} className="flex items-center group/opt">
                                 <button type="button"
                                   onClick={() => { setTransferForm((f) => ({ ...f, credit_card_id: String(c.id) })); setCardDropOpen(false); }}
-                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.credit_card_id === String(c.id) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>
+                                  className={`flex-1 text-left px-3 py-2 text-sm transition-colors ${transferForm.credit_card_id === String(c.id) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-300 hover:bg-white/[0.05]"}`}>
                                   {c.name}{c.last_four ? ` ····${c.last_four}` : ""}
                                 </button>
                                 <button type="button"
@@ -5011,7 +5011,7 @@ export default function PaymentsAndExpensesPage() {
                 {(transferType === "in" || transferType === "out") && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">Category <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                      <label className="block text-sm font-medium text-slate-300">Category <span className="text-xs font-normal text-slate-400">(optional)</span></label>
                       {!addingCat && (
                         <button type="button" onClick={() => { setAddingCat(true); setNewCatName(""); setCatDropOpen(false); }}
                           className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-0.5 transition-colors">
@@ -5024,30 +5024,30 @@ export default function PaymentsAndExpensesPage() {
                         <input type="text" autoFocus value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTransferCategory(); } if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
                           placeholder="Category name"
-                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                          className="flex-1 border border-violet-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                         <button type="button" onClick={addTransferCategory} className="px-3 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Add</button>
-                        <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+                        <button type="button" onClick={() => { setAddingCat(false); setNewCatName(""); }} className="px-2 py-2 text-slate-400 hover:text-slate-300 transition-colors"><X size={16} /></button>
                       </div>
                     ) : (
                       <div className="relative" ref={catDropRef}>
                         <button type="button"
                           onClick={() => setCatDropOpen((o) => !o)}
-                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">
-                          <span className={transferForm.category_id ? "text-slate-800" : "text-slate-400"}>
+                          className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50">
+                          <span className={transferForm.category_id ? "text-slate-200" : "text-slate-400"}>
                             {transferForm.category_id ? (expenseCategories.find((c) => c.id === parseInt(transferForm.category_id))?.name ?? "None") : "None"}
                           </span>
                           <ChevronDown size={14} className={`text-slate-400 transition-transform ${catDropOpen ? "rotate-180" : ""}`} />
                         </button>
                         {catDropOpen && (
-                          <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                             <button type="button"
                               onClick={() => { setTransferForm((f) => ({ ...f, category_id: "" })); setCatDropOpen(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-slate-50">None</button>
+                              className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:bg-white/[0.05]">None</button>
                             {expenseCategories.map((c) => (
                               <div key={c.id} className="flex items-center group/opt">
                                 <button type="button"
                                   onClick={() => { setTransferForm((f) => ({ ...f, category_id: String(c.id) })); setCatDropOpen(false); }}
-                                  className="flex-1 text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{c.name}</button>
+                                  className="flex-1 text-left px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.05]">{c.name}</button>
                                 <button type="button" onClick={() => deleteCategory(c.id)}
                                   className="opacity-0 group-hover/opt:opacity-100 px-2 py-2 text-slate-300 hover:text-red-400 transition-colors"><X size={13} /></button>
                               </div>
@@ -5061,34 +5061,34 @@ export default function PaymentsAndExpensesPage() {
 
                 {/* Name / label — optional, collapsed */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Label <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Label <span className="text-xs font-normal text-slate-400">(optional)</span></label>
                   <input
                     type="text"
                     value={transferForm.name}
                     onChange={(e) => setTransferForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder={transferType === "bank" ? "e.g. Savings top-up" : "e.g. Rent split, Utilities"}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Notes <span className="text-xs font-normal text-slate-400">(optional)</span></label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Notes <span className="text-xs font-normal text-slate-400">(optional)</span></label>
                   <textarea
                     rows={2}
                     value={transferForm.notes}
                     onChange={(e) => setTransferForm((f) => ({ ...f, notes: e.target.value }))}
                     placeholder="Any extra details…"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600 resize-none"
                   />
                 </div>
 
                 <div className="flex gap-2 justify-end pt-1">
                   <button type="button" onClick={() => { setShowTransferModal(false); setEditTransfer(null); setTransferForm(EMPTY_TRANSFER); setTransferType(""); resetTransferBankDropState(); setCatDropOpen(false); setAddingCat(false); setNewCatName(""); setPersonDropOpen(false); setAddingPerson(false); setNewPersonName(""); }}
-                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                    className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                   {!editTransfer && (
                     <button type="button" onClick={saveTransferAndAddAnother}
-                      className="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                      className="px-4 py-2 text-sm border border-white/[0.1] text-slate-300 rounded-lg hover:bg-white/[0.05] transition-colors">
                       Save & add another
                     </button>
                   )}
@@ -5104,33 +5104,33 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Bill Modal */}
       {showBillModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">{editBill ? "Edit Utility Bill" : "New Utility Bill"}</h2>
-              <button onClick={() => { setShowBillModal(false); setEditBill(null); setBillForm(EMPTY_BILL); setBillSplitPeople([]); }} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+              <h2 className="text-lg font-semibold text-white">{editBill ? "Edit Utility Bill" : "New Utility Bill"}</h2>
+              <button onClick={() => { setShowBillModal(false); setEditBill(null); setBillForm(EMPTY_BILL); setBillSplitPeople([]); }} className="text-slate-400 hover:text-slate-300 transition-colors"><X size={18} /></button>
             </div>
             <form onSubmit={saveBill} className="flex flex-col gap-4 p-6">
-              {billSaveError && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{billSaveError}</div>}
+              {billSaveError && <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{billSaveError}</div>}
 
               {/* Utility name + type toggle */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Utility</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Utility</label>
                 <input list="utility-names" type="text" required autoFocus value={billForm.utility}
                   onChange={(e) => setBillForm((f) => ({ ...f, utility: e.target.value }))}
                   placeholder="Electric, Water, Internet…"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                 <datalist id="utility-names">{UTILITY_NAMES.map((n) => <option key={n} value={n} />)}</datalist>
               </div>
 
               {/* Recurring toggle */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Bill type</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Bill type</label>
                 <div className="flex gap-2">
                   {[{ value: false, label: "One-time" }, { value: true, label: "Recurring" }].map(({ value, label }) => (
                     <button key={String(value)} type="button"
                       onClick={() => setBillForm((f) => ({ ...f, is_recurring: value }))}
-                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${billForm.is_recurring === value ? "bg-amber-50 border-amber-400 text-amber-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${billForm.is_recurring === value ? "bg-amber-500/10 border-amber-400 text-amber-400" : "border-white/[0.1] text-slate-500 hover:border-white/[0.2]"}`}>
                       {label}
                     </button>
                   ))}
@@ -5140,35 +5140,35 @@ export default function PaymentsAndExpensesPage() {
               {/* One-time: service period + charge date */}
               {!billForm.is_recurring && (<>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Service Period</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Service Period</label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">From</label>
                       <input type="date" required={!billForm.is_recurring} value={billForm.service_period_start}
                         onChange={(e) => setBillForm((f) => ({ ...f, service_period_start: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                     </div>
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">To</label>
                       <input type="date" required={!billForm.is_recurring} value={billForm.service_period_end}
                         onChange={(e) => setBillForm((f) => ({ ...f, service_period_end: e.target.value }))}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Charge Date</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Charge Date</label>
                     <input type="date" required={!billForm.is_recurring} value={billForm.charge_date}
                       onChange={(e) => setBillForm((f) => ({ ...f, charge_date: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Amount</label>
                     <input type="number" required min="0.01" step="0.01" value={billForm.amount}
                       onChange={(e) => setBillForm((f) => ({ ...f, amount: e.target.value }))}
                       placeholder="0.00"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                 </div>
               </>)}
@@ -5177,32 +5177,32 @@ export default function PaymentsAndExpensesPage() {
               {billForm.is_recurring && (<>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Billing start</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Billing start</label>
                     <input type="month" required={billForm.is_recurring} value={billForm.billing_start}
                       onChange={(e) => setBillForm((f) => ({ ...f, billing_start: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Charge day</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Charge day</label>
                     <input type="number" required={billForm.is_recurring} min="1" max="31" value={billForm.charge_day}
                       onChange={(e) => setBillForm((f) => ({ ...f, charge_day: e.target.value }))}
                       placeholder="e.g. 15"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
                     Monthly amount
                     <span className="text-slate-400 font-normal ml-1 text-xs">— use Log price to record increases</span>
                   </label>
                   <input type="number" required min="0.01" step="0.01" value={billForm.amount}
                     onChange={(e) => setBillForm((f) => ({ ...f, amount: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                 </div>
                 {/* Price history display when editing */}
                 {editBill && editBill.price_history.length > 0 && (
-                  <div className="bg-slate-50 rounded-lg px-3 py-2 space-y-1">
+                  <div className="bg-[#14162e] rounded-lg px-3 py-2 space-y-1">
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">Price history</p>
                     {[...editBill.price_history]
                       .filter((h) => h.effective_from !== "2000-01-01")
@@ -5212,7 +5212,7 @@ export default function PaymentsAndExpensesPage() {
                           <span className="text-xs text-slate-500">
                             {new Date(h.effective_from + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                           </span>
-                          <span className="text-xs font-medium text-slate-700">{formatAmount(Number(h.amount))}/mo</span>
+                          <span className="text-xs font-medium text-slate-300">{formatAmount(Number(h.amount))}/mo</span>
                         </div>
                       ))}
                   </div>
@@ -5221,21 +5221,21 @@ export default function PaymentsAndExpensesPage() {
 
               {/* Split with */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+                <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-1.5">
                   <Users size={14} className="text-slate-400" />
                   Split with
                 </label>
                 <div className="relative" ref={billSplitDropRef}>
                   <button type="button"
                     onClick={() => { setBillSplitDropOpen((o) => !o); setAddingPerson(false); setNewPersonName(""); }}
-                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-left bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <span className={billSplitPeople.length ? "text-slate-800" : "text-slate-400"}>
+                    className="w-full flex items-center justify-between border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-left bg-[#14162e] text-slate-200 hover:border-white/[0.2] transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    <span className={billSplitPeople.length ? "text-slate-200" : "text-slate-400"}>
                       {billSplitPeople.length ? billSplitPeople.join(", ") : "Select roommates…"}
                     </span>
                     <ChevronDown size={14} className={`text-slate-400 transition-transform ${billSplitDropOpen ? "rotate-180" : ""}`} />
                   </button>
                   {billSplitDropOpen && (
-                    <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
+                    <div className="absolute z-20 w-full bg-[#1e2245] border border-white/[0.1] rounded-lg shadow-lg mt-1 py-1 max-h-48 overflow-y-auto">
                       {knownPeople.length === 0 && !addingPerson && (
                         <p className="px-3 py-2 text-sm text-slate-400">No people yet — add one below.</p>
                       )}
@@ -5245,7 +5245,7 @@ export default function PaymentsAndExpensesPage() {
                           <div key={p.id} className="flex items-center group/opt">
                             <button type="button"
                               onClick={() => setBillSplitPeople((prev) => selected ? prev.filter((n) => n !== p.name) : [...prev, p.name])}
-                              className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${selected ? "bg-amber-50/60 text-amber-700 font-medium hover:bg-amber-50" : "text-slate-700 hover:bg-slate-50"}`}>
+                              className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${selected ? "bg-amber-500/10/60 text-amber-400 font-medium hover:bg-amber-500/10" : "text-slate-300 hover:bg-white/[0.05]"}`}>
                               <span className="w-3.5 shrink-0 flex items-center">
                                 {selected && <CheckCircle2 size={13} className="text-amber-500" />}
                               </span>
@@ -5259,20 +5259,20 @@ export default function PaymentsAndExpensesPage() {
                           </div>
                         );
                       })}
-                      <div className={knownPeople.length > 0 ? "border-t border-slate-100 mt-1 pt-1" : ""}>
+                      <div className={knownPeople.length > 0 ? "border-t border-white/[0.07] mt-1 pt-1" : ""}>
                         {addingPerson ? (
                           <div className="flex gap-1.5 px-2 py-1.5">
                             <input type="text" autoFocus value={newPersonName}
                               onChange={(e) => setNewPersonName(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewPerson(); } if (e.key === "Escape") { setAddingPerson(false); setNewPersonName(""); } }}
                               placeholder="Person name"
-                              className="flex-1 border border-amber-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                              className="flex-1 border border-amber-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600" />
                             <button type="button" onClick={addNewPerson} className="px-2.5 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">Add</button>
-                            <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-600 transition-colors"><X size={14} /></button>
+                            <button type="button" onClick={() => { setAddingPerson(false); setNewPersonName(""); }} className="px-1.5 text-slate-400 hover:text-slate-300 transition-colors"><X size={14} /></button>
                           </div>
                         ) : (
                           <button type="button" onClick={() => setAddingPerson(true)}
-                            className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
+                            className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-amber-600 hover:bg-amber-500/10 transition-colors">
                             <Plus size={13} /> New person
                           </button>
                         )}
@@ -5284,7 +5284,7 @@ export default function PaymentsAndExpensesPage() {
                   const total = parseFloat(billForm.amount) || 0;
                   const per = total > 0 ? total / (billSplitPeople.length + 1) : 0;
                   return per > 0 ? (
-                    <p className="text-xs text-amber-600 font-medium bg-amber-50 rounded-md px-3 py-2 mt-2">
+                    <p className="text-xs text-amber-600 font-medium bg-amber-500/10 rounded-md px-3 py-2 mt-2">
                       Split with {billSplitPeople.join(", ")} · {formatAmount(per)} each
                     </p>
                   ) : null;
@@ -5293,16 +5293,16 @@ export default function PaymentsAndExpensesPage() {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
                 <textarea rows={2} value={billForm.notes}
                   onChange={(e) => setBillForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Optional notes"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600 resize-none" />
               </div>
 
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => { setShowBillModal(false); setEditBill(null); setBillForm(EMPTY_BILL); setBillSplitPeople([]); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
                   {editBill ? "Save changes" : "Add bill"}
                 </button>
@@ -5314,37 +5314,37 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Stock Modal */}
       {showStockModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editStock ? "Edit Holding" : "Add Stock"}
               </h2>
-              <button onClick={() => { setShowStockModal(false); setEditStock(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowStockModal(false); setEditStock(null); }} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={saveStock} className="p-6 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Ticker Symbol *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Ticker Symbol *</label>
                   <input
                     type="text"
                     required
                     value={stockForm.ticker}
                     onChange={(e) => setStockForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
                     placeholder="e.g. AAPL"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (optional)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Company Name (optional)</label>
                   <input
                     type="text"
                     value={stockForm.company_name}
                     onChange={(e) => setStockForm((f) => ({ ...f, company_name: e.target.value }))}
                     placeholder="e.g. Apple Inc."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
               </div>
@@ -5353,33 +5353,33 @@ export default function PaymentsAndExpensesPage() {
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Shares *</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Shares *</label>
                       <input
                         type="number" step="0.000001" min="0" required
                         value={stockForm.shares}
                         onChange={(e) => setStockForm((f) => ({ ...f, shares: e.target.value }))}
                         placeholder="e.g. 10"
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Buy Price (per share) *</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Buy Price (per share) *</label>
                       <input
                         type="number" step="0.0001" min="0" required
                         value={stockForm.buy_price}
                         onChange={(e) => setStockForm((f) => ({ ...f, buy_price: e.target.value }))}
                         placeholder="0.00"
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Purchase Date (optional)</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Purchase Date (optional)</label>
                     <input
                       type="date"
                       value={stockForm.purchased_at}
                       onChange={(e) => setStockForm((f) => ({ ...f, purchased_at: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                     />
                   </div>
                 </>
@@ -5390,51 +5390,51 @@ export default function PaymentsAndExpensesPage() {
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Shares</label>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">Shares</label>
                           <input
                             type="number" step="0.000001" min="0"
                             value={stockForm.shares}
                             onChange={(e) => setStockForm((f) => ({ ...f, shares: e.target.value }))}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Buy Price (per share)</label>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">Buy Price (per share)</label>
                           <input
                             type="number" step="0.0001" min="0"
                             value={stockForm.buy_price}
                             onChange={(e) => setStockForm((f) => ({ ...f, buy_price: e.target.value }))}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Purchase Date (optional)</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Purchase Date (optional)</label>
                         <input
                           type="date"
                           value={stockForm.purchased_at}
                           onChange={(e) => setStockForm((f) => ({ ...f, purchased_at: e.target.value }))}
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                         />
                       </div>
                     </>
                   );
                 }
                 return (
-                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                  <p className="text-xs text-slate-400 bg-[#14162e] rounded-lg px-3 py-2">
                     This holding has {activeLots.length} active lots. Expand the row in the table to edit shares and buy price per lot.
                   </p>
                 );
               })()}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Notes (optional)</label>
                 <textarea
                   rows={2}
                   value={stockForm.notes}
                   onChange={(e) => setStockForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Any additional notes..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600 resize-none"
                 />
               </div>
 
@@ -5442,7 +5442,7 @@ export default function PaymentsAndExpensesPage() {
 
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => { setShowStockModal(false); setEditStock(null); setStockForm({ ticker: "", company_name: "", shares: "", buy_price: "", purchased_at: "", notes: "" }); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                   {editStock ? "Save changes" : "Add stock"}
                 </button>
@@ -5454,11 +5454,11 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Sell Lots Modal */}
       {showSellModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-sm">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">Record Sale</h2>
-              <button onClick={() => setShowSellModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <h2 className="text-lg font-semibold text-white">Record Sale</h2>
+              <button onClick={() => setShowSellModal(false)} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -5467,30 +5467,30 @@ export default function PaymentsAndExpensesPage() {
                 Selling {selectedLotIds.size} lot{selectedLotIds.size !== 1 ? "s" : ""}. Enter the price you sold at (per share).
               </p>
               {sellSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{sellSaveError}</div>
+                <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{sellSaveError}</div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Sell Price (per share) *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Sell Price (per share) *</label>
                 <input
                   type="number" step="0.0001" min="0" required autoFocus
                   value={sellForm.sold_price}
                   onChange={(e) => setSellForm((f) => ({ ...f, sold_price: e.target.value }))}
                   placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Sale Date (optional)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Sale Date (optional)</label>
                 <input
                   type="date"
                   value={sellForm.sold_at}
                   onChange={(e) => setSellForm((f) => ({ ...f, sold_at: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => setShowSellModal(false)}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button
                   type="button"
                   disabled={!sellForm.sold_price}
@@ -5507,55 +5507,55 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Dividend Modal */}
       {showDividendModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editingDividend ? "Edit Dividend" : "Log Dividend"}
               </h2>
-              <button onClick={() => { setShowDividendModal(false); setEditingDividend(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowDividendModal(false); setEditingDividend(null); }} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
             <div className="p-6 flex flex-col gap-4">
               {dividendModalError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{dividendModalError}</div>
+                <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{dividendModalError}</div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Shares Held *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Shares Held *</label>
                   <input
                     type="number" step="0.000001" min="0" required autoFocus
                     value={dividendModalForm.shares_held}
                     onChange={(e) => setDividendModalForm((f) => ({ ...f, shares_held: e.target.value }))}
                     placeholder="0"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">$/Share *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">$/Share *</label>
                   <input
                     type="number" step="0.000001" min="0" required
                     value={dividendModalForm.dividend_per_share}
                     onChange={(e) => setDividendModalForm((f) => ({ ...f, dividend_per_share: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Pay Date *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Pay Date *</label>
                   <input
                     type="date" required
                     value={dividendModalForm.paid_at}
                     onChange={(e) => setDividendModalForm((f) => ({ ...f, paid_at: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Total</label>
-                  <div className="w-full border border-slate-100 bg-slate-50 rounded-lg px-3 py-2 text-sm text-amber-600 font-semibold">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Total</label>
+                  <div className="w-full border border-white/[0.07] bg-[#14162e] rounded-lg px-3 py-2 text-sm text-amber-600 font-semibold">
                     {dividendModalForm.dividend_per_share && dividendModalForm.shares_held
                       ? formatAmount(parseFloat(dividendModalForm.dividend_per_share) * parseFloat(dividendModalForm.shares_held))
                       : <span className="text-slate-300">—</span>}
@@ -5563,13 +5563,13 @@ export default function PaymentsAndExpensesPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Notes (optional)</label>
                 <input
                   type="text"
                   value={dividendModalForm.notes}
                   onChange={(e) => setDividendModalForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="e.g. Q3 2025 dividend"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -5580,11 +5580,11 @@ export default function PaymentsAndExpensesPage() {
                   onChange={(e) => setDividendModalForm((f) => ({ ...f, reinvested: e.target.checked }))}
                   className="accent-indigo-600 cursor-pointer"
                 />
-                <span className="text-sm text-slate-700">Reinvested (DRIP)</span>
+                <span className="text-sm text-slate-300">Reinvested (DRIP)</span>
               </label>
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => { setShowDividendModal(false); setEditingDividend(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button
                   type="button"
                   disabled={!dividendModalForm.paid_at || !dividendModalForm.dividend_per_share || !dividendModalForm.shares_held}
@@ -5601,23 +5601,23 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Loan Modal */}
       {showLoanModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editLoan ? "Edit Loan" : "Add Loan"}
               </h2>
-              <button onClick={() => { setShowLoanModal(false); setEditLoan(null); setLoanForm(EMPTY_LOAN); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => { setShowLoanModal(false); setEditLoan(null); setLoanForm(EMPTY_LOAN); }} className="text-slate-400 hover:text-slate-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={saveLoan} className="flex flex-col gap-4 p-6">
               {loanSaveError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{loanSaveError}</div>
+                <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{loanSaveError}</div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Loan Name / Provider</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Loan Name / Provider</label>
                 <input
                   type="text"
                   required
@@ -5625,24 +5625,24 @@ export default function PaymentsAndExpensesPage() {
                   value={loanForm.name}
                   onChange={(e) => setLoanForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Subsidized Loan 1"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Disbursement Date</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Disbursement Date</label>
                 <input
                   type="date"
                   required
                   value={loanForm.disbursement_date}
                   onChange={(e) => setLoanForm((f) => ({ ...f, disbursement_date: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Original Principal ($)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Original Principal ($)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -5651,11 +5651,11 @@ export default function PaymentsAndExpensesPage() {
                     value={loanForm.original_principal}
                     onChange={(e) => setLoanForm((f) => ({ ...f, original_principal: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Interest Rate (%)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Interest Rate (%)</label>
                   <input
                     type="number"
                     step="0.0001"
@@ -5664,14 +5664,14 @@ export default function PaymentsAndExpensesPage() {
                     value={loanForm.interest_rate}
                     onChange={(e) => setLoanForm((f) => ({ ...f, interest_rate: e.target.value }))}
                     placeholder="e.g. 4.5"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Unpaid Principal ($)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Unpaid Principal ($)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -5680,11 +5680,11 @@ export default function PaymentsAndExpensesPage() {
                     value={loanForm.unpaid_principal}
                     onChange={(e) => setLoanForm((f) => ({ ...f, unpaid_principal: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Unpaid Interest ($)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Unpaid Interest ($)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -5693,13 +5693,13 @@ export default function PaymentsAndExpensesPage() {
                     value={loanForm.unpaid_interest}
                     onChange={(e) => setLoanForm((f) => ({ ...f, unpaid_interest: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Total Interest Paid to Date ($)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Total Interest Paid to Date ($)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -5708,24 +5708,24 @@ export default function PaymentsAndExpensesPage() {
                   value={loanForm.total_interest_paid}
                   onChange={(e) => setLoanForm((f) => ({ ...f, total_interest_paid: e.target.value }))}
                   placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Notes (optional)</label>
                 <textarea
                   rows={2}
                   value={loanForm.notes}
                   onChange={(e) => setLoanForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Any additional notes..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600 resize-none"
                 />
               </div>
 
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => { setShowLoanModal(false); setEditLoan(null); setLoanForm(EMPTY_LOAN); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                   {editLoan ? "Save changes" : "Add loan"}
                 </button>
@@ -5737,19 +5737,19 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Bank Account Modal */}
       {showBankModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-sm">
             <div className="flex items-center justify-between p-6 pb-0">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 {editingBank ? "Edit Account" : `New ${bankModalForm.account_type === "savings" ? "Savings" : "Checking"} Account`}
               </h2>
-              <button onClick={() => { setShowBankModal(false); setEditingBank(null); }} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+              <button onClick={() => { setShowBankModal(false); setEditingBank(null); }} className="text-slate-400 hover:text-slate-300 transition-colors"><X size={18} /></button>
             </div>
             <form onSubmit={saveBankAccount} className="flex flex-col gap-4 p-6">
-              {bankModalError && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{bankModalError}</div>}
+              {bankModalError && <div className="text-sm text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2">{bankModalError}</div>}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Bank Name</label>
                 <input
                   type="text"
                   required
@@ -5757,17 +5757,17 @@ export default function PaymentsAndExpensesPage() {
                   value={bankModalForm.name}
                   onChange={(e) => setBankModalForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Chase, Wells Fargo, Marcus"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Account Type</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Account Type</label>
                 <div className="flex gap-2">
                   {(["checking", "savings"] as const).map((type) => (
                     <button key={type} type="button"
                       onClick={() => setBankModalForm((f) => ({ ...f, account_type: type }))}
-                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors capitalize ${bankModalForm.account_type === type ? "bg-violet-50 border-violet-300 text-violet-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors capitalize ${bankModalForm.account_type === type ? "bg-violet-500/10 border-violet-300 text-violet-400" : "border-white/[0.1] text-slate-500 hover:border-white/[0.2]"}`}>
                       {type}
                     </button>
                   ))}
@@ -5775,7 +5775,7 @@ export default function PaymentsAndExpensesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Starting Balance</label>
                 <input
                   type="number"
                   min="0"
@@ -5783,24 +5783,24 @@ export default function PaymentsAndExpensesPage() {
                   value={bankModalForm.starting_balance}
                   onChange={(e) => setBankModalForm((f) => ({ ...f, starting_balance: e.target.value }))}
                   placeholder="0.00"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Balance As Of</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Balance As Of</label>
                 <input
                   type="date"
                   value={bankModalForm.starting_balance_as_of}
                   onChange={(e) => setBankModalForm((f) => ({ ...f, starting_balance_as_of: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full border border-white/[0.1] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-[#14162e] text-slate-200 placeholder-slate-600"
                 />
                 <p className="text-xs text-slate-400 mt-1">All transfers from this date onward will update the balance.</p>
               </div>
 
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => { setShowBankModal(false); setEditingBank(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
                   {editingBank ? "Save changes" : "Add account"}
                 </button>
@@ -5812,15 +5812,15 @@ export default function PaymentsAndExpensesPage() {
 
       {/* Delete confirmation */}
       {deleteTarget !== null && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-base font-semibold text-slate-900 mb-1">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1e2245] rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-base font-semibold text-white mb-1">
               Delete {deleteTarget.type}?
             </h2>
             <p className="text-sm text-slate-500 mb-5">This will permanently remove this entry.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                className="px-4 py-2 text-sm text-slate-600 hover:text-white transition-colors">Cancel</button>
               <button onClick={confirmDelete}
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Delete</button>
             </div>

@@ -15,3 +15,4 @@ from app.models.loans import Loan
 from app.models.credit_card_reminders import CreditCardReminder
 from app.models.stocks import StockHolding, StockLot
 from app.models.work_log import WorkLogEntry
+from app.models.company import Company

@@ -4,6 +4,7 @@ from typing import Optional
 
 
 class WorkLogEntryBase(BaseModel):
+    company_id: int
     date: date
     start_time: str
     end_time: str

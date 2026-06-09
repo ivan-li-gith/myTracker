@@ -1,32 +1,41 @@
 @import "tailwindcss";
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #191b35;
+  color: #e2e8f0;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Subtle dark scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* Native form elements use dark color scheme */
+input, select, textarea { color-scheme: dark; }
+
 /* Markdown body styles */
-.md-body { line-height: 1.7; color: #334155; }
-.md-body h1 { font-size: 1.5rem; font-weight: 700; color: #0f172a; margin: 1.5rem 0 0.75rem; }
-.md-body h2 { font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 1.25rem 0 0.5rem; }
-.md-body h3 { font-size: 1.1rem; font-weight: 600; color: #1e293b; margin: 1rem 0 0.4rem; }
+.md-body { line-height: 1.7; color: #94a3b8; }
+.md-body h1 { font-size: 1.5rem; font-weight: 700; color: #e2e8f0; margin: 1.5rem 0 0.75rem; }
+.md-body h2 { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; margin: 1.25rem 0 0.5rem; }
+.md-body h3 { font-size: 1.1rem; font-weight: 600; color: #cbd5e1; margin: 1rem 0 0.4rem; }
 .md-body p { margin-bottom: 0.875rem; }
 .md-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.875rem; }
 .md-body ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.875rem; }
 .md-body li { margin-bottom: 0.25rem; }
-.md-body strong { font-weight: 600; color: #1e293b; }
+.md-body strong { font-weight: 600; color: #cbd5e1; }
 .md-body em { font-style: italic; }
-.md-body a { color: #4f46e5; text-decoration: underline; }
-.md-body a:hover { color: #4338ca; }
-.md-body code { background: #f1f5f9; border-radius: 0.25rem; padding: 0.125rem 0.375rem; font-size: 0.875em; font-family: var(--font-geist-mono), monospace; color: #be185d; }
-.md-body pre { background: #1e293b; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; overflow-x: auto; }
+.md-body a { color: #818cf8; text-decoration: underline; }
+.md-body a:hover { color: #a5b4fc; }
+.md-body code { background: rgba(255,255,255,0.08); border-radius: 0.25rem; padding: 0.125rem 0.375rem; font-size: 0.875em; font-family: var(--font-geist-mono), monospace; color: #f472b6; }
+.md-body pre { background: #1e2245; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; overflow-x: auto; border: 1px solid rgba(255,255,255,0.07); }
 .md-body pre code { background: transparent; color: #e2e8f0; padding: 0; font-size: 0.85rem; }
-.md-body blockquote { border-left: 3px solid #c7d2fe; padding-left: 1rem; color: #64748b; font-style: italic; margin: 0.875rem 0; }
-.md-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
+.md-body blockquote { border-left: 3px solid rgba(99,102,241,0.5); padding-left: 1rem; color: #94a3b8; font-style: italic; margin: 0.875rem 0; }
+.md-body hr { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 1.5rem 0; }
 .md-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
-.md-body th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; }
-.md-body td { border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; }
+.md-body th { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #94a3b8; }
+.md-body td { border: 1px solid rgba(255,255,255,0.07); padding: 0.5rem 0.75rem; }
 
 /* Confetti celebration animation */
 @keyframes confetti-rise {
@@ -38,12 +47,12 @@ body {
   animation: confetti-rise var(--conf-dur, 1.5s) ease-out var(--conf-delay, 0s) both;
 }
 
-/* Search result highlight */
+/* Search result highlight - dark mode */
 @keyframes highlight-fade {
-  0%   { background-color: #fbbf24; }
-  20%  { background-color: #fef3c7; }
-  40%  { background-color: #fbbf24; }
-  65%  { background-color: #fef3c7; }
+  0%   { background-color: rgba(251, 191, 36, 0.18); }
+  20%  { background-color: rgba(251, 191, 36, 0.08); }
+  40%  { background-color: rgba(251, 191, 36, 0.18); }
+  65%  { background-color: rgba(251, 191, 36, 0.08); }
   100% { background-color: transparent; }
 }
 .highlight-row {

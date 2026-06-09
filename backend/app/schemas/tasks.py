@@ -25,5 +25,6 @@ class TaskRead(TaskBase):
     id: int
     completed_at: Optional[datetime] = None
     created_at: datetime
+    position: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -5,10 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CheckSquare, CreditCard, Briefcase, ClipboardList,
-  Menu, X, LayoutDashboard, User, Activity,
-  PanelLeftClose, PanelLeftOpen,
+  Menu, X, LayoutDashboard, Activity,
+  PanelLeftClose, PanelLeftOpen, LogOut,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { useSession, signOut } from "next-auth/react";
+import Image from "next/image";
 
 interface NavChild {
   href: string;
@@ -30,7 +32,6 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/work-log", label: "Work Log", icon: ClipboardList },
 ];
-
 
 interface SidebarProps {
   collapsed: boolean;
@@ -54,6 +55,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
+  const { data: session } = useSession();
 
   useEffect(() => {
     const today = todayStr();
@@ -106,43 +108,53 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const Icon = item.icon;
     const hasActiveChild = item.children?.some((c) => isActive(c.href));
     const badge = badges[item.href];
+    const isExpanded = !collapsed || isMobile;
 
     return (
       <div key={item.href}>
         <Link
           href={item.href}
-          title={collapsed && !isMobile ? item.label : undefined}
+          title={!isExpanded ? item.label : undefined}
           onClick={isMobile ? () => setMobileOpen(false) : undefined}
-          className={`relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 ${
-            collapsed && !isMobile ? "justify-center px-0 py-2.5" : "px-3 py-2"
+          className={`relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 ${
+            !isExpanded ? "justify-center px-0 py-2.5" : "px-3 py-2.5"
           } ${
             active || hasActiveChild
-              ? "bg-slate-100 text-slate-900"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-white/[0.08] text-white"
+              : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
           }`}
         >
+          {/* Active left indicator bar */}
+          {(active || hasActiveChild) && isExpanded && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-400 rounded-r-full" />
+          )}
+
           <Icon
             size={18}
-            className={`flex-shrink-0 ${active || hasActiveChild ? "text-indigo-600" : "text-slate-400"}`}
+            className={`flex-shrink-0 transition-colors ${
+              active || hasActiveChild ? "text-indigo-400" : ""
+            }`}
           />
-          {(!collapsed || isMobile) && (
+
+          {isExpanded && (
             <>
               <span className="truncate flex-1">{item.label}</span>
               {badge !== undefined && (
-                <span className="ml-auto text-[11px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full leading-none">
+                <span className="ml-auto text-[10px] font-bold bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full leading-none">
                   {badge}
                 </span>
               )}
             </>
           )}
-          {collapsed && !isMobile && badge !== undefined && (
-            <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
+
+          {!isExpanded && badge !== undefined && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-indigo-400 rounded-full" />
           )}
         </Link>
 
         {/* Children — expanded only */}
-        {(!collapsed || isMobile) && item.children && (
-          <div className="ml-3 pl-3 border-l border-slate-200 mt-0.5 mb-0.5 flex flex-col gap-0.5">
+        {isExpanded && item.children && (
+          <div className="ml-3 pl-3 border-l border-white/[0.06] mt-0.5 mb-0.5 flex flex-col gap-0.5">
             {item.children.map((child) => {
               const childActive = isActive(child.href);
               const ChildIcon = child.icon;
@@ -153,13 +165,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   onClick={isMobile ? () => setMobileOpen(false) : undefined}
                   className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
                     childActive
-                      ? "bg-slate-100 text-slate-900"
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                      ? "bg-white/[0.08] text-white"
+                      : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
                   }`}
                 >
                   <ChildIcon
                     size={14}
-                    className={`flex-shrink-0 ${childActive ? "text-indigo-500" : "text-slate-400"}`}
+                    className={`flex-shrink-0 ${childActive ? "text-indigo-400" : "text-slate-500"}`}
                   />
                   <span className="truncate">{child.label}</span>
                 </Link>
@@ -169,7 +181,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
 
         {/* Collapsed children — standalone icons */}
-        {collapsed && !isMobile && item.children && (
+        {!isExpanded && !isMobile && item.children && (
           <div className="flex flex-col gap-0.5 mt-0.5">
             {item.children.map((child) => {
               const childActive = isActive(child.href);
@@ -181,8 +193,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   title={child.label}
                   className={`flex items-center justify-center py-2 rounded-md transition-all duration-150 ${
                     childActive
-                      ? "bg-slate-100 text-indigo-500"
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                      ? "bg-white/[0.08] text-indigo-400"
+                      : "text-slate-500 hover:bg-white/[0.05] hover:text-slate-300"
                   }`}
                 >
                   <ChildIcon size={15} className="flex-shrink-0" />
@@ -195,23 +207,62 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     );
   }
 
-  const userProfile = collapsed ? (
-    <div className="mt-auto border-t border-slate-200 pt-3 pb-2 flex justify-center">
-      <div className="bg-indigo-100 p-1.5 rounded-full text-indigo-600">
-        <User size={16} />
+  const logo = (
+    <div className="flex items-center gap-2.5">
+      <div className="bg-indigo-500 w-7 h-7 rounded-lg flex items-center justify-center shadow-[0_0_14px_rgba(99,102,241,0.45)] flex-shrink-0">
+        <Activity size={14} className="text-white" />
       </div>
+      <span className="text-base font-bold text-white tracking-tight">myTracker</span>
     </div>
+  );
+
+  const avatar = session?.user?.image ? (
+    <Image
+      src={session.user.image}
+      alt="avatar"
+      width={28}
+      height={28}
+      className="rounded-full flex-shrink-0"
+    />
   ) : (
-    <div className="mt-auto border-t border-slate-200 pt-4 pb-2">
-      <button className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-        <div className="bg-indigo-100 p-1.5 rounded-full text-indigo-600 flex-shrink-0">
-          <User size={16} />
+    <div className="w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xs font-bold flex-shrink-0">
+      {session?.user?.name?.[0] ?? "?"}
+    </div>
+  );
+
+  const userProfile = (
+    <div className="border-t border-white/[0.06] pt-3 pb-1">
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-1">
+          {avatar}
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Sign out"
+            className="text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] rounded-md p-1.5 transition-colors"
+          >
+            <LogOut size={13} />
+          </button>
         </div>
-        <div className="flex flex-col items-start">
-          <span className="text-slate-900 text-xs font-semibold">My Account</span>
-          <span className="text-slate-400 text-[10px]">Settings & Preferences</span>
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2">
+          {avatar}
+          <div className="flex flex-col items-start min-w-0 flex-1">
+            <span className="text-slate-200 text-xs font-semibold leading-none truncate">
+              {session?.user?.name ?? "—"}
+            </span>
+            <span className="text-slate-500 text-[10px] mt-0.5 leading-none truncate">
+              {session?.user?.email ?? ""}
+            </span>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Sign out"
+            className="text-slate-500 hover:text-red-400 hover:bg-white/[0.06] rounded-md p-1.5 transition-colors flex-shrink-0"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
-      </button>
+      )}
     </div>
   );
 
@@ -219,74 +270,71 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-white border-r border-slate-200 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-[width] duration-200 overflow-hidden ${
-          collapsed ? "w-16 px-2 py-5" : "w-64 px-4 py-5"
+        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-[#0f1022] border-r border-white/[0.07] z-20 transition-[width] duration-200 overflow-hidden ${
+          collapsed ? "w-16 px-2 py-5" : "w-60 px-3 py-5"
         }`}
       >
         {/* Header */}
-        <div className={`flex items-center mb-2 ${collapsed ? "justify-center" : "justify-between px-1"}`}>
-          {!collapsed && (
-            <div className="flex items-center gap-2 px-2">
-              <div className="bg-indigo-600 w-6 h-6 rounded-md flex items-center justify-center shadow-sm flex-shrink-0">
-                <Activity size={14} className="text-white" />
+        <div className={`flex items-center mb-4 ${collapsed ? "flex-col gap-2" : "justify-between px-1"}`}>
+          {collapsed ? (
+            <>
+              <div className="bg-indigo-500 w-8 h-8 rounded-lg flex items-center justify-center shadow-[0_0_14px_rgba(99,102,241,0.45)] flex-shrink-0">
+                <Activity size={16} className="text-white" />
               </div>
-              <span className="text-lg font-bold text-slate-900 tracking-tight">myTracker</span>
-            </div>
+              <button
+                onClick={onToggle}
+                title="Expand sidebar"
+                className="text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] rounded-md p-1.5 transition-colors"
+              >
+                <PanelLeftOpen size={15} />
+              </button>
+            </>
+          ) : (
+            <>
+              {logo}
+              <button
+                onClick={onToggle}
+                title="Collapse sidebar"
+                className="text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] rounded-md p-1.5 transition-colors ml-auto flex-shrink-0"
+              >
+                <PanelLeftClose size={15} />
+              </button>
+            </>
           )}
-          <button
-            onClick={onToggle}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={`text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md p-1.5 transition-colors flex-shrink-0 ${
-              collapsed ? "" : "ml-auto"
-            }`}
-          >
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
         </div>
 
-        <nav className="flex flex-col gap-0.5 mt-4 flex-1 overflow-y-auto">
+        <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto">
           {PRIMARY_NAV.map((item) => renderNavItem(item))}
         </nav>
+
         {userProfile}
       </aside>
 
       {/* Mobile header */}
-      <header className="md:hidden flex items-center justify-between bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 w-6 h-6 rounded-md flex items-center justify-center">
-            <Activity size={14} className="text-white" />
-          </div>
-          <span className="text-lg font-bold text-slate-900 tracking-tight">myTracker</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="text-slate-500 hover:text-slate-900 transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu size={24} />
-          </button>
-        </div>
+      <header className="md:hidden flex items-center justify-between bg-[#0f1022] border-b border-white/[0.06] px-4 py-3 sticky top-0 z-30">
+        {logo}
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="text-slate-400 hover:text-white p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={22} />
+        </button>
       </header>
 
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div
-            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-64 bg-white h-full px-4 py-5 flex flex-col shadow-2xl animate-in slide-in-from-left-2 duration-200">
-            <div className="flex items-center justify-between px-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="bg-indigo-600 w-6 h-6 rounded-md flex items-center justify-center">
-                  <Activity size={14} className="text-white" />
-                </div>
-                <span className="text-lg font-bold text-slate-900 tracking-tight">myTracker</span>
-              </div>
+          <aside className="relative w-60 bg-[#0f1022] h-full px-3 py-5 flex flex-col border-r border-white/[0.06]">
+            <div className="flex items-center justify-between px-1 mb-5">
+              {logo}
               <button
                 onClick={() => setMobileOpen(false)}
-                className="text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-full p-1 transition-colors"
+                className="text-slate-400 hover:text-white p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
               >
                 <X size={20} />
               </button>
@@ -294,16 +342,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto">
               {PRIMARY_NAV.map((item) => renderNavItem(item, true))}
             </nav>
-            <div className="mt-auto border-t border-slate-200 pt-4 pb-2">
-              <button className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                <div className="bg-indigo-100 p-1.5 rounded-full text-indigo-600">
-                  <User size={16} />
+            <div className="border-t border-white/[0.06] pt-3 pb-1">
+              <div className="flex items-center gap-2 px-3 py-2">
+                {avatar}
+                <div className="flex flex-col items-start min-w-0 flex-1">
+                  <span className="text-slate-200 text-xs font-semibold leading-none truncate">
+                    {session?.user?.name ?? "—"}
+                  </span>
+                  <span className="text-slate-500 text-[10px] mt-0.5 leading-none truncate">
+                    {session?.user?.email ?? ""}
+                  </span>
                 </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-slate-900 text-xs font-semibold">My Account</span>
-                  <span className="text-slate-400 text-[10px]">Settings & Preferences</span>
-                </div>
-              </button>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  title="Sign out"
+                  className="text-slate-500 hover:text-red-400 hover:bg-white/[0.06] rounded-md p-1.5 transition-colors flex-shrink-0"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
             </div>
           </aside>
         </div>

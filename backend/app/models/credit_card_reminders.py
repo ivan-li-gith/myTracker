@@ -14,3 +14,4 @@ class CreditCardReminder(Base):
     due_day: Mapped[int] = mapped_column(Integer)
     days_before: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

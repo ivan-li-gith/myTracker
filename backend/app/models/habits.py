@@ -14,6 +14,8 @@ class Habit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     category: Mapped[str] = mapped_column(Text, default="standard")
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
 
 class HabitLog(Base):

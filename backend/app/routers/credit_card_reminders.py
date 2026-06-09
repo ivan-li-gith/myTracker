@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db_session
@@ -20,9 +20,19 @@ async def _get(session: AsyncSession, reminder_id: int) -> CreditCardReminder:
 @router.get("/credit-card-reminders", response_model=list[CreditCardReminderRead])
 async def list_reminders(session: AsyncSession = Depends(get_db_session)):
     result = await session.execute(
-        select(CreditCardReminder).order_by(CreditCardReminder.due_day.asc(), CreditCardReminder.created_at.asc())
+        select(CreditCardReminder).order_by(text("position ASC NULLS LAST"), CreditCardReminder.due_day.asc(), CreditCardReminder.created_at.asc())
     )
     return result.scalars().all()
+
+
+@router.put("/credit-card-reminders/reorder", status_code=204)
+async def reorder_reminders(body: list[int], session: AsyncSession = Depends(get_db_session)):
+    for position, reminder_id in enumerate(body):
+        result = await session.execute(select(CreditCardReminder).where(CreditCardReminder.id == reminder_id))
+        obj = result.scalar_one_or_none()
+        if obj:
+            obj.position = position
+    await session.commit()
 
 
 @router.post("/credit-card-reminders", response_model=CreditCardReminderRead, status_code=201)

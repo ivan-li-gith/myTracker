@@ -11,7 +11,7 @@ class HabitBase(BaseModel):
 
 
 class HabitCreate(HabitBase):
-    pass
+    created_at: Optional[datetime] = None
 
 
 class HabitUpdate(BaseModel):
@@ -19,11 +19,14 @@ class HabitUpdate(BaseModel):
     target_freq: Optional[int] = None
     archived: Optional[bool] = None
     category: Optional[str] = None
+    deleted_at: Optional[datetime] = None
 
 
 class HabitRead(HabitBase):
     id: int
     created_at: datetime
+    deleted_at: Optional[datetime] = None
+    position: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

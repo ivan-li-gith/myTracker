@@ -14,11 +14,12 @@ router = APIRouter(prefix="/work-log", tags=["work-log"])
 @router.get("", response_model=list[WorkLogEntryRead])
 async def list_entries(
     date: date,
+    company_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
     result = await session.execute(
         select(WorkLogEntry)
-        .where(WorkLogEntry.date == date)
+        .where(WorkLogEntry.date == date, WorkLogEntry.company_id == company_id)
         .order_by(WorkLogEntry.start_time)
     )
     return result.scalars().all()

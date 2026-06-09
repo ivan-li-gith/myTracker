@@ -60,6 +60,7 @@ function countLogsThisWeek(loggedDates: string[]) {
 }
 
 function isHabitNeededToday(habit: HabitWithStreak) {
+  if (habit.deleted_at) return false;
   if (habit.logged_dates?.includes(todayStr())) return false;
   return countLogsThisWeek(habit.logged_dates || []) < (habit.target_freq ?? 7);
 }
@@ -102,7 +103,7 @@ function KpiCard({ icon, label, value, sub, accent, href }: {
   href?: string;
 }) {
   const content = (
-    <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-5 py-4 flex flex-col gap-3 h-full">
+    <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] px-5 py-4 flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
           {icon}
@@ -110,7 +111,7 @@ function KpiCard({ icon, label, value, sub, accent, href }: {
         {href && <ArrowRight size={13} className="text-slate-200" />}
       </div>
       <div>
-        <p className="text-2xl font-bold text-slate-900 tracking-tight leading-none">{value}</p>
+        <p className="text-2xl font-bold text-white tracking-tight leading-none">{value}</p>
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 mt-2">{label}</p>
         {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
       </div>
@@ -136,13 +137,13 @@ function PipelineBar({ label, count, max, barColor }: {
   return (
     <div className="flex items-center gap-3">
       <span className="text-[12px] text-slate-500 w-[92px] flex-shrink-0">{label}</span>
-      <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-[6px] bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${barColor} transition-all duration-700 ease-out`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[12px] font-bold text-slate-700 w-5 text-right flex-shrink-0">{count}</span>
+      <span className="text-[12px] font-bold text-slate-300 w-5 text-right flex-shrink-0">{count}</span>
     </div>
   );
 }
@@ -151,9 +152,9 @@ function PipelineBar({ label, count, max, barColor }: {
 
 function StatTile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="bg-slate-50 rounded-xl px-4 py-3">
+    <div className="bg-[#14162e] rounded-xl px-4 py-3">
       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</p>
-      <p className="text-xl font-bold text-slate-900 mt-1">{value}</p>
+      <p className="text-xl font-bold text-white mt-1">{value}</p>
       <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
     </div>
   );
@@ -169,13 +170,13 @@ function UrgencyCard({ item, onCheck, checking }: {
   const styles = {
     overdue: { border: "border-l-red-400",   bg: "bg-red-50/60" },
     today:   { border: "border-l-amber-400", bg: "bg-amber-50/60" },
-    soon:    { border: "border-l-slate-200", bg: "bg-slate-50/40" },
+    soon:    { border: "border-l-slate-200", bg: "bg-[#1e2245]/[0.04]" },
   }[item.urgency];
 
   const checkBorder = {
     overdue: "border-red-300 hover:border-red-500",
     today:   "border-amber-300 hover:border-amber-500",
-    soon:    "border-slate-300 hover:border-slate-500",
+    soon:    "border-white/[0.2] hover:border-white/[0.4]",
   }[item.urgency];
 
   return (
@@ -192,7 +193,7 @@ function UrgencyCard({ item, onCheck, checking }: {
         <Flame size={13} className="text-orange-400 flex-shrink-0" />
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-slate-800 truncate leading-snug">{item.title}</p>
+        <p className="text-[13px] font-medium text-slate-200 truncate leading-snug">{item.title}</p>
         <p className="text-[11px] text-slate-400 mt-0.5 truncate">{item.subtitle}</p>
       </div>
     </div>
@@ -276,7 +277,7 @@ export default function HomePage() {
   }, []);
 
   const habitsToDoToday = habits.filter(isHabitNeededToday);
-  const habitsLoggedToday = habits.filter(h => h.logged_dates?.includes(todayStr()));
+  const habitsLoggedToday = habits.filter(h => !h.deleted_at && h.logged_dates?.includes(todayStr()));
 
   useEffect(() => {
     if (prevHabitsToDoCount.current === -1) {
@@ -429,7 +430,7 @@ export default function HomePage() {
       {/* Header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-bold text-white tracking-tight">
             {getGreeting()}, Ivan
           </h1>
           <p className="text-base text-slate-400 mt-1">
@@ -488,7 +489,7 @@ export default function HomePage() {
           icon={<Flame size={16} className="text-orange-500" />}
           accent="bg-orange-50"
           label="Habits Today"
-          value={`${habitsLoggedToday.length}/${habits.filter(h => !h.archived).length}`}
+          value={`${habitsLoggedToday.length}/${habits.filter(h => !h.archived && !h.deleted_at).length}`}
           sub={longestStreak > 0 ? `Best streak: ${longestStreak} days` : "Start your streak"}
           href="/tasks"
         />
@@ -498,11 +499,11 @@ export default function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Jobs Panel */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] flex flex-col">
+          <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Briefcase size={14} className="text-indigo-600" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Jobs Pipeline</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white">Jobs Pipeline</h2>
               <span className="text-xs text-slate-400">{jobs.length} total</span>
             </div>
             <Link href="/jobs" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors">
@@ -556,11 +557,11 @@ export default function HomePage() {
         </div>
 
         {/* Finance Panel */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] flex flex-col">
+          <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DollarSign size={14} className="text-emerald-600" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Finance</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white">Finance</h2>
               <span className="text-xs text-slate-400">
                 {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </span>
@@ -575,7 +576,7 @@ export default function HomePage() {
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Spend</p>
-                <p className="text-[32px] font-bold text-slate-900 tracking-tight leading-none mt-1.5">
+                <p className="text-[32px] font-bold text-white tracking-tight leading-none mt-1.5">
                   {fmtAmount(expenseSummary?.total)}
                 </p>
               </div>
@@ -595,13 +596,13 @@ export default function HomePage() {
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <span className="text-[12px] text-slate-500 w-[90px] flex-shrink-0 truncate">{name}</span>
-                      <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                      <div className="flex-1 h-[6px] bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${CAT_COLORS[i % CAT_COLORS.length]} transition-all duration-700 ease-out`}
                           style={{ width: `${(row.total / maxCatAmount) * 100}%` }}
                         />
                       </div>
-                      <span className="text-[12px] font-semibold text-slate-700 w-[60px] text-right flex-shrink-0">
+                      <span className="text-[12px] font-semibold text-slate-300 w-[60px] text-right flex-shrink-0">
                         {fmtAmount(row.total)}
                       </span>
                       <span className="text-[11px] text-slate-400 w-[26px] text-right flex-shrink-0">{pct}%</span>
@@ -613,7 +614,7 @@ export default function HomePage() {
 
             {/* Upcoming payments */}
             {unpaidPayments.length > 0 && (
-              <div className="border-t border-slate-100 pt-4">
+              <div className="border-t border-white/[0.07] pt-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-2.5">
                   Upcoming Payments
                 </p>
@@ -623,9 +624,9 @@ export default function HomePage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                           p.days_until_due < 0 ? "bg-red-400" :
-                          p.days_until_due <= 3 ? "bg-amber-400" : "bg-slate-300"
+                          p.days_until_due <= 3 ? "bg-amber-400" : "bg-[#1e2245]/[0.2]"
                         }`} />
-                        <span className="text-[13px] text-slate-700 truncate">{p.name}</span>
+                        <span className="text-[13px] text-slate-300 truncate">{p.name}</span>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className={`text-[11px] font-semibold tabular-nums ${
@@ -638,7 +639,7 @@ export default function HomePage() {
                               ? "Today"
                               : `in ${p.days_until_due}d`}
                         </span>
-                        <span className="text-[13px] font-bold text-slate-900 tabular-nums">
+                        <span className="text-[13px] font-bold text-white tabular-nums">
                           {fmtAmount(p.amount)}
                         </span>
                       </div>
@@ -658,11 +659,11 @@ export default function HomePage() {
 
       {/* Portfolio Panel */}
       {stocks.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07] flex flex-col">
+          <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp size={14} className="text-sky-600" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Portfolio</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white">Portfolio</h2>
               <span className="text-xs text-slate-400">{activeHoldings.length} holding{activeHoldings.length !== 1 ? "s" : ""}</span>
             </div>
             <Link href="/payments" className="text-[11px] text-indigo-500 font-semibold hover:text-indigo-700 flex items-center gap-1 transition-colors">
@@ -674,7 +675,7 @@ export default function HomePage() {
             <div className="flex flex-col gap-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Total Value</p>
-                <p className="text-[32px] font-bold text-slate-900 tracking-tight leading-none mt-1.5">
+                <p className="text-[32px] font-bold text-white tracking-tight leading-none mt-1.5">
                   {fmtAmount(portfolioTotalValue)}
                 </p>
               </div>
@@ -710,13 +711,13 @@ export default function HomePage() {
                 return (
                   <div key={h.ticker} className="flex items-center gap-3">
                     <span className="text-[12px] text-slate-500 w-12 flex-shrink-0 font-medium">{h.ticker}</span>
-                    <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                    <div className="flex-1 h-[6px] bg-[#1e2245]/[0.07] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-700 ease-out"
                         style={{ width: `${pct}%`, backgroundColor: PORTFOLIO_COLORS_HOME[i % PORTFOLIO_COLORS_HOME.length] }}
                       />
                     </div>
-                    <span className="text-[12px] font-semibold text-slate-700 w-[60px] text-right flex-shrink-0">{fmtAmount(val)}</span>
+                    <span className="text-[12px] font-semibold text-slate-300 w-[60px] text-right flex-shrink-0">{fmtAmount(val)}</span>
                     <span className="text-[11px] text-slate-400 w-[26px] text-right flex-shrink-0">{pct}%</span>
                   </div>
                 );
@@ -727,12 +728,12 @@ export default function HomePage() {
       )}
 
       {/* Reminders */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.07)]">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+      <div className="bg-[#1e2245] rounded-2xl border border-white/[0.07]">
+        <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={14} className="text-violet-600" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-900">Reminders</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white">Reminders</h2>
             </div>
             {overdueItems.length > 0 && (
               <span className="text-[11px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
@@ -786,7 +787,7 @@ export default function HomePage() {
                     {overdueItems.length > MAX_VISIBLE && (
                       <button
                         onClick={() => toggleCol("overdue")}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-300 transition-colors pl-3 mt-0.5"
                       >
                         <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("overdue") ? "rotate-180" : ""}`} />
                         {expandedCols.has("overdue") ? "Show less" : `${overdueItems.length - MAX_VISIBLE} more`}
@@ -825,7 +826,7 @@ export default function HomePage() {
                     {todayItems.length > MAX_VISIBLE && (
                       <button
                         onClick={() => toggleCol("today")}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-300 transition-colors pl-3 mt-0.5"
                       >
                         <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("today") ? "rotate-180" : ""}`} />
                         {expandedCols.has("today") ? "Show less" : `${todayItems.length - MAX_VISIBLE} more`}
@@ -838,7 +839,7 @@ export default function HomePage() {
               {/* Upcoming column */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400 mb-2.5 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1e2245]/[0.2] inline-block" />
                   Upcoming ({soonItems.length})
                 </p>
                 {soonItems.length === 0 ? (
@@ -862,7 +863,7 @@ export default function HomePage() {
                     {soonItems.length > MAX_VISIBLE && (
                       <button
                         onClick={() => toggleCol("soon")}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors pl-3 mt-0.5"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-300 transition-colors pl-3 mt-0.5"
                       >
                         <ChevronDown size={12} className={`transition-transform duration-200 ${expandedCols.has("soon") ? "rotate-180" : ""}`} />
                         {expandedCols.has("soon") ? "Show less" : `${soonItems.length - MAX_VISIBLE} more`}

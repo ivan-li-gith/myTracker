@@ -2,7 +2,7 @@ from datetime import datetime, timezone, date as date_type
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, delete
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db_session
@@ -13,9 +13,23 @@ from app.services.habits import compute_streak
 router = APIRouter(prefix="/habits", tags=["habits"])
 
 
+@router.put("/reorder", status_code=204)
+async def reorder_habits(body: list[int], session: AsyncSession = Depends(get_db_session)):
+    for position, habit_id in enumerate(body):
+        result = await session.execute(select(Habit).where(Habit.id == habit_id))
+        habit = result.scalar_one_or_none()
+        if habit:
+            habit.position = position
+    await session.commit()
+
+
 @router.get("", response_model=list[HabitWithStreak])
 async def list_habits(session: AsyncSession = Depends(get_db_session)):
-    result = await session.execute(select(Habit).where(Habit.archived == False))
+    # Return all non-archived habits, including soft-deleted ones, so the
+    # frontend can render historical data correctly for past calendar dates.
+    result = await session.execute(
+        select(Habit).where(Habit.archived == False).order_by(text("position ASC NULLS LAST"), Habit.created_at.asc())
+    )
     habits = result.scalars().all()
 
     habit_list = []
@@ -39,7 +53,11 @@ async def list_habits(session: AsyncSession = Depends(get_db_session)):
 
 @router.post("", response_model=HabitRead, status_code=201)
 async def create_habit(body: HabitCreate, session: AsyncSession = Depends(get_db_session)):
-    habit = Habit(**body.model_dump())
+    data = body.model_dump()
+    created_at = data.pop("created_at", None)
+    habit = Habit(**data)
+    if created_at is not None:
+        habit.created_at = created_at
     session.add(habit)
     await session.commit()
     await session.refresh(habit)
@@ -103,12 +121,16 @@ async def update_habit(habit_id: int, body: HabitUpdate, session: AsyncSession =
 
 
 @router.delete("/{habit_id}", status_code=204)
-async def delete_habit(habit_id: int, session: AsyncSession = Depends(get_db_session)):
+async def delete_habit(
+    habit_id: int,
+    deleted_at: Optional[datetime] = Query(None),
+    session: AsyncSession = Depends(get_db_session),
+):
     result = await session.execute(select(Habit).where(Habit.id == habit_id))
     habit = result.scalar_one_or_none()
     if habit is None:
         raise HTTPException(status_code=404, detail="Habit not found")
 
-    await session.execute(delete(HabitLog).where(HabitLog.habit_id == habit_id))
-    await session.delete(habit)
+    # Soft-delete: preserve logs so historical calendar dates remain accurate.
+    habit.deleted_at = deleted_at or datetime.now(timezone.utc)
     await session.commit()

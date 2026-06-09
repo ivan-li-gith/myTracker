@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Text, Date, DateTime, func
+from sqlalchemy import Text, Date, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import date, datetime
 from typing import Optional
@@ -9,6 +9,7 @@ class WorkLogEntry(Base):
     __tablename__ = "work_log_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
     date: Mapped[date] = mapped_column(Date)
     start_time: Mapped[str] = mapped_column(Text)
     end_time: Mapped[str] = mapped_column(Text)

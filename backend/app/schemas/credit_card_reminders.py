@@ -34,4 +34,5 @@ class CreditCardReminderUpdate(BaseModel):
 class CreditCardReminderRead(CreditCardReminderCreate):
     id: int
     created_at: datetime
+    position: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)

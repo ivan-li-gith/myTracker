@@ -6,6 +6,7 @@ export interface Task {
   completed: boolean;
   completed_at?: string;
   created_at: string;
+  position?: number | null;
 }
 
 export interface Habit {
@@ -14,7 +15,9 @@ export interface Habit {
   target_freq?: number;
   archived: boolean;
   created_at: string;
+  deleted_at?: string | null;
   category: string; // "morning" | "night" | "standard"
+  position?: number | null;
 }
 
 export interface HabitWithStreak extends Habit {
@@ -237,6 +240,7 @@ export interface CreditCardReminder {
   due_day: number;
   days_before: number | null;
   created_at: string;
+  position?: number | null;
 }
 
 export interface ReminderOwner {
@@ -284,8 +288,15 @@ export interface StockHolding {
   dividends: StockDividend[];
 }
 
+export interface Company {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
 export interface WorkLogEntry {
   id: number;
+  company_id: number;
   date: string; // YYYY-MM-DD
   start_time: string; // HH:MM
   end_time: string; // HH:MM

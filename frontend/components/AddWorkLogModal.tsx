@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { WorkLogEntry, Category } from "@/lib/types";
 
 interface Props {
   date: string;
+  companyId: number;
   categories: Category[];
   onAddCategory: (name: string) => Promise<Category>;
   onDeleteCategory: (id: number) => void;
@@ -14,12 +15,33 @@ interface Props {
   onClose: () => void;
 }
 
-export default function AddWorkLogModal({ date, categories, onAddCategory, onDeleteCategory, onCreated, onClose }: Props) {
+const inputCls = "w-full px-3 py-2 bg-[#14162e] border border-white/[0.1] rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-colors text-sm";
+
+export default function AddWorkLogModal({ date, companyId, categories, onAddCategory, onDeleteCategory, onCreated, onClose }: Props) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [category, setCategory] = useState(categories[0]?.name ?? "");
-  const [description, setDescription] = useState("");
+  const [bullets, setBullets] = useState<string[]>([""]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const bulletRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const startTimeRef = useRef<HTMLInputElement | null>(null);
+
+  function handleBulletChange(i: number, val: string) {
+    setBullets((prev) => prev.map((b, idx) => (idx === i ? val : b)));
+  }
+
+  function handleBulletKeyDown(e: React.KeyboardEvent<HTMLInputElement>, i: number) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setBullets((prev) => [...prev.slice(0, i + 1), "", ...prev.slice(i + 1)]);
+      setTimeout(() => bulletRefs.current[i + 1]?.focus(), 0);
+    }
+    if (e.key === "Backspace" && bullets[i] === "" && bullets.length > 1) {
+      e.preventDefault();
+      setBullets((prev) => prev.filter((_, idx) => idx !== i));
+      setTimeout(() => bulletRefs.current[Math.max(0, i - 1)]?.focus(), 0);
+    }
+  }
 
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
@@ -39,23 +61,41 @@ export default function AddWorkLogModal({ date, categories, onAddCategory, onDel
     }
   }
 
+  async function saveEntry() {
+    const filled = bullets.filter((b) => b.trim());
+    const description = filled.length > 0
+      ? filled.map((b) => `• ${b.trim()}`).join("\n")
+      : null;
+    const entry = await apiFetch("/work-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, company_id: companyId, start_time: startTime, end_time: endTime, category, description }),
+    });
+    onCreated(entry);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!startTime || !endTime || !category) return;
     setIsSubmitting(true);
     try {
-      const entry = await apiFetch("/work-log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date,
-          start_time: startTime,
-          end_time: endTime,
-          category,
-          description: description || null,
-        }),
-      });
-      onCreated(entry);
+      await saveEntry();
+    } catch (error) {
+      console.error("Error adding entry:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSaveAndNext() {
+    if (!startTime || !endTime || !category) return;
+    setIsSubmitting(true);
+    try {
+      await saveEntry();
+      setStartTime(endTime);
+      setEndTime("");
+      setBullets([""]);
+      setTimeout(() => startTimeRef.current?.focus(), 0);
     } catch (error) {
       console.error("Error adding entry:", error);
     } finally {
@@ -65,74 +105,77 @@ export default function AddWorkLogModal({ date, categories, onAddCategory, onDel
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Add Entry</h2>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#1e2245] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07]">
+          <h2 className="text-base font-bold text-white">Add Entry</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors"
+            className="text-slate-500 hover:text-slate-200 hover:bg-white/[0.07] p-1.5 rounded-lg transition-colors"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
+
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Time</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Start Time</label>
               <input
+                ref={startTimeRef}
                 type="time"
                 required
                 autoFocus
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-700"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">End Time</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">End Time</label>
               <input
                 type="time"
                 required
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-700"
+                className={inputCls}
               />
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-slate-700">Category</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-slate-400">Category</label>
               {!addingCategory && (
                 <button
                   type="button"
                   onClick={() => setAddingCategory(true)}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
                 >
-                  <Plus size={12} /> New
+                  <Plus size={11} /> New
                 </button>
               )}
             </div>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-700"
+              className={inputCls}
             >
-              {categories.length === 0 && <option value="">— No categories yet —</option>}
+              {categories.length === 0 && <option value="">No categories yet</option>}
               {categories.map((c) => (
                 <option key={c.id} value={c.name}>{c.name}</option>
               ))}
             </select>
+
             {addingCategory && (
-              <div className="mt-2 border border-slate-100 rounded-lg p-2 flex flex-col gap-1">
+              <div className="mt-2 bg-[#14162e] border border-white/[0.08] rounded-lg p-2 flex flex-col gap-1">
                 {categories.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 group">
-                    <span className="text-sm text-slate-700">{c.name}</span>
+                  <div key={c.id} className="flex items-center justify-between px-2 py-1 rounded hover:bg-white/[0.05] group">
+                    <span className="text-sm text-slate-300">{c.name}</span>
                     <button
                       type="button"
                       onClick={() => onDeleteCategory(c.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"
+                      className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"
                     >
                       <X size={13} />
                     </button>
@@ -141,7 +184,7 @@ export default function AddWorkLogModal({ date, categories, onAddCategory, onDel
                 <div className="flex items-center gap-1 mt-1">
                   <input
                     autoFocus
-                    className="flex-1 border border-slate-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="flex-1 bg-[#1e2245] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                     placeholder="Category name"
                     value={newCategoryInput}
                     onChange={(e) => setNewCategoryInput(e.target.value)}
@@ -150,37 +193,54 @@ export default function AddWorkLogModal({ date, categories, onAddCategory, onDel
                       if (e.key === "Escape") { setAddingCategory(false); setNewCategoryInput(""); }
                     }}
                   />
-                  <button type="button" onClick={handleAddCategory} className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Add</button>
-                  <button type="button" onClick={() => { setAddingCategory(false); setNewCategoryInput(""); setCategoryError(null); }} className="p-1 text-slate-400 hover:text-slate-600"><X size={13} /></button>
+                  <button type="button" onClick={handleAddCategory} className="px-2.5 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">Add</button>
+                  <button type="button" onClick={() => { setAddingCategory(false); setNewCategoryInput(""); setCategoryError(null); }} className="p-1 text-slate-500 hover:text-slate-300 transition-colors"><X size={13} /></button>
                 </div>
-                {categoryError && <p className="text-xs text-red-500 px-2">{categoryError}</p>}
+                {categoryError && <p className="text-xs text-red-400 px-2">{categoryError}</p>}
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">What did you do?</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what you worked on..."
-              rows={3}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-            />
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">What did you work on?</label>
+            <div className="w-full bg-[#14162e] border border-white/[0.1] rounded-lg focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-500/50 transition-colors px-3 py-2 space-y-1.5">
+              {bullets.map((b, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-slate-500 text-sm select-none">•</span>
+                  <input
+                    ref={(el) => { bulletRefs.current[i] = el; }}
+                    type="text"
+                    value={b}
+                    onChange={(e) => handleBulletChange(i, e.target.value)}
+                    onKeyDown={(e) => handleBulletKeyDown(e, i)}
+                    placeholder={i === 0 ? "What did you work on?" : ""}
+                    className="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="pt-2 flex gap-3">
+          <div className="pt-1 flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm"
+              className="px-4 py-2.5 bg-white/[0.06] border border-white/[0.08] text-slate-300 rounded-lg hover:bg-white/[0.09] transition-colors font-medium text-sm"
             >
               Cancel
             </button>
             <button
+              type="button"
+              onClick={handleSaveAndNext}
+              disabled={isSubmitting || !startTime || !endTime || !category}
+              className="flex-1 px-4 py-2.5 bg-white/[0.06] border border-indigo-500/30 text-indigo-300 rounded-lg hover:bg-indigo-500/10 transition-colors font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Saving..." : "Save & Next"}
+            </button>
+            <button
               type="submit"
               disabled={isSubmitting || !startTime || !endTime || !category}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
             >
               {isSubmitting ? "Saving..." : "Save Entry"}
             </button>
