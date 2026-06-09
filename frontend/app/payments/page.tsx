@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
@@ -491,6 +491,14 @@ const EMPTY_LOAN = { name: "", disbursement_date: "", original_principal: "", un
 // ---- Page ----
 
 export default function PaymentsAndExpensesPage() {
+  return (
+    <Suspense>
+      <PaymentsAndExpensesPageInner />
+    </Suspense>
+  );
+}
+
+function PaymentsAndExpensesPageInner() {
   const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
