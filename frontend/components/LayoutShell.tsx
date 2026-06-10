@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
 import NotificationScheduler from "@/components/NotificationScheduler";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  if (pathname === "/login") return <>{children}</>;
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");

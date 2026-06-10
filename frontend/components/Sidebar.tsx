@@ -5,9 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CheckSquare, CreditCard, Briefcase, ClipboardList,
-  Menu, X, LayoutDashboard, Activity,
+  Menu, X, LayoutDashboard,
   PanelLeftClose, PanelLeftOpen, LogOut,
 } from "lucide-react";
+
+function HeartbeatIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="2,12 6,12 8,5 10,19 12,12 22,12" />
+    </svg>
+  );
+}
 import { apiFetch } from "@/lib/api";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
@@ -210,9 +218,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const logo = (
     <div className="flex items-center gap-2.5">
       <div className="bg-indigo-500 w-7 h-7 rounded-lg flex items-center justify-center shadow-[0_0_14px_rgba(99,102,241,0.45)] flex-shrink-0">
-        <Activity size={14} className="text-white" />
+        <HeartbeatIcon size={14} />
       </div>
-      <span className="text-base font-bold text-white tracking-tight">myTracker</span>
+      <span className="text-base font-bold text-white tracking-tight">StillAlive</span>
     </div>
   );
 
@@ -279,7 +287,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {collapsed ? (
             <>
               <div className="bg-indigo-500 w-8 h-8 rounded-lg flex items-center justify-center shadow-[0_0_14px_rgba(99,102,241,0.45)] flex-shrink-0">
-                <Activity size={16} className="text-white" />
+                <HeartbeatIcon size={16} />
               </div>
               <button
                 onClick={onToggle}

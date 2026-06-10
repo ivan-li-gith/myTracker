@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "myTracker",
+  title: "StillAlive",
   description: "Personal life tracker",
 };
 
