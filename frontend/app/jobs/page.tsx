@@ -21,12 +21,6 @@ const STATUS_CONFIG: Record<StatusKey, { label: string; style: string }> = {
   rejected:     { label: "Rejected",     style: "bg-red-500/20 text-red-400" },
 };
 
-const JOB_TYPE_STYLE: Record<string, string> = {
-  remote: "bg-teal-500/20 text-teal-300",
-  hybrid: "bg-amber-500/20 text-amber-300",
-  onsite: "bg-white/[0.07] text-slate-400",
-};
-
 const SALARY_TYPES = [
   { value: "hourly",  label: "/ hr", long: "Per Hour" },
   { value: "weekly",  label: "/ wk", long: "Per Week" },
@@ -95,12 +89,6 @@ function extractVersion(name: string): number {
 
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function formatDate(s: string | null): string {
-  if (!s) return "—";
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function parseSalaryRange(range: string | null): { low: string; high: string } {
@@ -300,31 +288,6 @@ function FileDropup({
         </div>
       )}
     </div>
-  );
-}
-
-function CommentCell({ value, onEdit }: { value: string | null; onEdit: () => void }) {
-  if (!value) {
-    return (
-      <button
-        onClick={(e) => { e.stopPropagation(); onEdit(); }}
-        className="text-slate-600 hover:text-slate-400 transition-colors"
-        title="Add comment"
-      >
-        <MessageSquare size={14} />
-      </button>
-    );
-  }
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onEdit(); }}
-      className="text-left group/comment max-w-[180px] block"
-      title={value}
-    >
-      <span className="text-xs text-slate-400 line-clamp-2 group-hover/comment:text-slate-200 transition-colors leading-relaxed">
-        {value}
-      </span>
-    </button>
   );
 }
 

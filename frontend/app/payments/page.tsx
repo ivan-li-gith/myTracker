@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Expense, Category, CreditCard, MoneyTransfer, Bank, Person, UtilityBill, UtilityBillPriceHistoryEntry, UtilityReimbursement, Loan, StockHolding, StockLot, StockDividend } from "@/lib/types";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 // ---- Price history helper ----
 
@@ -507,7 +507,6 @@ function PaymentsAndExpensesPageInner() {
   const [deleteTarget, setDeleteTarget] = useState<{ type: "credit_card" | "expense" | "transfer" | "loan" | "stock" | "bank"; id: number } | null>(null);
 
   const [showScanModal, setShowScanModal] = useState(false);
-  const [monthTotal, setMonthTotal] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "expenses" | "transfers" | "loans" | "stocks">("overview");
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const [highlightKind, setHighlightKind] = useState<"expense" | "transfer" | "stock" | null>(null);
@@ -537,9 +536,6 @@ function PaymentsAndExpensesPageInner() {
   const [editingDividend, setEditingDividend] = useState<StockDividend | null>(null);
   const [dividendModalForm, setDividendModalForm] = useState({ paid_at: "", dividend_per_share: "", shares_held: "", reinvested: false, notes: "" });
   const [dividendModalError, setDividendModalError] = useState<string | null>(null);
-
-  // Expanded transaction groups
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Split state
   const [knownPeople, setKnownPeople] = useState<Person[]>([]);
@@ -632,15 +628,12 @@ function PaymentsAndExpensesPageInner() {
 
   // College loans
   const [loans, setLoans] = useState<Loan[]>([]);
-  const [loansOpen, setLoansOpen] = useState(true);
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [editLoan, setEditLoan] = useState<Loan | null>(null);
   const [loanForm, setLoanForm] = useState(EMPTY_LOAN);
   const [loanSaveError, setLoanSaveError] = useState<string | null>(null);
 
   // Section collapse state
-  const [expensesOpen, setExpensesOpen] = useState(true);
-  const [transfersOpen, setTransfersOpen] = useState(true);
   const [owedOpen, setOwedOpen] = useState(true);
   const [trendHalf, setTrendHalf] = useState<"H1" | "H2">("H1");
   const [showAllCats, setShowAllCats] = useState(false);
@@ -691,9 +684,6 @@ function PaymentsAndExpensesPageInner() {
 
   useEffect(() => {
     apiFetch(`/expenses?month=${selectedMonth}`).then(setExpenses).catch(console.error);
-    apiFetch(`/expenses/summary?month=${selectedMonth}`)
-      .then((s) => setMonthTotal(Number(s.total)))
-      .catch(console.error);
     apiFetch(`/money-transfers?month=${selectedMonth}`).then(setMoneyTransfers).catch(console.error);
   }, [selectedMonth]);
 
@@ -831,13 +821,6 @@ function PaymentsAndExpensesPageInner() {
   }
 
   // ---- Credit Cards ----
-
-  function openEditCreditCard(card: CreditCard) {
-    setEditCreditCard(card);
-    setCreditCardForm({ name: card.name, color: card.color ?? "blue" });
-    setCCSaveError(null);
-    setShowCreditCardModal(true);
-  }
 
   async function saveCreditCard(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1360,7 +1343,6 @@ function PaymentsAndExpensesPageInner() {
       setAllExpenses((prev) => [created, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
       if (created.date.startsWith(selectedMonth)) {
         setExpenses((prev) => [created, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
-        setMonthTotal((prev) => (prev ?? 0) + Number(created.amount));
       }
       return created;
     }
@@ -1685,13 +1667,10 @@ function PaymentsAndExpensesPageInner() {
     setAllExpenses((prev) => [...created, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
     if (inMonth.length) {
       setExpenses((prev) => [...inMonth, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
-      setMonthTotal((prev) => (prev ?? 0) + inMonth.reduce((s: number, ex: Expense) => s + Number(ex.amount), 0));
     }
   }
 
   // All-time per-person split ledger
-  const allCatsMap = new Map(expenseCategories.map((c) => [c.id, c.name]));
-
   type CatPersonData = { categoryId: number | null; categoryName: string; person: Person };
   const catPersonMap = new Map<string, CatPersonData>();
   const catInsertOrder: (number | null)[] = [];
@@ -1924,14 +1903,6 @@ function PaymentsAndExpensesPageInner() {
       return { name: s.ticker, gain, returnPct, sharePct };
     })
     .sort((a, b) => b.gain - a.gain);
-  const portfolioDividendData = stocks
-    .filter((s) => Number(s.total_dividends) > 0)
-    .map((s) => {
-      const dividends = +Number(s.total_dividends).toFixed(2);
-      const pct = +(portfolioTotalDividends > 0 ? (dividends / portfolioTotalDividends) * 100 : 0).toFixed(0);
-      return { name: s.ticker, dividends, pct };
-    })
-    .sort((a, b) => b.dividends - a.dividends);
   const portfolioCostVsValueData = activeStockHoldings.map((s) => ({
     name: s.ticker,
     cost: +(Number(s.shares) * Number(s.buy_price)).toFixed(2),

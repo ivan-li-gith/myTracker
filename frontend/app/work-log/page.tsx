@@ -76,13 +76,6 @@ function formatDuration(start: string, end: string) {
   return mins > 0 ? formatMins(mins) : null;
 }
 
-function totalMins(entries: WorkLogEntry[]): number {
-  return entries.reduce((sum, e) => {
-    const m = timeToMins(e.end_time) - timeToMins(e.start_time);
-    return sum + (m > 0 ? m : 0);
-  }, 0);
-}
-
 // 9h day (8:30–5:30) minus 1h unpaid lunch = 8h accountable
 const TARGET_MINS = 8 * 60;
 
